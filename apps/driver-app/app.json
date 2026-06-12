@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Saarthi Driver",
+    "slug": "saarthi-driver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "saarthi-driver",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.saarthi.driver",
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Saarthi needs your location to track the bus route for parents and school.",
+        "NSLocationAlwaysUsageDescription": "Saarthi needs background location to track the bus even when the app is not in focus.",
+        "UIBackgroundModes": ["location", "fetch"]
+      }
+    },
+    "android": {
+      "package": "com.saarthi.driver",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Saarthi needs background location to track your bus route."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": { "origin": false },
+      "eas": { "projectId": "saarthi-driver" }
+    }
+  }
+}

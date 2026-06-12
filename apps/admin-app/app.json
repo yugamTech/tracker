@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Saarthi Admin",
+    "slug": "saarthi-admin",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "saarthi-admin",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.saarthi.admin"
+    },
+    "android": {
+      "package": "com.saarthi.admin"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": { "origin": false },
+      "eas": { "projectId": "saarthi-admin" }
+    }
+  }
+}

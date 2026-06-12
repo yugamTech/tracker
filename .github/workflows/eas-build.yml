@@ -1,0 +1,59 @@
+name: EAS Build
+
+on:
+  push:
+    tags:
+      - 'v*'            # trigger on version tags e.g. v1.0.0
+      - 'staging-*'     # trigger on staging tags e.g. staging-20240601
+
+jobs:
+  build-parent:
+    name: Build Parent App
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - run: eas build --non-interactive --profile production
+        working-directory: apps/parent-app
+
+  build-driver:
+    name: Build Driver App
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - run: eas build --non-interactive --profile production
+        working-directory: apps/driver-app
+
+  build-admin:
+    name: Build Admin App
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - run: eas build --non-interactive --profile production
+        working-directory: apps/admin-app

@@ -1,0 +1,36 @@
+{
+  "name": "saarthi",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "backend/api"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=backend/api",
+    "dev:parent": "npm run start --workspace=apps/parent-app",
+    "dev:driver": "npm run start --workspace=apps/driver-app",
+    "dev:admin": "npm run start --workspace=apps/admin-app",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "docker:up": "docker compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f docker/docker-compose.yml down",
+    "docker:logs": "docker compose -f docker/docker-compose.yml logs -f",
+    "db:migrate": "npm run db:migrate --workspace=backend/api",
+    "db:push": "npm run db:push --workspace=backend/api",
+    "db:seed": "npm run db:seed --workspace=backend/api",
+    "db:studio": "npm run db:studio --workspace=backend/api"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

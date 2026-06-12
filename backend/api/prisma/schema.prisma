@@ -1,0 +1,711 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── IDENTITY ─────────────────────────────────────────────────────────────
+
+model Person {
+  id        String       @id @default(uuid())
+  phone     String       @unique
+  name      String
+  email     String?
+  locale    String       @default("en")
+  status    PersonStatus @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  memberships   Membership[]
+  guardianships Guardianship[]
+  deviceTokens  DeviceToken[]
+  consents      Consent[]
+  notifPrefs    NotificationPreference[]
+}
+
+enum PersonStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Tenant {
+  id             String       @id @default(uuid())
+  name           String
+  timezone       String       @default("Asia/Kolkata")
+  locale         String       @default("en")
+  featureFlags   Json         @default("{}")
+  brandingConfig Json         @default("{}")
+  status         TenantStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now())
+
+  memberships Membership[]
+  students    Student[]
+  vehicles    Vehicle[]
+  routes      Route[]
+  ageGroups   AgeGroup[]
+  trips       Trip[]
+  feePlans    FeePlan[]
+  agentFeeds  AgentFeed[]
+}
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Membership {
+  id        String           @id @default(uuid())
+  personId  String
+  tenantId  String
+  role      Role
+  status    MembershipStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+
+  person             Person              @relation(fields: [personId], references: [id])
+  tenant             Tenant              @relation(fields: [tenantId], references: [id])
+  vehicleAssignments VehicleAssignment[]
+
+  @@unique([personId, tenantId, role])
+  @@index([tenantId])
+  @@index([personId])
+}
+
+enum Role {
+  PARENT
+  TEACHER_RIDER
+  DRIVER
+  CONDUCTOR
+  ADMIN
+  TRANSPORT_MANAGER
+  FOUNDER
+  SUPER_ADMIN
+}
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+model Student {
+  id         String        @id @default(uuid())
+  tenantId   String
+  name       String
+  regId      String?
+  ageGroupId String
+  routeId    String?
+  stopId     String?
+  status     StudentStatus @default(ACTIVE)
+  createdAt  DateTime      @default(now())
+
+  tenant              Tenant               @relation(fields: [tenantId], references: [id])
+  ageGroup            AgeGroup             @relation(fields: [ageGroupId], references: [id])
+  route               Route?               @relation(fields: [routeId], references: [id])
+  stop                Stop?                @relation(fields: [stopId], references: [id])
+  guardianships       Guardianship[]
+  tripRiders          TripRider[]
+  feeAssignment       RiderFeeAssignment?
+  pickupCancellations PickupCancellation[]
+  attendanceEvents    AttendanceEvent[]
+  rideRatings         RideRating[]
+  complaints          Complaint[]
+
+  @@unique([tenantId, regId])
+  @@index([tenantId])
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Guardianship {
+  id        String  @id @default(uuid())
+  studentId String
+  personId  String
+  relation  String
+  isPrimary Boolean @default(false)
+
+  student Student @relation(fields: [studentId], references: [id])
+  person  Person  @relation(fields: [personId], references: [id])
+
+  @@unique([studentId, personId])
+}
+
+model Consent {
+  id         String   @id @default(uuid())
+  personId   String
+  tenantId   String
+  version    String
+  acceptedAt DateTime @default(now())
+  ipAddress  String?
+
+  person Person @relation(fields: [personId], references: [id])
+
+  @@index([personId, tenantId])
+}
+
+// ─── VEHICLES & ROUTES ────────────────────────────────────────────────────
+
+model Vehicle {
+  id        String        @id @default(uuid())
+  tenantId  String
+  regNumber String
+  type      String        @default("BUS")
+  capacity  Int
+  status    VehicleStatus @default(ACTIVE)
+  createdAt DateTime      @default(now())
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id])
+  assignments VehicleAssignment[]
+  trips       Trip[]
+
+  @@unique([tenantId, regNumber])
+  @@index([tenantId])
+}
+
+enum VehicleStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+model VehicleAssignment {
+  id            String    @id @default(uuid())
+  vehicleId     String
+  membershipId  String
+  role          String
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+
+  vehicle    Vehicle    @relation(fields: [vehicleId], references: [id])
+  membership Membership @relation(fields: [membershipId], references: [id])
+}
+
+model Route {
+  id        String      @id @default(uuid())
+  tenantId  String
+  name      String
+  direction Direction
+  status    RouteStatus @default(ACTIVE)
+
+  tenant    Tenant      @relation(fields: [tenantId], references: [id])
+  stops     RouteStop[]
+  students  Student[]
+  ageGroups AgeGroup[]
+  trips     Trip[]
+
+  @@index([tenantId])
+}
+
+enum Direction {
+  PICKUP
+  DROP
+}
+
+enum RouteStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Stop {
+  id             String @id @default(uuid())
+  tenantId       String
+  name           String
+  lat            Float
+  lng            Float
+  geofenceRadius Int    @default(100)
+
+  routeStops RouteStop[]
+  students   Student[]
+  tripRiders TripRider[]
+}
+
+model RouteStop {
+  id       String @id @default(uuid())
+  routeId  String
+  stopId   String
+  sequence Int
+
+  route Route @relation(fields: [routeId], references: [id])
+  stop  Stop  @relation(fields: [stopId], references: [id])
+
+  @@unique([routeId, sequence])
+}
+
+model AgeGroup {
+  id         String  @id @default(uuid())
+  tenantId   String
+  name       String
+  pickupTime String
+  dropTime   String
+  routeId    String?
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  route    Route?    @relation(fields: [routeId], references: [id])
+  students Student[]
+}
+
+// ─── TRIPS & TRACKING ─────────────────────────────────────────────────────
+
+model Trip {
+  id          String     @id @default(uuid())
+  tenantId    String
+  routeId     String
+  vehicleId   String?
+  date        DateTime
+  direction   Direction
+  status      TripStatus @default(SCHEDULED)
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime   @default(now())
+
+  tenant              Tenant               @relation(fields: [tenantId], references: [id])
+  route               Route                @relation(fields: [routeId], references: [id])
+  vehicle             Vehicle?             @relation(fields: [vehicleId], references: [id])
+  riders              TripRider[]
+  locationPings       LocationPing[]
+  geofenceEvents      GeofenceEvent[]
+  speedEvents         SpeedEvent[]
+  attendanceEvents    AttendanceEvent[]
+  pickupCancellations PickupCancellation[]
+  complaints          Complaint[]
+  rideRatings         RideRating[]
+
+  @@index([tenantId, date])
+  @@index([tenantId, status])
+}
+
+enum TripStatus {
+  SCHEDULED
+  STARTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  ABORTED
+}
+
+model TripRider {
+  id          String      @id @default(uuid())
+  tripId      String
+  studentId   String
+  stopId      String
+  boardStatus RiderStatus @default(EXPECTED)
+
+  trip    Trip    @relation(fields: [tripId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+  stop    Stop    @relation(fields: [stopId], references: [id])
+
+  @@unique([tripId, studentId])
+}
+
+enum RiderStatus {
+  EXPECTED
+  BOARDED
+  NOT_BOARDED
+  CANCELLED
+}
+
+model LocationPing {
+  id       String   @id @default(uuid())
+  tripId   String
+  tenantId String
+  lat      Float
+  lng      Float
+  accuracy Float
+  speed    Float?
+  deviceTs DateTime
+  serverTs DateTime @default(now())
+  sequence Int
+
+  trip Trip @relation(fields: [tripId], references: [id])
+
+  @@index([tripId, deviceTs])
+}
+
+model GeofenceEvent {
+  id      String            @id @default(uuid())
+  tripId  String
+  stopId  String
+  event   GeofenceEventType
+  ts      DateTime          @default(now())
+
+  trip Trip @relation(fields: [tripId], references: [id])
+
+  @@index([tripId])
+}
+
+enum GeofenceEventType {
+  APPROACHING
+  AT_STOP
+  DEPARTED
+}
+
+model SpeedEvent {
+  id           String   @id @default(uuid())
+  tripId       String
+  tenantId     String
+  speedKmh     Float
+  thresholdKmh Float
+  lat          Float
+  lng          Float
+  ts           DateTime @default(now())
+
+  trip Trip @relation(fields: [tripId], references: [id])
+
+  @@index([tenantId, ts])
+}
+
+model AttendanceEvent {
+  id        String         @id @default(uuid())
+  tripId    String
+  studentId String
+  tenantId  String
+  type      AttendanceType
+  photoUrl  String?
+  markedBy  String
+  ts        DateTime       @default(now())
+
+  trip    Trip    @relation(fields: [tripId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@index([tripId])
+  @@index([tenantId, ts])
+}
+
+enum AttendanceType {
+  BOARDED
+  ALIGHTED
+}
+
+model PickupCancellation {
+  id          String   @id @default(uuid())
+  tripId      String
+  studentId   String
+  tenantId    String
+  cancelledBy String
+  reason      String?
+  ts          DateTime @default(now())
+
+  trip    Trip    @relation(fields: [tripId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@index([tripId])
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  personId  String
+  token     String   @unique
+  platform  String
+  updatedAt DateTime @updatedAt
+
+  person Person @relation(fields: [personId], references: [id])
+
+  @@index([personId])
+}
+
+model NotificationPreference {
+  id       String  @id @default(uuid())
+  personId String
+  tenantId String
+  category String
+  push     Boolean @default(true)
+  sms      Boolean @default(true)
+  whatsapp Boolean @default(true)
+
+  person Person @relation(fields: [personId], references: [id])
+
+  @@unique([personId, tenantId, category])
+}
+
+model Notification {
+  id          String       @id @default(uuid())
+  tenantId    String
+  eventType   String
+  recipientId String
+  channel     NotifChannel
+  status      NotifStatus  @default(PENDING)
+  templateId  String
+  variables   Json
+  dedupKey    String?
+  createdAt   DateTime     @default(now())
+  sentAt      DateTime?
+  deliveredAt DateTime?
+
+  @@index([tenantId, createdAt])
+  @@index([dedupKey])
+}
+
+enum NotifChannel {
+  PUSH
+  SMS
+  WHATSAPP
+}
+
+enum NotifStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+}
+
+// ─── COMPLAINTS & RATINGS ─────────────────────────────────────────────────
+
+model Complaint {
+  id          String          @id @default(uuid())
+  tenantId    String
+  raisedBy    String
+  studentId   String?
+  tripId      String?
+  category    String
+  description String?
+  status      ComplaintStatus @default(RECEIVED)
+  ownerId     String?
+  severity    String          @default("MEDIUM")
+  slaDeadline DateTime?
+  createdAt   DateTime        @default(now())
+  resolvedAt  DateTime?
+
+  student             Student?              @relation(fields: [studentId], references: [id])
+  trip                Trip?                 @relation(fields: [tripId], references: [id])
+  events              ComplaintEvent[]
+  attachments         ComplaintAttachment[]
+  resolutionRating    ResolutionRating?
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+}
+
+enum ComplaintStatus {
+  RECEIVED
+  IN_PROGRESS
+  COUNSELLING_CALL
+  ADMIN_CALL
+  RESOLVED
+  PARENT_RATING
+  VISIT
+  CLOSED
+  REOPENED
+}
+
+model ComplaintEvent {
+  id          String          @id @default(uuid())
+  complaintId String
+  actor       String
+  fromStatus  ComplaintStatus
+  toStatus    ComplaintStatus
+  note        String?
+  ts          DateTime        @default(now())
+
+  complaint Complaint @relation(fields: [complaintId], references: [id])
+}
+
+model ComplaintAttachment {
+  id          String @id @default(uuid())
+  complaintId String
+  url         String
+
+  complaint Complaint @relation(fields: [complaintId], references: [id])
+}
+
+model ResolutionRating {
+  id          String   @id @default(uuid())
+  complaintId String   @unique
+  rating      Int
+  comment     String?
+  ts          DateTime @default(now())
+
+  complaint Complaint @relation(fields: [complaintId], references: [id])
+}
+
+model RideRating {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tripId    String
+  studentId String
+  ratedBy   String
+  stars     Int
+  ts        DateTime @default(now())
+
+  trip    Trip    @relation(fields: [tripId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@unique([tripId, studentId])
+  @@index([tenantId, ts])
+}
+
+// ─── PAYMENTS ─────────────────────────────────────────────────────────────
+
+model FeePlan {
+  id            String    @id @default(uuid())
+  tenantId      String
+  name          String
+  amountPaise   Int
+  cycleMonths   Int       @default(1)
+  applicableTo  String    @default("ALL")
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  taxPercent    Float     @default(0)
+
+  tenant      Tenant               @relation(fields: [tenantId], references: [id])
+  assignments RiderFeeAssignment[]
+
+  @@index([tenantId])
+}
+
+model RiderFeeAssignment {
+  id        String @id @default(uuid())
+  studentId String @unique
+  feePlanId String
+
+  student Student @relation(fields: [studentId], references: [id])
+  feePlan FeePlan @relation(fields: [feePlanId], references: [id])
+}
+
+model Invoice {
+  id          String        @id @default(uuid())
+  tenantId    String
+  invoiceNo   String        @unique
+  studentId   String
+  feePlanId   String
+  amountPaise Int
+  taxPaise    Int           @default(0)
+  dueDate     DateTime
+  status      InvoiceStatus @default(GENERATED)
+  createdAt   DateTime      @default(now())
+  paidAt      DateTime?
+
+  payments Payment[]
+  receipt  Receipt?
+
+  @@index([tenantId, status])
+}
+
+enum InvoiceStatus {
+  GENERATED
+  DUE
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model Payment {
+  id               String        @id @default(uuid())
+  tenantId         String
+  invoiceId        String
+  gateway          String
+  gatewayOrderId   String        @unique
+  gatewayPaymentId String?
+  amountPaise      Int
+  status           PaymentStatus @default(INITIATED)
+  createdAt        DateTime      @default(now())
+  confirmedAt      DateTime?
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([tenantId])
+}
+
+enum PaymentStatus {
+  INITIATED
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+model Receipt {
+  id        String   @id @default(uuid())
+  invoiceId String   @unique
+  receiptNo String   @unique
+  pdfUrl    String?
+  issuedAt  DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+}
+
+model Mandate {
+  id               String        @id @default(uuid())
+  tenantId         String
+  studentId        String
+  guardianId       String
+  gateway          String
+  gatewayMandateId String?
+  type             MandateType
+  amountCapPaise   Int
+  status           MandateStatus @default(CREATED)
+  createdAt        DateTime      @default(now())
+  activatedAt      DateTime?
+  revokedAt        DateTime?
+
+  @@index([tenantId])
+  @@index([studentId])
+}
+
+enum MandateType {
+  UPI_AUTOPAY
+  ENACH
+}
+
+enum MandateStatus {
+  CREATED
+  PENDING
+  ACTIVE
+  PAUSED
+  REVOKED
+  EXPIRED
+  FAILED
+}
+
+model GatewayWebhook {
+  id             String    @id @default(uuid())
+  gateway        String
+  eventType      String
+  payload        Json
+  processedAt    DateTime?
+  idempotencyKey String    @unique
+  receivedAt     DateTime  @default(now())
+}
+
+// ─── ANALYTICS & AI ───────────────────────────────────────────────────────
+
+model AgentFeed {
+  id       String @id @default(uuid())
+  tenantId String
+  name     String
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id])
+  posts  AgentPost[]
+}
+
+model AgentPost {
+  id               String   @id @default(uuid())
+  feedId           String
+  date             DateTime
+  metricSnapshotId String
+  generatedText    String
+  createdAt        DateTime @default(now())
+
+  feed           AgentFeed      @relation(fields: [feedId], references: [id])
+  metricSnapshot MetricSnapshot @relation(fields: [metricSnapshotId], references: [id])
+
+  @@index([feedId, date])
+}
+
+model MetricSnapshot {
+  id        String   @id @default(uuid())
+  tenantId  String
+  date      DateTime
+  metrics   Json
+  createdAt DateTime @default(now())
+
+  posts AgentPost[]
+
+  @@index([tenantId, date])
+}

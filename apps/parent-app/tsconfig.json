@@ -1,0 +1,24 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@saarthi/types": [
+        "../../packages/types/src/index.ts"
+      ],
+      "@saarthi/ui": [
+        "../../packages/ui/src/index.ts"
+      ],
+      "@saarthi/api-client": [
+        "../../packages/api-client/src/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.d.ts",
+    "expo-env.d.ts",
+    ".expo/types/**/*.ts"
+  ]
+}

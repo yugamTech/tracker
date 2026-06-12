@@ -1,0 +1,25 @@
+{
+  "name": "@saarthi/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "socket.io-client": "^4.7.0",
+    "@tanstack/react-query": "^5.0.0"
+  },
+  "peerDependencies": {
+    "expo-secure-store": "*",
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/react": "^18.2.0",
+    "@saarthi/types": "*"
+  }
+}

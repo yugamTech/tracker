@@ -1,0 +1,32 @@
+import { apiClient } from '../axios';
+import type { Complaint } from '@saarthi/types';
+import type { ComplaintCategory } from '@saarthi/types';
+
+export interface CreateComplaintDto {
+  studentId?: string;
+  tripId?: string;
+  category: ComplaintCategory;
+  description?: string;
+}
+
+export const complaintsApi = {
+  getMyComplaints: async () => {
+    const { data } = await apiClient.get('/complaints');
+    return data.data as Complaint[];
+  },
+
+  getComplaintById: async (id: string) => {
+    const { data } = await apiClient.get(`/complaints/${id}`);
+    return data.data as Complaint;
+  },
+
+  createComplaint: async (dto: CreateComplaintDto) => {
+    const { data } = await apiClient.post('/complaints', dto);
+    return data.data as Complaint;
+  },
+
+  getAllComplaints: async (params?: { status?: string; page?: number }) => {
+    const { data } = await apiClient.get('/complaints/all', { params });
+    return data.data as Complaint[];
+  },
+};
