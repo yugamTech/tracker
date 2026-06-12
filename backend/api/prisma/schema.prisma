@@ -324,6 +324,7 @@ model LocationPing {
 
   trip Trip @relation(fields: [tripId], references: [id])
 
+  @@unique([tripId, sequence])
   @@index([tripId, deviceTs])
 }
 

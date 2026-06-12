@@ -10,6 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { LocationService } from './location.service';
+import type { LatestPosition } from './location.service';
 import type { LocationPingDto } from './dto/location-ping.dto';
 
 @WebSocketGateway({ namespace: '/tracking', cors: { origin: '*' } })
@@ -42,18 +43,27 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
   async handleDriverPing(
     @MessageBody() data: LocationPingDto & { driverMembershipId: string; tenantId: string },
   ) {
-    await this.locationService.ingest(data, data.tenantId);
-    // Fan out to all subscribers of this trip
-    this.server.to(`trip:${data.tripId}`).emit('trip:location', {
-      tripId: data.tripId,
-      tenantId: data.tenantId,
-      lat: data.lat,
-      lng: data.lng,
-      accuracy: data.accuracy,
-      speed: data.speed,
-      deviceTs: data.deviceTs,
-      sequence: data.sequence,
-    });
+    const result = await this.locationService.ingestOne(data, data.tenantId);
+    if (result.latest) this.broadcastLocation(result.latest);
+  }
+
+  /**
+   * Fan a reconciled position out to the trip room and the tenant fleet room.
+   * Used by both the socket driver:ping path and the REST ingest controller.
+   */
+  broadcastLocation(latest: LatestPosition) {
+    const payload = {
+      tripId: latest.tripId,
+      tenantId: latest.tenantId,
+      lat: latest.lat,
+      lng: latest.lng,
+      accuracy: latest.accuracy,
+      speed: latest.speed ?? undefined,
+      deviceTs: latest.deviceTs,
+      sequence: latest.sequence,
+    };
+    this.server.to(`trip:${latest.tripId}`).emit('trip:location', payload);
+    this.server.to(`fleet:${latest.tenantId}`).emit('trip:location', payload);
   }
 
   // Emit helpers for use by other services
