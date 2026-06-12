@@ -1,30 +1,45 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, OtpInput, Button } from '@saarthi/ui';
 import { useAuthStore } from '../../store/auth.store';
-import { Role } from '@saarthi/types';
+import { useVerifyOtp } from '@saarthi/api-client';
 
 export default function DriverOtpScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
-  const [loading, setLoading] = useState(false);
+  const [otp, setOtp] = useState('');
   const setAuth = useAuthStore((s) => s.setAuth);
+  const verifyOtp = useVerifyOtp();
 
-  const handleComplete = (_otp: string) => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      const memberships = [
-        { id: 'mem-driver-001', tenantId: 'tenant-demo-001', tenantName: 'Sunrise School', role: Role.DRIVER },
-        { id: 'mem-driver-002', tenantId: 'tenant-demo-002', tenantName: 'Delhi Public School', role: Role.DRIVER },
-      ];
+  const handleComplete = (code: string) => {
+    setOtp(code);
+  };
+
+  const handleVerify = async () => {
+    const code = otp.length === 6 ? otp : '';
+    if (code.length !== 6) return;
+    try {
+      const result = await verifyOtp.mutateAsync({ phone: phone ?? '', otp: code });
+      const activeMembership = result.memberships[0];
+      const memberships = result.memberships.map((m) => ({ ...m, role: m.role as any }));
       setAuth(
-        { id: 'person-driver', phone: phone ?? '', name: 'Ramesh Kumar' },
+        result.person,
         memberships,
-        { personId: 'person-driver', membershipId: memberships[0].id, tenantId: memberships[0].tenantId, role: Role.DRIVER }
+        {
+          personId: result.person.id,
+          membershipId: activeMembership.id,
+          tenantId: activeMembership.tenantId,
+          role: activeMembership.role as any,
+        }
       );
-      router.replace('/(auth)/context-switch' as never);
-    }, 1000);
+      if (result.memberships.length > 1) {
+        router.replace('/(auth)/context-switch' as never);
+      } else {
+        router.replace('/(app)/home');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.message ?? 'Invalid OTP');
+    }
   };
 
   return (
@@ -36,10 +51,17 @@ export default function DriverOtpScreen() {
         <Text style={styles.title}>Verify OTP</Text>
         <Text style={styles.subtitle}>Sent to {phone}</Text>
         <View style={styles.otpWrapper}>
-          <OtpInput length={6} onComplete={handleComplete} disabled={loading} />
+          <OtpInput length={6} onComplete={handleComplete} disabled={verifyOtp.isPending} />
         </View>
-        <Text style={styles.hint}>Dev bypass: enter any 6 digits</Text>
-        <Button title={loading ? 'Verifying…' : 'Verify'} onPress={() => {}} loading={loading} fullWidth size="lg" style={{ marginTop: spacing[4] }} />
+        <Text style={styles.hint}>Demo: use <Text style={{ color: '#0EA5E9' }}>123456</Text></Text>
+        <Button
+          title={verifyOtp.isPending ? 'Verifying…' : 'Verify'}
+          onPress={handleVerify}
+          loading={verifyOtp.isPending}
+          fullWidth
+          size="lg"
+          style={{ marginTop: spacing[4] }}
+        />
       </View>
     </View>
   );

@@ -1,22 +1,27 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { colors, spacing, fontSizes, fontWeights, radius, Avatar, Card } from '@saarthi/ui';
-
-const MOCK_STUDENTS = [
-  { id: 's1', name: 'Arjun Sharma', regId: 'SRS-2024-001', class: '4-B', route: 'Route A', stop: 'Sector 18' },
-  { id: 's2', name: 'Priya Gupta', regId: 'SRS-2024-002', class: '3-A', route: 'Route A', stop: 'DLF Phase 2' },
-  { id: 's3', name: 'Rohan Verma', regId: 'SRS-2024-003', class: '5-C', route: 'Route B', stop: 'Vatika City' },
-  { id: 's4', name: 'Ananya Singh', regId: 'SRS-2024-004', class: '2-A', route: 'Route B', stop: 'Sector 18' },
-  { id: 's5', name: 'Kabir Mehta', regId: 'SRS-2024-005', class: '1-B', route: 'Route C', stop: 'DLF Phase 2' },
-];
+import { useStudents, useMembers } from '@saarthi/api-client';
 
 export default function PeopleScreen() {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'students' | 'staff'>('students');
 
-  const filtered = MOCK_STUDENTS.filter(
-    (s) => s.name.toLowerCase().includes(search.toLowerCase()) || s.regId.includes(search)
+  const { data: students, isLoading: studentsLoading } = useStudents();
+  const { data: staff, isLoading: staffLoading } = useMembers(tab === 'staff' ? undefined : undefined);
+
+  const filteredStudents = (students ?? []).filter(
+    (s) =>
+      s.name.toLowerCase().includes(search.toLowerCase()) ||
+      (s.regId ?? '').toLowerCase().includes(search.toLowerCase())
   );
+
+  const filteredStaff = (staff ?? []).filter((m) =>
+    m.person.name.toLowerCase().includes(search.toLowerCase()) ||
+    m.person.phone.includes(search)
+  );
+
+  const isLoading = tab === 'students' ? studentsLoading : staffLoading;
 
   return (
     <View style={styles.container}>
@@ -46,28 +51,52 @@ export default function PeopleScreen() {
         ))}
       </View>
 
-      <FlatList
-        data={tab === 'students' ? filtered : []}
-        keyExtractor={(s) => s.id}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>{tab === 'staff' ? 'Staff list coming soon' : 'No students found'}</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <Card style={styles.card}>
-            <View style={styles.cardRow}>
-              <Avatar name={item.name} size={44} />
-              <View style={styles.info}>
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.meta}>{item.regId} · Class {item.class}</Text>
-                <Text style={styles.route}>🚌 {item.route} · 📍 {item.stop}</Text>
+      {isLoading ? (
+        <View style={styles.loader}>
+          <ActivityIndicator color="#7C3AED" />
+        </View>
+      ) : tab === 'students' ? (
+        <FlatList
+          data={filteredStudents}
+          keyExtractor={(s) => s.id}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>No students found</Text></View>}
+          renderItem={({ item: s }) => (
+            <Card style={styles.card}>
+              <View style={styles.cardRow}>
+                <Avatar name={s.name} size={44} />
+                <View style={styles.info}>
+                  <Text style={styles.name}>{s.name}</Text>
+                  {s.regId && <Text style={styles.meta}>{s.regId}</Text>}
+                  {(s.route || s.stop) && (
+                    <Text style={styles.route}>
+                      {s.route ? `🚌 ${s.route.name}` : ''}{s.stop ? ` · 📍 ${s.stop.name}` : ''}
+                    </Text>
+                  )}
+                </View>
               </View>
-            </View>
-          </Card>
-        )}
-      />
+            </Card>
+          )}
+        />
+      ) : (
+        <FlatList
+          data={filteredStaff}
+          keyExtractor={(m) => m.id}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>No staff found</Text></View>}
+          renderItem={({ item: m }) => (
+            <Card style={styles.card}>
+              <View style={styles.cardRow}>
+                <Avatar name={m.person.name} size={44} />
+                <View style={styles.info}>
+                  <Text style={styles.name}>{m.person.name}</Text>
+                  <Text style={styles.meta}>{m.person.phone} · {m.role}</Text>
+                </View>
+              </View>
+            </Card>
+          )}
+        />
+      )}
     </View>
   );
 }
@@ -85,6 +114,7 @@ const styles = StyleSheet.create({
   tabActive: { borderBottomColor: '#7C3AED' },
   tabText: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.gray400 },
   tabTextActive: { color: '#7C3AED', fontWeight: fontWeights.bold },
+  loader: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing[8] },
   list: { padding: spacing[4], gap: spacing[3] },
   card: {},
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },

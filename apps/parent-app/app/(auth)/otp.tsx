@@ -4,27 +4,39 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, OtpInput } from '@saarthi/ui';
 import { Button } from '@saarthi/ui';
 import { useAuthStore } from '../../store/auth.store';
-import { Role } from '@saarthi/types';
+import { useVerifyOtp } from '@saarthi/api-client';
 
 export default function OtpScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
-  const [loading, setLoading] = useState(false);
+  const [otp, setOtp] = useState('');
   const setAuth = useAuthStore((s) => s.setAuth);
+  const verifyOtp = useVerifyOtp();
 
-  const handleComplete = async (otp: string) => {
-    if (otp.length !== 6) return;
-    setLoading(true);
-    // TODO: replace with real authApi.verifyOtp
-    setTimeout(() => {
-      setLoading(false);
-      // Mock response
+  const handleComplete = (code: string) => {
+    setOtp(code);
+  };
+
+  const handleVerify = async () => {
+    const code = otp.length === 6 ? otp : '';
+    if (code.length !== 6) return;
+    try {
+      const result = await verifyOtp.mutateAsync({ phone: phone ?? '', otp: code });
+      const activeMembership = result.memberships[0];
+      const memberships = result.memberships.map((m) => ({ ...m, role: m.role as any }));
       setAuth(
-        { id: 'person-001', phone: phone ?? '', name: 'Demo Parent' },
-        [{ id: 'mem-parent-001', tenantId: 'tenant-demo-001', tenantName: 'Sunrise School', role: Role.PARENT }],
-        { personId: 'person-001', membershipId: 'mem-parent-001', tenantId: 'tenant-demo-001', role: Role.PARENT }
+        result.person,
+        memberships,
+        {
+          personId: result.person.id,
+          membershipId: activeMembership.id,
+          tenantId: activeMembership.tenantId,
+          role: activeMembership.role as any,
+        }
       );
       router.replace('/(app)/home');
-    }, 1000);
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.message ?? 'Invalid OTP');
+    }
   };
 
   return (
@@ -41,18 +53,17 @@ export default function OtpScreen() {
         </Text>
 
         <View style={styles.otpWrapper}>
-          <OtpInput length={6} onComplete={handleComplete} disabled={loading} />
+          <OtpInput length={6} onComplete={handleComplete} disabled={verifyOtp.isPending} />
         </View>
 
         <Text style={styles.hint}>
-          Using bypass mode in dev — enter any 6 digits or{' '}
-          <Text style={{ color: colors.primary }}>123456</Text>
+          Demo: use <Text style={{ color: colors.primary }}>123456</Text>
         </Text>
 
         <Button
-          title={loading ? 'Verifying…' : 'Verify & Continue'}
-          onPress={() => {}}
-          loading={loading}
+          title={verifyOtp.isPending ? 'Verifying…' : 'Verify & Continue'}
+          onPress={handleVerify}
+          loading={verifyOtp.isPending}
           fullWidth
           size="lg"
           style={{ marginTop: spacing[4] }}

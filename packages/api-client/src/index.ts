@@ -5,7 +5,35 @@ export { queryClient } from './query-client';
 // Auth
 export { authApi } from './auth/auth.api';
 export type { RequestOtpDto, VerifyOtpDto, AuthResponse } from './auth/auth.api';
-export { useRequestOtp, useVerifyOtp } from './auth/auth.hooks';
+export { useRequestOtp, useVerifyOtp, useMemberships, useSwitchContext, authKeys } from './auth/auth.hooks';
+
+// Identity
+export { identityApi } from './identity/identity.api';
+export type { Person, Membership, Student, Member } from './identity/identity.api';
+export {
+  identityKeys,
+  useMe,
+  useUpdateMe,
+  useMyStudents,
+  useStudents,
+  useStudentById,
+  useCreateStudent,
+  useUpdateStudent,
+  useMembers,
+  useMemberById,
+  useAgeGroups,
+  useMyTenant,
+} from './identity/identity.hooks';
+
+// Vehicles
+export { vehiclesApi } from './vehicles/vehicles.api';
+export type { Vehicle } from './vehicles/vehicles.api';
+export { vehicleKeys, useVehicles, useVehicleById, useCreateVehicle, useUpdateVehicle } from './vehicles/vehicles.hooks';
+
+// Routes & Stops
+export { routesApi, stopsApi } from './routes/routes.api';
+export type { Route, Stop } from './routes/routes.api';
+export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, useStops, useCreateStop } from './routes/routes.hooks';
 
 // Trips
 export { tripsApi } from './trips/trips.api';

@@ -19,4 +19,15 @@ export class PersonsService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  findMe(personId: string) {
+    return this.prisma.person.findUniqueOrThrow({
+      where: { id: personId },
+      include: { memberships: { include: { tenant: { select: { name: true } } } } },
+    });
+  }
+
+  updateMe(personId: string, data: Partial<{ name: string; email: string; avatarUrl: string }>) {
+    return this.prisma.person.update({ where: { id: personId }, data });
+  }
 }

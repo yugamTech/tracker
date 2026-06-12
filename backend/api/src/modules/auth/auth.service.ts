@@ -68,6 +68,42 @@ export class AuthService {
     };
   }
 
+  async listMemberships(personId: string) {
+    const memberships = await this.prisma.membership.findMany({
+      where: { personId, status: 'ACTIVE' },
+      include: { tenant: { select: { name: true } } },
+    });
+    return memberships.map((m: any) => ({
+      id: m.id,
+      tenantId: m.tenantId,
+      tenantName: m.tenant.name,
+      role: m.role,
+    }));
+  }
+
+  async switchContext(personId: string, membershipId: string) {
+    const membership = await this.prisma.membership.findFirstOrThrow({
+      where: { id: membershipId, personId, status: 'ACTIVE' },
+      include: { tenant: { select: { name: true } } },
+    });
+    const payload = {
+      sub: personId,
+      membershipId: membership.id,
+      tenantId: membership.tenantId,
+      role: membership.role as Role,
+    };
+    return {
+      accessToken: this.tokenService.signAccess(payload),
+      refreshToken: this.tokenService.signRefresh(payload),
+      membership: {
+        id: membership.id,
+        tenantId: membership.tenantId,
+        tenantName: (membership as any).tenant.name,
+        role: membership.role,
+      },
+    };
+  }
+
   async refresh(refreshToken: string) {
     try {
       const payload = this.tokenService.verify(refreshToken);

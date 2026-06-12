@@ -46,6 +46,19 @@ export const authApi = {
     return data.data as { accessToken: string; refreshToken: string };
   },
 
+  listMemberships: async () => {
+    const { data } = await apiClient.get('/auth/memberships');
+    return data.data as Array<{ id: string; tenantId: string; tenantName: string; role: string }>;
+  },
+
+  switchContext: async (membershipId: string) => {
+    const { data } = await apiClient.post('/auth/context/switch', { membershipId });
+    const result = data.data as { accessToken: string; refreshToken: string; membership: { id: string; tenantId: string; tenantName: string; role: string } };
+    await SecureStore.setItemAsync(TOKEN_KEY, result.accessToken);
+    await SecureStore.setItemAsync(REFRESH_KEY, result.refreshToken);
+    return result;
+  },
+
   logout: async () => {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     await SecureStore.deleteItemAsync(REFRESH_KEY);

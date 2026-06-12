@@ -1,20 +1,30 @@
 import React from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge } from '@saarthi/ui';
-
-const MOCK_ROUTES = [
-  { id: 'r1', name: 'Route A', direction: 'PICKUP', stops: 4, students: 22, vehicle: 'HR26-DL-9900', status: 'ACTIVE' },
-  { id: 'r2', name: 'Route B', direction: 'PICKUP', stops: 5, students: 20, vehicle: 'HR26-DL-9901', status: 'ACTIVE' },
-  { id: 'r3', name: 'Route C', direction: 'DROP', stops: 3, students: 25, vehicle: 'HR26-DL-9902', status: 'ACTIVE' },
-];
+import { useRoutes } from '@saarthi/api-client';
 
 export default function RoutesScreen() {
+  const { data: routes, isLoading } = useRoutes();
+
+  if (isLoading) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator color="#7C3AED" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <FlatList
-        data={MOCK_ROUTES}
+        data={routes ?? []}
         keyExtractor={(r) => r.id}
         contentContainerStyle={styles.list}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>No routes configured</Text>
+          </View>
+        }
         renderItem={({ item }) => (
           <Card style={styles.card}>
             <View style={styles.cardTop}>
@@ -23,11 +33,11 @@ export default function RoutesScreen() {
             </View>
             <View style={styles.meta}>
               <View style={styles.metaItem}>
-                <Text style={styles.metaValue}>{item.stops}</Text>
+                <Text style={styles.metaValue}>{item.stops?.length ?? 0}</Text>
                 <Text style={styles.metaLabel}>Stops</Text>
               </View>
               <View style={styles.metaItem}>
-                <Text style={styles.metaValue}>{item.students}</Text>
+                <Text style={styles.metaValue}>{item._count?.students ?? 0}</Text>
                 <Text style={styles.metaLabel}>Students</Text>
               </View>
               <View style={styles.metaItem}>
@@ -35,7 +45,11 @@ export default function RoutesScreen() {
                 <Text style={styles.metaLabel}>Direction</Text>
               </View>
             </View>
-            <Text style={styles.vehicle}>🚌 {item.vehicle}</Text>
+            {item.stops?.length > 0 && (
+              <Text style={styles.stops}>
+                📍 {item.stops.map((rs: any) => rs.stop.name).join(' → ')}
+              </Text>
+            )}
           </Card>
         )}
       />
@@ -45,6 +59,7 @@ export default function RoutesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.gray50 },
+  loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { padding: spacing[4], gap: spacing[3] },
   card: {},
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing[3] },
@@ -53,5 +68,7 @@ const styles = StyleSheet.create({
   metaItem: { alignItems: 'center' },
   metaValue: { fontSize: fontSizes.xl, fontWeight: fontWeights.extrabold, color: '#7C3AED' },
   metaLabel: { fontSize: fontSizes.xs, color: colors.textSecondary, marginTop: 2 },
-  vehicle: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: spacing[3] },
+  stops: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: spacing[3] },
+  empty: { alignItems: 'center', padding: spacing[8] },
+  emptyText: { fontSize: fontSizes.base, color: colors.textSecondary },
 });

@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { StudentsService } from '../students.service';
 import { TenantId } from '../../../common/decorators/tenant-id.decorator';
+import { PersonId } from '../../../common/decorators/person-id.decorator';
 import { IsString, IsOptional } from 'class-validator';
 
 class CreateStudentDto {
@@ -11,6 +12,15 @@ class CreateStudentDto {
   @IsString() ageGroupId!: string;
   @IsOptional() @IsString() routeId?: string;
   @IsOptional() @IsString() stopId?: string;
+}
+
+class UpdateStudentDto {
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsString() regId?: string;
+  @IsOptional() @IsString() ageGroupId?: string;
+  @IsOptional() @IsString() routeId?: string;
+  @IsOptional() @IsString() stopId?: string;
+  @IsOptional() @IsString() status?: 'ACTIVE' | 'INACTIVE';
 }
 
 @ApiTags('students')
@@ -25,6 +35,11 @@ export class StudentsController {
     return this.studentsService.list(tenantId);
   }
 
+  @Get('my')
+  myStudents(@PersonId() personId: string) {
+    return this.studentsService.getByGuardian(personId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.studentsService.findById(id);
@@ -33,5 +48,10 @@ export class StudentsController {
   @Post()
   create(@TenantId() tenantId: string, @Body() dto: CreateStudentDto) {
     return this.studentsService.create({ tenantId, ...dto });
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateStudentDto) {
+    return this.studentsService.update(id, dto);
   }
 }

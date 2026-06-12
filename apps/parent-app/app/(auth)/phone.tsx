@@ -6,22 +6,23 @@ import {
 import { router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius } from '@saarthi/ui';
 import { Button } from '@saarthi/ui';
+import { useRequestOtp } from '@saarthi/api-client';
 
 export default function PhoneScreen() {
   const [phone, setPhone] = useState('');
-  const [loading, setLoading] = useState(false);
+  const requestOtp = useRequestOtp();
 
   const handleContinue = async () => {
     if (phone.length < 10) {
       Alert.alert('Invalid', 'Please enter a valid 10-digit phone number');
       return;
     }
-    setLoading(true);
-    // TODO: call authApi.requestOtp({ phone: `+91${phone}` })
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await requestOtp.mutateAsync({ phone: `+91${phone}` });
       router.push({ pathname: '/(auth)/otp', params: { phone: `+91${phone}` } });
-    }, 800);
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.message ?? 'Failed to send OTP');
+    }
   };
 
   return (
@@ -30,7 +31,6 @@ export default function PhoneScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.inner}>
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoBox}>
             <Text style={styles.logoText}>🚌</Text>
@@ -39,7 +39,6 @@ export default function PhoneScreen() {
           <Text style={styles.subtitle}>Safe school transport, tracked live</Text>
         </View>
 
-        {/* Form */}
         <View style={styles.form}>
           <Text style={styles.label}>Mobile Number</Text>
           <View style={styles.inputRow}>
@@ -63,7 +62,7 @@ export default function PhoneScreen() {
         <Button
           title="Get OTP"
           onPress={handleContinue}
-          loading={loading}
+          loading={requestOtp.isPending}
           fullWidth
           size="lg"
         />

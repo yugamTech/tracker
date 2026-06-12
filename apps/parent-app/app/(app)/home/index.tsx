@@ -1,47 +1,26 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, StatusDot } from '@saarthi/ui';
 import { useAuthStore } from '../../../store/auth.store';
-
-// Mock data
-const MOCK_CHILDREN = [
-  {
-    id: 'student-001',
-    name: 'Arjun Sharma',
-    class: 'Grade 4-B',
-    busNumber: 'HR26-DL-9900',
-    route: 'Route A — Sector 18',
-    tripId: 'trip-today-001',
-    status: 'IN_PROGRESS' as const,
-    etaMinutes: 8,
-    lastStop: 'DLF Phase 2',
-    boardStatus: 'BOARDED' as const,
-  },
-];
-
-const STATUS_LABELS: Record<string, string> = {
-  SCHEDULED: 'Scheduled',
-  STARTED: 'Started',
-  IN_PROGRESS: 'Live',
-  COMPLETED: 'Completed',
-};
+import { useMyStudents } from '@saarthi/api-client';
 
 export default function HomeScreen() {
-  const [refreshing, setRefreshing] = React.useState(false);
   const person = useAuthStore((s) => s.person);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  };
+  const { data: students, isLoading, refetch, isRefetching } = useMyStudents();
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            tintColor={colors.primary}
+          />
+        }
       >
         {/* Header */}
         <View style={styles.header}>
@@ -54,67 +33,73 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Live Banner */}
-        <View style={styles.liveBanner}>
-          <StatusDot variant="live" size={10} />
-          <Text style={styles.liveBannerText}>1 trip is live right now</Text>
-        </View>
+        {/* Loading */}
+        {isLoading && (
+          <View style={styles.loader}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        )}
 
         {/* Children cards */}
-        <Text style={styles.sectionTitle}>Your Children</Text>
+        {!isLoading && (
+          <>
+            <Text style={styles.sectionTitle}>Your Children</Text>
 
-        {MOCK_CHILDREN.map((child) => (
-          <TouchableOpacity
-            key={child.id}
-            onPress={() => router.push(`/(app)/track/${child.tripId}` as never)}
-            activeOpacity={0.85}
-          >
-            <Card style={styles.childCard}>
-              {/* Top row */}
-              <View style={styles.cardTop}>
-                <View style={styles.childAvatar}>
-                  <Text style={styles.childInitial}>{child.name[0]}</Text>
-                </View>
-                <View style={styles.childInfo}>
-                  <Text style={styles.childName}>{child.name}</Text>
-                  <Text style={styles.childClass}>{child.class}</Text>
-                </View>
-                <Badge
-                  label={child.boardStatus === 'BOARDED' ? 'Boarded ✓' : 'Not Boarded'}
-                  variant={child.boardStatus === 'BOARDED' ? 'boarded' : 'not_boarded'}
-                  size="sm"
-                />
+            {students?.length === 0 && (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyText}>No children linked to your account</Text>
               </View>
+            )}
 
-              {/* Divider */}
-              <View style={styles.divider} />
-
-              {/* Trip info */}
-              <View style={styles.tripInfo}>
-                <View style={styles.tripRow}>
-                  <Text style={styles.tripLabel}>🚌 Bus</Text>
-                  <Text style={styles.tripValue}>{child.busNumber}</Text>
-                </View>
-                <View style={styles.tripRow}>
-                  <Text style={styles.tripLabel}>📍 Last stop</Text>
-                  <Text style={styles.tripValue}>{child.lastStop}</Text>
-                </View>
-                {child.status === 'IN_PROGRESS' && (
-                  <View style={styles.etaBanner}>
-                    <StatusDot variant="live" size={8} />
-                    <Text style={styles.etaText}>
-                      Arriving in ~{child.etaMinutes} min
-                    </Text>
+            {students?.map((child) => (
+              <TouchableOpacity
+                key={child.id}
+                onPress={() => router.push(`/(app)/track/trip-today-001` as never)}
+                activeOpacity={0.85}
+              >
+                <Card style={styles.childCard}>
+                  <View style={styles.cardTop}>
+                    <View style={styles.childAvatar}>
+                      <Text style={styles.childInitial}>{child.name[0]}</Text>
+                    </View>
+                    <View style={styles.childInfo}>
+                      <Text style={styles.childName}>{child.name}</Text>
+                      {child.regId && <Text style={styles.childClass}>{child.regId}</Text>}
+                    </View>
+                    <Badge label="Active ✓" variant="active" size="sm" />
                   </View>
-                )}
-              </View>
 
-              <View style={styles.trackBtn}>
-                <Text style={styles.trackBtnText}>Track Live →</Text>
-              </View>
-            </Card>
-          </TouchableOpacity>
-        ))}
+                  <View style={styles.divider} />
+
+                  <View style={styles.tripInfo}>
+                    {child.route && (
+                      <View style={styles.tripRow}>
+                        <Text style={styles.tripLabel}>🛣 Route</Text>
+                        <Text style={styles.tripValue}>{child.route.name}</Text>
+                      </View>
+                    )}
+                    {child.stop && (
+                      <View style={styles.tripRow}>
+                        <Text style={styles.tripLabel}>📍 Stop</Text>
+                        <Text style={styles.tripValue}>{child.stop.name}</Text>
+                      </View>
+                    )}
+                    {child.ageGroup && (
+                      <View style={styles.tripRow}>
+                        <Text style={styles.tripLabel}>🕐 Pickup</Text>
+                        <Text style={styles.tripValue}>{child.ageGroup.pickupTime}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.trackBtn}>
+                    <Text style={styles.trackBtnText}>Track Live →</Text>
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            ))}
+          </>
+        )}
 
         {/* Quick actions */}
         <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -148,17 +133,7 @@ const styles = StyleSheet.create({
   greeting: { fontSize: fontSizes.sm, color: colors.textSecondary },
   name: { fontSize: fontSizes.xl, fontWeight: fontWeights.bold, color: colors.textPrimary },
   notifBtn: { padding: spacing[2] },
-  liveBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    backgroundColor: '#EEF2FF',
-    marginHorizontal: spacing[4],
-    marginTop: spacing[4],
-    padding: spacing[3],
-    borderRadius: radius.lg,
-  },
-  liveBannerText: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.medium },
+  loader: { padding: spacing[8], alignItems: 'center' },
   sectionTitle: {
     fontSize: fontSizes.base,
     fontWeight: fontWeights.semibold,
@@ -167,6 +142,8 @@ const styles = StyleSheet.create({
     marginTop: spacing[5],
     marginBottom: spacing[3],
   },
+  emptyBox: { margin: spacing[5], padding: spacing[5], backgroundColor: colors.white, borderRadius: radius.xl, alignItems: 'center' },
+  emptyText: { fontSize: fontSizes.sm, color: colors.textSecondary },
   childCard: { marginHorizontal: spacing[4], marginBottom: spacing[3] },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   childAvatar: {
@@ -186,16 +163,6 @@ const styles = StyleSheet.create({
   tripRow: { flexDirection: 'row', justifyContent: 'space-between' },
   tripLabel: { fontSize: fontSizes.sm, color: colors.textSecondary },
   tripValue: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textPrimary },
-  etaBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    backgroundColor: '#D1FAE5',
-    padding: spacing[2],
-    borderRadius: radius.md,
-    marginTop: spacing[1],
-  },
-  etaText: { fontSize: fontSizes.sm, color: colors.success, fontWeight: fontWeights.semibold },
   trackBtn: { alignItems: 'flex-end', marginTop: spacing[3] },
   trackBtnText: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.semibold },
   quickActions: {
