@@ -54,6 +54,32 @@ async function main() {
     },
   });
 
+  const stop3 = await prisma.stop.upsert({
+    where: { id: 'stop-003' },
+    update: {},
+    create: {
+      id: 'stop-003',
+      tenantId: tenant.id,
+      name: 'Galleria Market',
+      lat: 28.4665,
+      lng: 77.0805,
+    },
+  });
+
+  // Final destination — the school itself (drop point for PICKUP trips)
+  const stopSchool = await prisma.stop.upsert({
+    where: { id: 'stop-school' },
+    update: {},
+    create: {
+      id: 'stop-school',
+      tenantId: tenant.id,
+      name: 'Sunrise International School',
+      lat: 28.4321,
+      lng: 77.0512,
+      geofenceRadius: 150,
+    },
+  });
+
   // Create route
   const route = await prisma.route.upsert({
     where: { id: 'route-001' },
@@ -76,6 +102,16 @@ async function main() {
     where: { id: 'rs-002' },
     update: {},
     create: { id: 'rs-002', routeId: route.id, stopId: stop2.id, sequence: 2 },
+  });
+  await prisma.routeStop.upsert({
+    where: { id: 'rs-003' },
+    update: {},
+    create: { id: 'rs-003', routeId: route.id, stopId: stop3.id, sequence: 3 },
+  });
+  await prisma.routeStop.upsert({
+    where: { id: 'rs-004' },
+    update: {},
+    create: { id: 'rs-004', routeId: route.id, stopId: stopSchool.id, sequence: 4 },
   });
 
   // Create vehicle
@@ -160,13 +196,39 @@ async function main() {
     },
   });
 
-  // Guardianship
+  // Second student (boards at DLF Phase 2) — same parent, for a richer demo roster
+  const student2 = await prisma.student.upsert({
+    where: { id: 'student-002' },
+    update: {},
+    create: {
+      id: 'student-002',
+      tenantId: tenant.id,
+      name: 'Diya Sharma',
+      regId: 'SRS-2024-002',
+      ageGroupId: ageGroup.id,
+      routeId: route.id,
+      stopId: stop2.id,
+    },
+  });
+
+  // Guardianships
   await prisma.guardianship.upsert({
     where: { id: 'guard-001' },
     update: {},
     create: {
       id: 'guard-001',
       studentId: student.id,
+      personId: parentPerson.id,
+      relation: 'Mother',
+      isPrimary: true,
+    },
+  });
+  await prisma.guardianship.upsert({
+    where: { id: 'guard-002' },
+    update: {},
+    create: {
+      id: 'guard-002',
+      studentId: student2.id,
       personId: parentPerson.id,
       relation: 'Mother',
       isPrimary: true,
@@ -201,6 +263,30 @@ async function main() {
       date: today,
       direction: 'PICKUP',
       status: 'SCHEDULED',
+    },
+  });
+
+  // Riders expected on today's trip (one per pickup stop)
+  await prisma.tripRider.upsert({
+    where: { tripId_studentId: { tripId: 'trip-today-001', studentId: student.id } },
+    update: {},
+    create: {
+      id: 'tr-001',
+      tripId: 'trip-today-001',
+      studentId: student.id,
+      stopId: stop1.id,
+      boardStatus: 'EXPECTED',
+    },
+  });
+  await prisma.tripRider.upsert({
+    where: { tripId_studentId: { tripId: 'trip-today-001', studentId: student2.id } },
+    update: {},
+    create: {
+      id: 'tr-002',
+      tripId: 'trip-today-001',
+      studentId: student2.id,
+      stopId: stop2.id,
+      boardStatus: 'EXPECTED',
     },
   });
 
