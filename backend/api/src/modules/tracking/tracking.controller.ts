@@ -20,8 +20,8 @@ export class TrackingController {
   @Post('ping')
   async ping(@Body() dto: LocationPingDto, @TenantId() tenantId: string) {
     const result = await this.location.ingestOne(dto, tenantId);
-    if (result.latest) await this.gateway.processPosition(result.latest);
-    return result;
+    await this.gateway.processIngest(result);
+    return this.summary(result);
   }
 
   /** Batch ping ingest — offline-buffer flush or the driver-ping simulator. */
@@ -29,8 +29,12 @@ export class TrackingController {
   async pingBatch(@Body() dto: LocationPingBatchDto, @TenantId() tenantId: string) {
     const tripId = dto.pings[0].tripId;
     const result = await this.location.ingestBatch(tripId, tenantId, dto.pings);
-    if (result.latest) await this.gateway.processPosition(result.latest);
-    return result;
+    await this.gateway.processIngest(result);
+    return this.summary(result);
+  }
+
+  private summary(r: { tripId: string; accepted: number; duplicates: number; rejected: number }) {
+    return { tripId: r.tripId, accepted: r.accepted, duplicates: r.duplicates, rejected: r.rejected };
   }
 
   /** Active fleet snapshot for the tenant (admin fleet map initial load). */

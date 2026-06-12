@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../../infra/database/prisma.service';
 import { TripStatus, RiderStatus } from '@saarthi/types';
 import { TrackingGateway } from '../tracking/tracking.gateway';
+import { LocationService } from '../tracking/location.service';
 
 /** Allowed status transitions for the trip lifecycle state machine. */
 const TRANSITIONS: Record<string, TripStatus[]> = {
@@ -18,6 +19,7 @@ export class TripsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: TrackingGateway,
+    private readonly location: LocationService,
   ) {}
 
   list(tenantId: string, filters?: { date?: Date; status?: TripStatus }) {
@@ -140,5 +142,27 @@ export class TripsService {
     direction: 'PICKUP' | 'DROP';
   }) {
     return this.prisma.trip.create({ data });
+  }
+
+  /**
+   * DEV ONLY: wipe a trip's tracking artifacts and return it to SCHEDULED so a
+   * demo (e.g. the driver-ping simulator) can be replayed cleanly. Guarded at
+   * the controller behind OTP_BYPASS_MODE.
+   */
+  async resetForDemo(tripId: string) {
+    await this.prisma.$transaction([
+      this.prisma.attendanceEvent.deleteMany({ where: { tripId } }),
+      this.prisma.geofenceEvent.deleteMany({ where: { tripId } }),
+      this.prisma.speedEvent.deleteMany({ where: { tripId } }),
+      this.prisma.pickupCancellation.deleteMany({ where: { tripId } }),
+      this.prisma.locationPing.deleteMany({ where: { tripId } }),
+      this.prisma.tripRider.updateMany({ where: { tripId }, data: { boardStatus: RiderStatus.EXPECTED } }),
+      this.prisma.trip.update({
+        where: { id: tripId },
+        data: { status: TripStatus.SCHEDULED, startedAt: null, completedAt: null },
+      }),
+    ]);
+    await this.location.clearTripCache(tripId);
+    return { tripId, status: TripStatus.SCHEDULED, reset: true };
   }
 }

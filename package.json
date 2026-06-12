@@ -12,6 +12,7 @@
     "dev:parent": "npm run start --workspace=apps/parent-app",
     "dev:driver": "npm run start --workspace=apps/driver-app",
     "dev:admin": "npm run start --workspace=apps/admin-app",
+    "sim": "node scripts/driver-sim.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "docker:up": "docker compose -f docker/docker-compose.yml up -d",

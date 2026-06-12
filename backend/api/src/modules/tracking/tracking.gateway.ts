@@ -12,7 +12,7 @@ import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { LocationService } from './location.service';
-import type { LatestPosition } from './location.service';
+import type { LatestPosition, IngestResult } from './location.service';
 import { GeofenceService } from './geofence.service';
 import { EtaService } from './eta.service';
 import { SpeedService } from './speed.service';
@@ -124,17 +124,41 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
     // Trust the authed tenant from the handshake, not the client-supplied field.
     const tenantId = (client.data as SocketData)?.tenantId ?? data.tenantId;
     const result = await this.locationService.ingestOne(data, tenantId);
-    if (result.latest) await this.processPosition(result.latest);
+    await this.processIngest(result);
   }
 
   /**
-   * Shared post-ingest pipeline for both the socket and REST paths: fan out the
-   * position, run geofencing, and (re)broadcast the next-stop ETA.
+   * Shared post-ingest pipeline for both the socket and REST paths. Geofencing
+   * and speed are evaluated for EVERY ping in the batch (so a stop passage or a
+   * speed spike that happens mid-batch isn't skipped), while the live position
+   * broadcast and next-stop ETA only reflect the newest fix.
    */
-  async processPosition(latest: LatestPosition) {
-    this.broadcastLocation(latest);
+  async processIngest(result: IngestResult) {
+    if (!result.latest) return; // nothing new (full-duplicate replay)
+    this.broadcastLocation(result.latest);
 
-    const transitions = await this.geofenceService.evaluate(latest);
+    for (const pos of result.positions) {
+      await this.runGeofence(pos);
+      const alert = await this.speedService.evaluate(pos);
+      if (alert) this.emitAlert(pos.tripId, pos.tenantId, alert);
+    }
+
+    const eta = await this.etaService.computeForNextStop(result.latest);
+    if (eta) {
+      this.emitEta(result.latest.tripId, {
+        tripId: eta.tripId,
+        stopId: eta.stopId,
+        stopName: eta.stopName,
+        etaMinutes: eta.etaMinutes,
+        etaSeconds: eta.etaSeconds,
+        distanceMeters: eta.distanceMeters,
+        etaTs: eta.etaTs,
+      });
+    }
+  }
+
+  private async runGeofence(pos: LatestPosition) {
+    const transitions = await this.geofenceService.evaluate(pos);
     for (const t of transitions) {
       this.server.to(`trip:${t.tripId}`).emit('trip:geofence', {
         tripId: t.tripId,
@@ -149,28 +173,12 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
           tripId: t.tripId,
           studentId: r.studentId,
           studentName: r.studentName,
-          tenantId: latest.tenantId,
+          tenantId: pos.tenantId,
           type: 'NOT_BOARDED',
           ts: t.ts,
         });
       }
     }
-
-    const eta = await this.etaService.computeForNextStop(latest);
-    if (eta) {
-      this.emitEta(latest.tripId, {
-        tripId: eta.tripId,
-        stopId: eta.stopId,
-        stopName: eta.stopName,
-        etaMinutes: eta.etaMinutes,
-        etaSeconds: eta.etaSeconds,
-        distanceMeters: eta.distanceMeters,
-        etaTs: eta.etaTs,
-      });
-    }
-
-    const alert = await this.speedService.evaluate(latest);
-    if (alert) this.emitAlert(latest.tripId, latest.tenantId, alert);
   }
 
   /**

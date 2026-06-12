@@ -23,7 +23,10 @@ export interface IngestResult {
   accepted: number;
   duplicates: number;
   rejected: number;
+  /** Newest position iff the batch advanced the trip forward (else null). */
   latest: LatestPosition | null;
+  /** All reconciled positions in this batch, ordered — for per-ping geofence/speed. */
+  positions: LatestPosition[];
 }
 
 interface TripMeta {
@@ -124,6 +127,25 @@ export class LocationService {
     return meta?.tenantId ?? null;
   }
 
+  /** Clear all Redis tracking state for a trip (dev reset / demo replay). */
+  async clearTripCache(tripId: string): Promise<void> {
+    const meta = await this.getTripMeta(tripId);
+    const keys = [
+      `trip:${tripId}:meta`,
+      `trip:${tripId}:stops`,
+      `trip:${tripId}:latest`,
+      `signal:${tripId}:lost`,
+      `speed:${tripId}:prev`,
+      `speed:${tripId}:alerted`,
+    ];
+    if (meta?.vehicleId) keys.push(`vehicle:${meta.vehicleId}:latest`);
+    for (const pattern of [`geofence:${tripId}:*`, `eta:${tripId}:*`]) {
+      const matched = await this.redis.keys(pattern);
+      keys.push(...matched);
+    }
+    if (keys.length) await this.redis.del(...keys);
+  }
+
   /** Ordered stops (with coords + geofence radius) for a trip's route, cached in Redis. */
   async getTripStops(tripId: string): Promise<TripStop[]> {
     const cached = await this.redis.get(`trip:${tripId}:stops`);
@@ -162,8 +184,9 @@ export class LocationService {
 
     const { kept, rejected } = this.reconcile(pings, resolvedTenant, now);
     if (kept.length === 0) {
-      return { tripId, accepted: 0, duplicates: 0, rejected, latest: null };
+      return { tripId, accepted: 0, duplicates: 0, rejected, latest: null, positions: [] };
     }
+    const positions: LatestPosition[] = kept.map((k) => ({ ...k, vehicleId: meta?.vehicleId ?? null }));
 
     // Dedup against already-stored pings via the (tripId, sequence) unique index.
     const created = await this.prisma.locationPing.createMany({
@@ -184,17 +207,17 @@ export class LocationService {
     const duplicates = kept.length - accepted;
 
     // Advance the latest-position cache only if this batch is genuinely newer.
-    const newest = kept[kept.length - 1];
-    const candidate: LatestPosition = { ...newest, vehicleId: meta?.vehicleId ?? null };
+    const candidate = positions[positions.length - 1];
     const advanced = await this.updateLatestIfNewer(
       tripId,
       meta ?? { vehicleId: null, tenantId: resolvedTenant },
       candidate,
     );
 
-    // Only surface a position to broadcast when it actually moved the trip
-    // forward (skips full-duplicate replays and out-of-order flushes).
-    return { tripId, accepted, duplicates, rejected, latest: advanced ? candidate : null };
+    // latest is only set on real forward progress (skips full-duplicate replays
+    // / out-of-order flushes); positions carries the full batch for per-ping
+    // geofence + speed evaluation.
+    return { tripId, accepted, duplicates, rejected, latest: advanced ? candidate : null, positions };
   }
 
   /** Convenience single-ping ingest (used by the Socket.IO driver:ping path). */
