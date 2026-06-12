@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge } from '@saarthi/ui';
 import { useRoutes } from '@saarthi/api-client';
+import { router } from 'expo-router';
 
 export default function RoutesScreen() {
   const { data: routes, isLoading } = useRoutes();
@@ -26,6 +27,7 @@ export default function RoutesScreen() {
           </View>
         }
         renderItem={({ item }) => (
+          <TouchableOpacity onPress={() => router.push(`/(app)/routes/${item.id}` as never)} activeOpacity={0.85}>
           <Card style={styles.card}>
             <View style={styles.cardTop}>
               <Text style={styles.routeName}>{item.name}</Text>
@@ -51,6 +53,7 @@ export default function RoutesScreen() {
               </Text>
             )}
           </Card>
+          </TouchableOpacity>
         )}
       />
     </View>

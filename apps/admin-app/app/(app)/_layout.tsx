@@ -2,6 +2,10 @@ import { Drawer } from 'expo-router/drawer';
 import { colors, fontSizes, fontWeights } from '@saarthi/ui';
 import { Text } from 'react-native';
 
+const HIDDEN: React.ComponentProps<typeof Drawer.Screen>['options'] = {
+  drawerItemStyle: { display: 'none' },
+};
+
 export default function AppLayout() {
   return (
     <Drawer
@@ -15,6 +19,7 @@ export default function AppLayout() {
         drawerLabelStyle: { fontSize: fontSizes.base, fontWeight: fontWeights.medium as never },
       }}
     >
+      {/* ── Visible drawer items ── */}
       <Drawer.Screen name="dashboard/index" options={{ title: 'Dashboard', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>📊</Text> }} />
       <Drawer.Screen name="dashboard/trends" options={{ title: 'Trends', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>📈</Text> }} />
       <Drawer.Screen name="fleet/index" options={{ title: 'Live Fleet', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>🚌</Text> }} />
@@ -27,6 +32,22 @@ export default function AppLayout() {
       <Drawer.Screen name="payments/index" options={{ title: 'Payments', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>💳</Text> }} />
       <Drawer.Screen name="payments/reconciliation" options={{ title: 'Reconciliation', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>🔄</Text> }} />
       <Drawer.Screen name="settings/index" options={{ title: 'Settings', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>⚙️</Text> }} />
+
+      {/* ── Hidden detail / CRUD screens ── */}
+      <Drawer.Screen name="fleet/[tripId]" options={{ ...HIDDEN, title: 'Trip Monitor' }} />
+      <Drawer.Screen name="people/students/index" options={HIDDEN} />
+      <Drawer.Screen name="people/students/[id]" options={{ ...HIDDEN, title: 'Student Detail' }} />
+      <Drawer.Screen name="people/students/new" options={{ ...HIDDEN, title: 'Add Student' }} />
+      <Drawer.Screen name="people/staff/index" options={HIDDEN} />
+      <Drawer.Screen name="people/staff/[id]" options={{ ...HIDDEN, title: 'Staff Detail' }} />
+      <Drawer.Screen name="people/import/index" options={{ ...HIDDEN, title: 'Import Data' }} />
+      <Drawer.Screen name="people/import/preview" options={{ ...HIDDEN, title: 'Import Preview' }} />
+      <Drawer.Screen name="people/import/result" options={{ ...HIDDEN, title: 'Import Result' }} />
+      <Drawer.Screen name="routes/[routeId]" options={{ ...HIDDEN, title: 'Route Detail' }} />
+      <Drawer.Screen name="routes/vehicle/[vehicleId]" options={{ ...HIDDEN, title: 'Vehicle Detail' }} />
+      <Drawer.Screen name="complaints/[id]" options={{ ...HIDDEN, title: 'Complaint Detail' }} />
+      <Drawer.Screen name="payments/fee-plans" options={{ ...HIDDEN, title: 'Fee Plans' }} />
+      <Drawer.Screen name="settings/notifications" options={{ ...HIDDEN, title: 'Notification Audit' }} />
     </Drawer>
   );
 }

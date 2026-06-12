@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
-import { colors, spacing, fontSizes, fontWeights, radius, Avatar, Card } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Avatar, Card, Button } from '@saarthi/ui';
 import { useStudents, useMembers } from '@saarthi/api-client';
+import { router } from 'expo-router';
 
 export default function PeopleScreen() {
   const [search, setSearch] = useState('');
@@ -25,7 +26,7 @@ export default function PeopleScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Search */}
+      {/* Search + Add */}
       <View style={styles.searchRow}>
         <TextInput
           style={styles.search}
@@ -34,6 +35,9 @@ export default function PeopleScreen() {
           placeholder="Search by name or ID…"
           placeholderTextColor={colors.gray400}
         />
+        {tab === 'students' && (
+          <Button title="+ Add" size="sm" onPress={() => router.push('/(app)/people/students/new' as never)} style={styles.addBtn} />
+        )}
       </View>
 
       {/* Tabs */}
@@ -62,20 +66,23 @@ export default function PeopleScreen() {
           contentContainerStyle={styles.list}
           ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>No students found</Text></View>}
           renderItem={({ item: s }) => (
-            <Card style={styles.card}>
-              <View style={styles.cardRow}>
-                <Avatar name={s.name} size={44} />
-                <View style={styles.info}>
-                  <Text style={styles.name}>{s.name}</Text>
-                  {s.regId && <Text style={styles.meta}>{s.regId}</Text>}
-                  {(s.route || s.stop) && (
-                    <Text style={styles.route}>
-                      {s.route ? `🚌 ${s.route.name}` : ''}{s.stop ? ` · 📍 ${s.stop.name}` : ''}
-                    </Text>
-                  )}
+            <TouchableOpacity onPress={() => router.push(`/(app)/people/students/${s.id}` as never)} activeOpacity={0.85}>
+              <Card style={styles.card}>
+                <View style={styles.cardRow}>
+                  <Avatar name={s.name} size={44} />
+                  <View style={styles.info}>
+                    <Text style={styles.name}>{s.name}</Text>
+                    {s.regId && <Text style={styles.meta}>{s.regId}</Text>}
+                    {(s.route || s.stop) && (
+                      <Text style={styles.route}>
+                        {s.route ? `🚌 ${s.route.name}` : ''}{s.stop ? ` · 📍 ${s.stop.name}` : ''}
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={styles.chevron}>›</Text>
                 </View>
-              </View>
-            </Card>
+              </Card>
+            </TouchableOpacity>
           )}
         />
       ) : (
@@ -85,15 +92,18 @@ export default function PeopleScreen() {
           contentContainerStyle={styles.list}
           ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>No staff found</Text></View>}
           renderItem={({ item: m }) => (
-            <Card style={styles.card}>
-              <View style={styles.cardRow}>
-                <Avatar name={m.person.name} size={44} />
-                <View style={styles.info}>
-                  <Text style={styles.name}>{m.person.name}</Text>
-                  <Text style={styles.meta}>{m.person.phone} · {m.role}</Text>
+            <TouchableOpacity onPress={() => router.push(`/(app)/people/staff/${m.id}` as never)} activeOpacity={0.85}>
+              <Card style={styles.card}>
+                <View style={styles.cardRow}>
+                  <Avatar name={m.person.name} size={44} />
+                  <View style={styles.info}>
+                    <Text style={styles.name}>{m.person.name}</Text>
+                    <Text style={styles.meta}>{m.person.phone} · {m.role}</Text>
+                  </View>
+                  <Text style={styles.chevron}>›</Text>
                 </View>
-              </View>
-            </Card>
+              </Card>
+            </TouchableOpacity>
           )}
         />
       )}
@@ -103,7 +113,9 @@ export default function PeopleScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.gray50 },
-  searchRow: { padding: spacing[4], backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], padding: spacing[4], backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border },
+  addBtn: { flexShrink: 0 },
+  chevron: { fontSize: 20, color: colors.gray400, paddingLeft: spacing[2] },
   search: {
     backgroundColor: colors.gray100, borderRadius: radius.lg,
     paddingHorizontal: spacing[4], paddingVertical: spacing[3],
