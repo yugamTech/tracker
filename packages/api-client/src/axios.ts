@@ -52,5 +52,5 @@ export const createApiClient = (baseURL: string) => {
 };
 
 // Default instance — apps override BASE_URL via their own constants
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
 export const apiClient = createApiClient(API_BASE_URL);
