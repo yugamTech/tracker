@@ -14,12 +14,16 @@ export default function DriverOtpScreen() {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
+      const memberships = [
+        { id: 'mem-driver-001', tenantId: 'tenant-demo-001', tenantName: 'Sunrise School', role: Role.DRIVER },
+        { id: 'mem-driver-002', tenantId: 'tenant-demo-002', tenantName: 'Delhi Public School', role: Role.DRIVER },
+      ];
       setAuth(
         { id: 'person-driver', phone: phone ?? '', name: 'Ramesh Kumar' },
-        [{ id: 'mem-driver-001', tenantId: 'tenant-demo-001', tenantName: 'Sunrise School', role: Role.DRIVER }],
-        { personId: 'person-driver', membershipId: 'mem-driver-001', tenantId: 'tenant-demo-001', role: Role.DRIVER }
+        memberships,
+        { personId: 'person-driver', membershipId: memberships[0].id, tenantId: memberships[0].tenantId, role: Role.DRIVER }
       );
-      router.replace('/(app)/home');
+      router.replace('/(auth)/context-switch' as never);
     }, 1000);
   };
 

@@ -56,15 +56,22 @@ export default function ActiveTripScreen() {
 
       {/* Action buttons */}
       <View style={styles.actions}>
-        <Button
-          title={`✓ Mark Stop ${currentStopIdx + 1} Done`}
-          onPress={() => {
-            if (currentStopIdx < MOCK_STOPS.length - 1) setCurrentStopIdx((i) => i + 1);
-            else router.replace(`/(app)/trip/${tripId}/complete` as never);
-          }}
-          fullWidth
-          size="lg"
-        />
+        <View style={styles.actionsTop}>
+          <Button
+            title={`✓ Stop ${currentStopIdx + 1} Done`}
+            onPress={() => {
+              if (currentStopIdx < MOCK_STOPS.length - 1) setCurrentStopIdx((i) => i + 1);
+              else router.replace(`/(app)/trip/${tripId}/complete` as never);
+            }}
+            fullWidth
+            size="lg"
+            style={{ flex: 1 }}
+          />
+          <TouchableOpacity style={styles.alertsBtn} onPress={() => router.push(`/(app)/trip/alerts?tripId=${tripId}` as never)}>
+            <Text style={{ fontSize: 20 }}>🔔</Text>
+            <Text style={styles.alertsBtnText}>Alerts</Text>
+          </TouchableOpacity>
+        </View>
         <Button
           title="Complete Trip"
           variant="outline"
@@ -95,4 +102,12 @@ const styles = StyleSheet.create({
   mapText: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.white },
   mapSub: { fontSize: fontSizes.sm, color: colors.gray400 },
   actions: { padding: spacing[4], gap: spacing[3], backgroundColor: '#1a1a2e' },
+  actionsTop: { flexDirection: 'row', gap: spacing[2], alignItems: 'center' },
+  alertsBtn: {
+    alignItems: 'center', justifyContent: 'center', gap: 2,
+    backgroundColor: '#16213e', borderRadius: radius.lg,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    borderWidth: 1, borderColor: colors.gray600,
+  },
+  alertsBtnText: { fontSize: fontSizes.xs, color: colors.gray300 },
 });

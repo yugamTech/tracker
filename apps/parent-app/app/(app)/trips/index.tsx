@@ -23,10 +23,10 @@ export default function TripsScreen() {
         keyExtractor={(t) => t.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => {}} activeOpacity={0.85}>
+          <TouchableOpacity onPress={() => router.push(`/(app)/trips/${item.id}` as never)} activeOpacity={0.85}>
             <Card style={styles.card}>
               <View style={styles.cardRow}>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.date}>{item.date}</Text>
                   <Text style={styles.route}>{item.route} • {item.direction}</Text>
                 </View>
@@ -35,6 +35,12 @@ export default function TripsScreen() {
                   variant={item.boardStatus === 'BOARDED' ? 'boarded' : 'not_boarded'}
                   size="sm"
                 />
+                <TouchableOpacity
+                  style={styles.rateBtn}
+                  onPress={(e) => { e.stopPropagation(); router.push(`/(app)/ratings/ride?tripId=${item.id}` as never); }}
+                >
+                  <Text style={styles.rateBtnText}>★ Rate</Text>
+                </TouchableOpacity>
               </View>
             </Card>
           </TouchableOpacity>
@@ -51,7 +57,9 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: spacing[1] },
   list: { padding: spacing[4], gap: spacing[3] },
   card: {},
-  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[3] },
   date: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   route: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  rateBtn: { paddingHorizontal: spacing[2], paddingVertical: spacing[1], borderRadius: radius.md, backgroundColor: '#FEF3C7' },
+  rateBtnText: { fontSize: fontSizes.xs, color: '#B45309', fontWeight: fontWeights.semibold },
 });

@@ -86,9 +86,9 @@ export default function TrackScreen() {
               <Text style={styles.driverName}>{MOCK_TRIP.driverName}</Text>
               <Text style={styles.driverSub}>Bus {MOCK_TRIP.busNumber}</Text>
             </View>
-            <TouchableOpacity style={styles.callBtn}>
-              <Text style={{ fontSize: 16 }}>📞</Text>
-              <Text style={styles.callText}>Call Admin</Text>
+            <TouchableOpacity style={styles.callBtn} onPress={() => router.push(`/(app)/messages/driver?tripId=${tripId}` as never)}>
+              <Text style={{ fontSize: 16 }}>💬</Text>
+              <Text style={styles.callText}>Message</Text>
             </TouchableOpacity>
           </View>
         </Card>

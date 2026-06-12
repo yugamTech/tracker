@@ -10,6 +10,7 @@ interface AuthState {
   memberships: MembershipOption[];
   isAuthenticated: boolean;
   setAuth: (person: Person, memberships: MembershipOption[], active: ActiveMembership) => void;
+  setActiveMembership: (membership: MembershipOption) => void;
   logout: () => void;
 }
 
@@ -20,6 +21,15 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   setAuth: (person, memberships, activeMembership) =>
     set({ person, memberships, activeMembership, isAuthenticated: true }),
+  setActiveMembership: (m) =>
+    set({
+      activeMembership: {
+        personId: '',
+        membershipId: m.id,
+        tenantId: m.tenantId,
+        role: m.role,
+      },
+    }),
   logout: () =>
     set({ person: null, activeMembership: null, memberships: [], isAuthenticated: false }),
 }));

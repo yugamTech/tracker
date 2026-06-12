@@ -14,12 +14,16 @@ export default function AdminOtpScreen() {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
+      const memberships = [
+        { id: 'mem-admin-001', tenantId: 'tenant-demo-001', tenantName: 'Sunrise School', role: Role.ADMIN },
+        { id: 'mem-admin-002', tenantId: 'tenant-demo-002', tenantName: 'Delhi Public School', role: Role.ADMIN },
+      ];
       setAuth(
         { id: 'person-admin', phone: phone ?? '', name: 'Priya Nair' },
-        [{ id: 'mem-admin-001', tenantId: 'tenant-demo-001', tenantName: 'Sunrise School', role: Role.ADMIN }],
-        { personId: 'person-admin', membershipId: 'mem-admin-001', tenantId: 'tenant-demo-001', role: Role.ADMIN }
+        memberships,
+        { personId: 'person-admin', membershipId: memberships[0].id, tenantId: memberships[0].tenantId, role: Role.ADMIN }
       );
-      router.replace('/(app)/dashboard');
+      router.replace('/(auth)/context-switch' as never);
     }, 1000);
   };
 

@@ -49,7 +49,7 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>Good morning 👋</Text>
             <Text style={styles.name}>{person?.name ?? 'Parent'}</Text>
           </View>
-          <TouchableOpacity style={styles.notifBtn}>
+          <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/(app)/notifications' as never)}>
             <Text style={{ fontSize: 22 }}>🔔</Text>
           </TouchableOpacity>
         </View>
