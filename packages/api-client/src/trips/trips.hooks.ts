@@ -35,3 +35,20 @@ export const useCompleteTrip = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: tripKeys.all }),
   });
 };
+
+export const useAbortTrip = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: tripsApi.abortTrip,
+    onSuccess: () => qc.invalidateQueries({ queryKey: tripKeys.all }),
+  });
+};
+
+export const useCancelPickup = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tripId, studentId, reason }: { tripId: string; studentId: string; reason?: string }) =>
+      tripsApi.cancelPickup(tripId, studentId, reason),
+    onSuccess: () => qc.invalidateQueries({ queryKey: tripKeys.all }),
+  });
+};

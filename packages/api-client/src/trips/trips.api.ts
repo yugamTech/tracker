@@ -26,4 +26,19 @@ export const tripsApi = {
     const { data } = await apiClient.post(`/trips/${tripId}/complete`);
     return data.data as Trip;
   },
+
+  cancelTrip: async (tripId: string) => {
+    const { data } = await apiClient.post(`/trips/${tripId}/cancel`);
+    return data.data as Trip;
+  },
+
+  abortTrip: async (tripId: string) => {
+    const { data } = await apiClient.post(`/trips/${tripId}/abort`);
+    return data.data as Trip;
+  },
+
+  cancelPickup: async (tripId: string, studentId: string, reason?: string) => {
+    const { data } = await apiClient.post(`/trips/${tripId}/cancel-pickup`, { studentId, reason });
+    return data.data;
+  },
 };
