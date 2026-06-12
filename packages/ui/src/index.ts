@@ -13,6 +13,7 @@ export { StatusDot } from './components/StatusDot';
 export type { StatusDotVariant } from './components/StatusDot';
 
 export { OtpInput } from './components/OtpInput';
+export { ScreenContainer } from './components/ScreenContainer';
 
 // Theme
 export { colors } from './theme/colors';

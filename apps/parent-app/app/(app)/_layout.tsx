@@ -21,12 +21,18 @@ export default function AppLayout() {
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >
+      {/* ── Visible tabs ── */}
       <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🏠</Text> }} />
       <Tabs.Screen name="track" options={{ title: 'Track', tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📍</Text> }} />
       <Tabs.Screen name="trips" options={{ title: 'Trips', tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🚌</Text> }} />
       <Tabs.Screen name="complaints" options={{ title: 'Help', tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>💬</Text> }} />
       <Tabs.Screen name="payments" options={{ title: 'Pay', tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>💳</Text> }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>👤</Text> }} />
+
+      {/* ── Hidden detail / flow screens — must be declared so Router knows they exist ── */}
+      <Tabs.Screen name="notifications" options={{ href: null }} />
+      <Tabs.Screen name="messages" options={{ href: null }} />
+      <Tabs.Screen name="ratings" options={{ href: null }} />
     </Tabs>
   );
 }
