@@ -33,6 +33,12 @@ export class TrackingController {
     return result;
   }
 
+  /** Active fleet snapshot for the tenant (admin fleet map initial load). */
+  @Get('fleet')
+  fleet(@TenantId() tenantId: string) {
+    return this.location.getFleet(tenantId);
+  }
+
   /** Latest known position for a trip (parent live map initial load). */
   @Get(':tripId/latest')
   latest(@Param('tripId') tripId: string) {

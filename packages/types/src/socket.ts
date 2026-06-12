@@ -62,6 +62,9 @@ export interface ClientToServerEvents {
   'driver:ping': (data: DriverPingPayload) => void;
   'subscribe:trip': (tripId: string) => void;
   'unsubscribe:trip': (tripId: string) => void;
+  // Fleet subscription is tenant-scoped from the JWT — no payload needed.
+  'subscribe:fleet': () => void;
+  'unsubscribe:fleet': () => void;
 }
 
 // Re-export for convenience

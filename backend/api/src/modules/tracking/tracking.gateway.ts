@@ -9,19 +9,62 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { LocationService } from './location.service';
 import type { LatestPosition } from './location.service';
 import type { LocationPingDto } from './dto/location-ping.dto';
+import type { JwtPayload } from '@saarthi/types';
+
+/** Roles allowed to watch the whole tenant fleet. */
+const FLEET_ROLES = ['ADMIN', 'TRANSPORT_MANAGER', 'FOUNDER', 'SUPER_ADMIN'];
+
+interface SocketData {
+  personId: string;
+  membershipId: string;
+  tenantId: string;
+  role: string;
+}
 
 @WebSocketGateway({ namespace: '/tracking', cors: { origin: '*' } })
 export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server!: Server;
   private readonly logger = new Logger(TrackingGateway.name);
 
-  constructor(private readonly locationService: LocationService) {}
+  constructor(
+    private readonly locationService: LocationService,
+    private readonly jwt: JwtService,
+    private readonly config: ConfigService,
+  ) {}
 
-  handleConnection(client: Socket) {
-    this.logger.log(`Client connected: ${client.id}`);
+  /** Verify the JWT presented on the handshake; reject the socket if invalid. */
+  async handleConnection(client: Socket) {
+    const token =
+      (client.handshake.auth?.token as string | undefined) ??
+      (client.handshake.headers?.authorization?.replace(/^Bearer\s+/i, '') as string | undefined);
+
+    if (!token) {
+      this.logger.warn(`Rejecting socket ${client.id}: no token`);
+      client.disconnect(true);
+      return;
+    }
+
+    try {
+      const payload = await this.jwt.verifyAsync<JwtPayload>(token, {
+        secret: this.config.get<string>('JWT_SECRET'),
+      });
+      const data: SocketData = {
+        personId: payload.sub,
+        membershipId: payload.membershipId,
+        tenantId: payload.tenantId,
+        role: payload.role,
+      };
+      client.data = data;
+      this.logger.log(`Socket ${client.id} authed (tenant=${data.tenantId}, role=${data.role})`);
+    } catch {
+      this.logger.warn(`Rejecting socket ${client.id}: invalid token`);
+      client.disconnect(true);
+    }
   }
 
   handleDisconnect(client: Socket) {
@@ -29,21 +72,52 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
   }
 
   @SubscribeMessage('subscribe:trip')
-  handleSubscribe(@MessageBody() tripId: string, @ConnectedSocket() client: Socket) {
+  async handleSubscribe(@MessageBody() tripId: string, @ConnectedSocket() client: Socket) {
+    const { tenantId } = (client.data ?? {}) as SocketData;
+    if (!tenantId || typeof tripId !== 'string') return;
+
+    // Scoped join: a client may only watch trips belonging to its own tenant.
+    const tripTenant = await this.locationService.getTripTenant(tripId);
+    if (!tripTenant || tripTenant !== tenantId) {
+      this.logger.warn(`Denied ${client.id} -> trip:${tripId} (cross-tenant or unknown)`);
+      return;
+    }
     client.join(`trip:${tripId}`);
     this.logger.log(`${client.id} subscribed to trip:${tripId}`);
   }
 
   @SubscribeMessage('unsubscribe:trip')
   handleUnsubscribe(@MessageBody() tripId: string, @ConnectedSocket() client: Socket) {
-    client.leave(`trip:${tripId}`);
+    if (typeof tripId === 'string') client.leave(`trip:${tripId}`);
+  }
+
+  @SubscribeMessage('subscribe:fleet')
+  handleSubscribeFleet(@ConnectedSocket() client: Socket) {
+    const { tenantId, role } = (client.data ?? {}) as SocketData;
+    if (!tenantId) return;
+    if (!FLEET_ROLES.includes(role)) {
+      this.logger.warn(`Denied ${client.id} -> fleet:${tenantId} (role ${role})`);
+      return;
+    }
+    // Always scoped to the JWT tenant — clients can't pick another tenant's fleet.
+    client.join(`fleet:${tenantId}`);
+    this.logger.log(`${client.id} subscribed to fleet:${tenantId}`);
+  }
+
+  @SubscribeMessage('unsubscribe:fleet')
+  handleUnsubscribeFleet(@ConnectedSocket() client: Socket) {
+    const { tenantId } = (client.data ?? {}) as SocketData;
+    if (tenantId) client.leave(`fleet:${tenantId}`);
   }
 
   @SubscribeMessage('driver:ping')
   async handleDriverPing(
     @MessageBody() data: LocationPingDto & { driverMembershipId: string; tenantId: string },
+    @ConnectedSocket() client: Socket,
   ) {
-    const result = await this.locationService.ingestOne(data, data.tenantId);
+    // Trust the authed tenant from the handshake, not the client-supplied field.
+    const tenantId = (client.data as SocketData)?.tenantId ?? data.tenantId;
+    const result = await this.locationService.ingestOne(data, tenantId);
     if (result.latest) this.broadcastLocation(result.latest);
   }
 
@@ -67,11 +141,21 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
   }
 
   // Emit helpers for use by other services
-  emitTripStatus(tripId: string, payload: unknown) {
+  emitTripStatus(tripId: string, tenantId: string, payload: unknown) {
     this.server.to(`trip:${tripId}`).emit('trip:status', payload);
+    this.server.to(`fleet:${tenantId}`).emit('trip:status', payload);
   }
 
   emitAttendance(tripId: string, payload: unknown) {
     this.server.to(`trip:${tripId}`).emit('trip:attendance', payload);
+  }
+
+  emitEta(tripId: string, payload: unknown) {
+    this.server.to(`trip:${tripId}`).emit('trip:eta', payload);
+  }
+
+  emitAlert(tripId: string, tenantId: string, payload: unknown) {
+    this.server.to(`trip:${tripId}`).emit('alert:critical', payload);
+    this.server.to(`fleet:${tenantId}`).emit('alert:critical', payload);
   }
 }

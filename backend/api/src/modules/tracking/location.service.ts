@@ -109,6 +109,12 @@ export class LocationService {
     return { kept, rejected };
   }
 
+  /** Tenant that owns a trip — used to scope socket room joins. Null if unknown. */
+  async getTripTenant(tripId: string): Promise<string | null> {
+    const meta = await this.getTripMeta(tripId);
+    return meta?.tenantId ?? null;
+  }
+
   /** Ingest a batch of pings for a single trip. */
   async ingestBatch(tripId: string, tenantId: string, pings: LocationPingDto[]): Promise<IngestResult> {
     const now = new Date();
@@ -140,10 +146,16 @@ export class LocationService {
 
     // Advance the latest-position cache only if this batch is genuinely newer.
     const newest = kept[kept.length - 1];
-    const latest: LatestPosition = { ...newest, vehicleId: meta?.vehicleId ?? null };
-    await this.updateLatestIfNewer(tripId, meta ?? { vehicleId: null, tenantId: resolvedTenant }, latest);
+    const candidate: LatestPosition = { ...newest, vehicleId: meta?.vehicleId ?? null };
+    const advanced = await this.updateLatestIfNewer(
+      tripId,
+      meta ?? { vehicleId: null, tenantId: resolvedTenant },
+      candidate,
+    );
 
-    return { tripId, accepted, duplicates, rejected, latest };
+    // Only surface a position to broadcast when it actually moved the trip
+    // forward (skips full-duplicate replays and out-of-order flushes).
+    return { tripId, accepted, duplicates, rejected, latest: advanced ? candidate : null };
   }
 
   /** Convenience single-ping ingest (used by the Socket.IO driver:ping path). */
@@ -151,14 +163,16 @@ export class LocationService {
     return this.ingestBatch(dto.tripId, tenantId, [dto]);
   }
 
-  private async updateLatestIfNewer(tripId: string, meta: TripMeta, candidate: LatestPosition): Promise<void> {
+  /** Returns true if the cache advanced to the candidate (i.e. it was newer). */
+  private async updateLatestIfNewer(tripId: string, meta: TripMeta, candidate: LatestPosition): Promise<boolean> {
     const key = this.latestKey(meta, tripId);
     const existing = await this.redis.get(key);
     if (existing) {
       const prev = JSON.parse(existing) as LatestPosition;
-      if (prev.sequence >= candidate.sequence) return; // out-of-order arrival — ignore
+      if (prev.sequence >= candidate.sequence) return false; // out-of-order arrival — ignore
     }
     await this.redis.setex(key, LATEST_TTL_SECONDS, JSON.stringify(candidate));
+    return true;
   }
 
   /** Latest known position for a trip — Redis-first, DB fallback. */
@@ -186,6 +200,27 @@ export class LocationService {
       serverTs: ping.serverTs.toISOString(),
       sequence: ping.sequence,
     };
+  }
+
+  /**
+   * Snapshot of every currently-active trip in a tenant + its latest position,
+   * for the admin fleet map's initial load (live deltas arrive via the socket).
+   */
+  async getFleet(tenantId: string) {
+    const trips = await this.prisma.trip.findMany({
+      where: { tenantId, status: { in: ['STARTED', 'IN_PROGRESS'] } },
+      include: { route: true, vehicle: true },
+    });
+    return Promise.all(
+      trips.map(async (trip) => ({
+        tripId: trip.id,
+        status: trip.status,
+        routeName: trip.route.name,
+        direction: trip.direction,
+        vehicleReg: trip.vehicle?.regNumber ?? null,
+        latest: await this.getLatest(trip.id),
+      })),
+    );
   }
 
   /** Full ordered ping history for a trip. */
