@@ -15,6 +15,7 @@ import { LocationService } from './location.service';
 import type { LatestPosition } from './location.service';
 import { GeofenceService } from './geofence.service';
 import { EtaService } from './eta.service';
+import { SpeedService } from './speed.service';
 import type { LocationPingDto } from './dto/location-ping.dto';
 import type { JwtPayload } from '@saarthi/types';
 
@@ -37,6 +38,7 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
     private readonly locationService: LocationService,
     private readonly geofenceService: GeofenceService,
     private readonly etaService: EtaService,
+    private readonly speedService: SpeedService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {}
@@ -149,6 +151,9 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
         etaTs: eta.etaTs,
       });
     }
+
+    const alert = await this.speedService.evaluate(latest);
+    if (alert) this.emitAlert(latest.tripId, latest.tenantId, alert);
   }
 
   /**

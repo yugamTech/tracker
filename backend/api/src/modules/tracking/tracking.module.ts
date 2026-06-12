@@ -5,6 +5,8 @@ import { TrackingController } from './tracking.controller';
 import { LocationService } from './location.service';
 import { GeofenceService } from './geofence.service';
 import { EtaService } from './eta.service';
+import { SpeedService } from './speed.service';
+import { SignalLossService } from './signal-loss.service';
 import { ETA_PROVIDER, HaversineEtaProvider } from './eta/eta.provider';
 
 @Module({
@@ -15,6 +17,8 @@ import { ETA_PROVIDER, HaversineEtaProvider } from './eta/eta.provider';
     LocationService,
     GeofenceService,
     EtaService,
+    SpeedService,
+    SignalLossService,
     // Stubbed external ETA call — swap for a GoogleDirectionsEtaProvider later.
     { provide: ETA_PROVIDER, useClass: HaversineEtaProvider },
   ],
