@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button } from '@saarthi/ui';
 import { useRoutes } from '@saarthi/api-client';
 import { router } from 'expo-router';
 
@@ -17,6 +17,9 @@ export default function RoutesScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.toolbar}>
+        <Button title="+ Add Vehicle" size="sm" variant="outline" onPress={() => router.push('/(app)/routes/vehicle/new' as never)} />
+      </View>
       <FlatList
         data={routes ?? []}
         keyExtractor={(r) => r.id}
@@ -62,6 +65,7 @@ export default function RoutesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.gray50 },
+  toolbar: { flexDirection: 'row', justifyContent: 'flex-end', padding: spacing[4], paddingBottom: 0 },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { padding: spacing[4], gap: spacing[3] },
   card: {},

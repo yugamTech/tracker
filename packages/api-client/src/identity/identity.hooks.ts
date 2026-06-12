@@ -63,3 +63,16 @@ export const useAgeGroups = () =>
 
 export const useMyTenant = () =>
   useQuery({ queryKey: identityKeys.tenant, queryFn: identityApi.getMyTenant });
+
+export const useAssignVehicle = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ memberId, vehicleId }: { memberId: string; vehicleId: string | null }) =>
+      identityApi.assignVehicle(memberId, vehicleId),
+    onSuccess: (_data, { memberId }) => {
+      qc.invalidateQueries({ queryKey: identityKeys.member(memberId) });
+      qc.invalidateQueries({ queryKey: ['identity', 'members'] });
+      qc.invalidateQueries({ queryKey: ['vehicles'] });
+    },
+  });
+};

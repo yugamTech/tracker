@@ -101,6 +101,11 @@ export const identityApi = {
     return data.data;
   },
 
+  assignVehicle: async (memberId: string, vehicleId: string | null): Promise<Member> => {
+    const { data } = await apiClient.patch(`/members/${memberId}`, { vehicleId });
+    return data.data;
+  },
+
   listAgeGroups: async () => {
     const { data } = await apiClient.get('/age-groups');
     return data.data as Array<{ id: string; name: string; pickupTime: string; dropTime: string; _count: { students: number } }>;

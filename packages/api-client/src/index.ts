@@ -21,6 +21,7 @@ export {
   useUpdateStudent,
   useMembers,
   useMemberById,
+  useAssignVehicle,
   useAgeGroups,
   useMyTenant,
 } from './identity/identity.hooks';
