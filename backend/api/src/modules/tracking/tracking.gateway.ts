@@ -13,6 +13,8 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { LocationService } from './location.service';
 import type { LatestPosition } from './location.service';
+import { GeofenceService } from './geofence.service';
+import { EtaService } from './eta.service';
 import type { LocationPingDto } from './dto/location-ping.dto';
 import type { JwtPayload } from '@saarthi/types';
 
@@ -33,6 +35,8 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   constructor(
     private readonly locationService: LocationService,
+    private readonly geofenceService: GeofenceService,
+    private readonly etaService: EtaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {}
@@ -118,7 +122,33 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
     // Trust the authed tenant from the handshake, not the client-supplied field.
     const tenantId = (client.data as SocketData)?.tenantId ?? data.tenantId;
     const result = await this.locationService.ingestOne(data, tenantId);
-    if (result.latest) this.broadcastLocation(result.latest);
+    if (result.latest) await this.processPosition(result.latest);
+  }
+
+  /**
+   * Shared post-ingest pipeline for both the socket and REST paths: fan out the
+   * position, run geofencing, and (re)broadcast the next-stop ETA.
+   */
+  async processPosition(latest: LatestPosition) {
+    this.broadcastLocation(latest);
+
+    const transitions = await this.geofenceService.evaluate(latest);
+    for (const t of transitions) {
+      this.server.to(`trip:${t.tripId}`).emit('trip:geofence', t);
+    }
+
+    const eta = await this.etaService.computeForNextStop(latest);
+    if (eta) {
+      this.emitEta(latest.tripId, {
+        tripId: eta.tripId,
+        stopId: eta.stopId,
+        stopName: eta.stopName,
+        etaMinutes: eta.etaMinutes,
+        etaSeconds: eta.etaSeconds,
+        distanceMeters: eta.distanceMeters,
+        etaTs: eta.etaTs,
+      });
+    }
   }
 
   /**

@@ -32,8 +32,19 @@ export interface AttendancePayload {
 export interface EtaPayload {
   tripId: string;
   stopId: string;
+  stopName: string;
   etaMinutes: number;
+  etaSeconds: number;
+  distanceMeters: number;
   etaTs: string;
+}
+
+export interface GeofencePayload {
+  tripId: string;
+  stopId: string;
+  stopName: string;
+  event: 'APPROACHING' | 'AT_STOP' | 'DEPARTED';
+  ts: string;
 }
 
 export interface AlertPayload {
@@ -49,6 +60,7 @@ export interface ServerToClientEvents {
   'trip:status': (data: TripStatusPayload) => void;
   'trip:attendance': (data: AttendancePayload) => void;
   'trip:eta': (data: EtaPayload) => void;
+  'trip:geofence': (data: GeofencePayload) => void;
   'alert:critical': (data: AlertPayload) => void;
 }
 

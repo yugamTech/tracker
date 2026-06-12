@@ -20,7 +20,7 @@ export class TrackingController {
   @Post('ping')
   async ping(@Body() dto: LocationPingDto, @TenantId() tenantId: string) {
     const result = await this.location.ingestOne(dto, tenantId);
-    if (result.latest) this.gateway.broadcastLocation(result.latest);
+    if (result.latest) await this.gateway.processPosition(result.latest);
     return result;
   }
 
@@ -29,7 +29,7 @@ export class TrackingController {
   async pingBatch(@Body() dto: LocationPingBatchDto, @TenantId() tenantId: string) {
     const tripId = dto.pings[0].tripId;
     const result = await this.location.ingestBatch(tripId, tenantId, dto.pings);
-    if (result.latest) this.gateway.broadcastLocation(result.latest);
+    if (result.latest) await this.gateway.processPosition(result.latest);
     return result;
   }
 

@@ -31,6 +31,15 @@ interface TripMeta {
   tenantId: string;
 }
 
+export interface TripStop {
+  stopId: string;
+  name: string;
+  lat: number;
+  lng: number;
+  radius: number;
+  sequence: number;
+}
+
 // Pings arriving with a device clock more than this far in the future are
 // treated as clock skew and clamped to server time.
 const FUTURE_SKEW_MS = 2 * 60 * 1000;
@@ -113,6 +122,36 @@ export class LocationService {
   async getTripTenant(tripId: string): Promise<string | null> {
     const meta = await this.getTripMeta(tripId);
     return meta?.tenantId ?? null;
+  }
+
+  /** Ordered stops (with coords + geofence radius) for a trip's route, cached in Redis. */
+  async getTripStops(tripId: string): Promise<TripStop[]> {
+    const cached = await this.redis.get(`trip:${tripId}:stops`);
+    if (cached) return JSON.parse(cached) as TripStop[];
+
+    const trip = await this.prisma.trip.findUnique({
+      where: { id: tripId },
+      select: {
+        route: {
+          select: {
+            stops: {
+              orderBy: { sequence: 'asc' },
+              select: { sequence: true, stop: true },
+            },
+          },
+        },
+      },
+    });
+    const stops: TripStop[] = (trip?.route.stops ?? []).map((rs) => ({
+      stopId: rs.stop.id,
+      name: rs.stop.name,
+      lat: rs.stop.lat,
+      lng: rs.stop.lng,
+      radius: rs.stop.geofenceRadius,
+      sequence: rs.sequence,
+    }));
+    await this.redis.setex(`trip:${tripId}:stops`, TRIP_META_TTL_SECONDS, JSON.stringify(stops));
+    return stops;
   }
 
   /** Ingest a batch of pings for a single trip. */
