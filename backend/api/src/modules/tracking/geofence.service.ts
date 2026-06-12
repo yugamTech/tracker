@@ -13,6 +13,8 @@ export interface GeofenceTransition {
   stopName: string;
   event: 'APPROACHING' | 'AT_STOP' | 'DEPARTED';
   ts: string;
+  /** Riders auto-marked NOT_BOARDED because the bus left their stop (DEPARTED only). */
+  notBoarded?: { studentId: string; studentName: string }[];
 }
 
 const STATE_TTL_SECONDS = 6 * 3600;
@@ -60,10 +62,30 @@ export class GeofenceService {
       await this.prisma.geofenceEvent.create({
         data: { tripId: latest.tripId, stopId: stop.stopId, event: transition.event },
       });
+      // When the bus leaves a stop, anyone still EXPECTED there didn't board.
+      if (transition.event === 'DEPARTED') {
+        transition.notBoarded = await this.markNotBoarded(latest.tripId, stop.stopId);
+      }
       this.logger.log(`geofence ${latest.tripId}/${stop.name}: ${current} -> ${next}`);
       transitions.push(transition);
     }
     return transitions;
+  }
+
+  /** Flip riders still EXPECTED at a departed stop to NOT_BOARDED; returns them. */
+  private async markNotBoarded(tripId: string, stopId: string) {
+    const riders = await this.prisma.tripRider.findMany({
+      where: { tripId, stopId, boardStatus: 'EXPECTED' },
+      include: { student: { select: { name: true } } },
+    });
+    if (riders.length === 0) return [];
+
+    await this.prisma.tripRider.updateMany({
+      where: { tripId, stopId, boardStatus: 'EXPECTED' },
+      data: { boardStatus: 'NOT_BOARDED' },
+    });
+    riders.forEach((r) => this.logger.warn(`NOT_BOARDED: ${r.student.name} (trip ${tripId})`));
+    return riders.map((r) => ({ studentId: r.studentId, studentName: r.student.name }));
   }
 
   /** Forward-only state machine with hysteresis on the enter/exit thresholds. */

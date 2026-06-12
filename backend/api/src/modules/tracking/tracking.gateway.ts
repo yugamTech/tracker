@@ -136,7 +136,24 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
 
     const transitions = await this.geofenceService.evaluate(latest);
     for (const t of transitions) {
-      this.server.to(`trip:${t.tripId}`).emit('trip:geofence', t);
+      this.server.to(`trip:${t.tripId}`).emit('trip:geofence', {
+        tripId: t.tripId,
+        stopId: t.stopId,
+        stopName: t.stopName,
+        event: t.event,
+        ts: t.ts,
+      });
+      // Surface geofence-driven not-boarded exceptions on the attendance feed.
+      for (const r of t.notBoarded ?? []) {
+        this.emitAttendance(t.tripId, {
+          tripId: t.tripId,
+          studentId: r.studentId,
+          studentName: r.studentName,
+          tenantId: latest.tenantId,
+          type: 'NOT_BOARDED',
+          ts: t.ts,
+        });
+      }
     }
 
     const eta = await this.etaService.computeForNextStop(latest);

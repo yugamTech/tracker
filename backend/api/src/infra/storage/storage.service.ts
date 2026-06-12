@@ -7,16 +7,16 @@ export class StorageService {
 
   /**
    * Upload a file buffer and return the public URL.
-   * Stub implementation — wire up DO Spaces / S3 in production.
+   * Phase 3 stub — returns a deterministic local/fake URL (no DO Spaces / S3).
+   * Swap the body for a real S3/Spaces putObject in production.
    */
   async upload(
     _buffer: Buffer,
-    _filename: string,
+    filename: string,
     _contentType: string,
   ): Promise<string> {
-    // TODO: implement S3/DO Spaces upload
-    const bucket = this.config.get<string>('STORAGE_BUCKET', 'saarthi-dev');
-    return `https://${bucket}.placeholder.com/${_filename}`;
+    const base = this.config.get<string>('STORAGE_PUBLIC_URL') || 'https://saarthi-local.fake';
+    return `${base}/${filename.replace(/^\/+/, '')}`;
   }
 
   async delete(_url: string): Promise<void> {

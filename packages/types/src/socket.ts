@@ -24,8 +24,10 @@ export interface TripStatusPayload {
 export interface AttendancePayload {
   tripId: string;
   studentId: string;
+  studentName: string;
   tenantId: string;
-  type: AttendanceType;
+  // NOT_BOARDED is raised by the geofence-departure automation, not a driver action.
+  type: AttendanceType | 'NOT_BOARDED';
   ts: string;
 }
 

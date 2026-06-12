@@ -18,4 +18,29 @@ export const attendanceApi = {
     const { data } = await apiClient.get(`/attendance/trip/${tripId}`);
     return data.data as AttendanceEvent[];
   },
+
+  getRoster: async (tripId: string) => {
+    const { data } = await apiClient.get(`/attendance/trip/${tripId}/roster`);
+    return data.data as RosterResponse;
+  },
+
+  uploadPhoto: async (filename: string, base64?: string, contentType = 'image/jpeg') => {
+    const { data } = await apiClient.post('/attendance/photo', { filename, base64, contentType });
+    return data.data as { url: string };
+  },
 };
+
+export interface RosterRider {
+  studentId: string;
+  studentName: string;
+  boardStatus: 'EXPECTED' | 'BOARDED' | 'NOT_BOARDED' | 'CANCELLED';
+  photoUrl: string | null;
+  lastEventType: 'BOARDED' | 'ALIGHTED' | null;
+  lastEventTs: string | null;
+}
+
+export interface RosterResponse {
+  tripId: string;
+  summary: { total: number; boarded: number; notBoarded: number; cancelled: number; expected: number };
+  stops: { stopId: string; stopName: string; riders: RosterRider[] }[];
+}

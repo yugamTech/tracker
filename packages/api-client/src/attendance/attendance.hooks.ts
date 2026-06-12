@@ -12,6 +12,13 @@ export const useTripAttendance = (tripId: string) =>
     enabled: !!tripId,
   });
 
+export const useRoster = (tripId: string) =>
+  useQuery({
+    queryKey: [...attendanceKeys.trip(tripId), 'roster'],
+    queryFn: () => attendanceApi.getRoster(tripId),
+    enabled: !!tripId,
+  });
+
 export const useMarkAttendance = () => {
   const qc = useQueryClient();
   return useMutation({
