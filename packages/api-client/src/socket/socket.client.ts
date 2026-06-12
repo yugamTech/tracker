@@ -1,5 +1,5 @@
 import { io, type Socket } from 'socket.io-client';
-import type { ServerToClientEvents, ClientToServerEvents } from '@saarthi/types';
+import type { ServerToClientEvents, ClientToServerEvents, DriverPingPayload } from '@saarthi/types';
 import * as SecureStore from 'expo-secure-store';
 import { TOKEN_KEY } from '../axios';
 
@@ -41,4 +41,17 @@ export const subscribeToTrip = (tripId: string): void => {
 
 export const unsubscribeFromTrip = (tripId: string): void => {
   socket?.emit('unsubscribe:trip', tripId);
+};
+
+export const subscribeToFleet = (): void => {
+  socket?.emit('subscribe:fleet');
+};
+
+export const unsubscribeFromFleet = (): void => {
+  socket?.emit('unsubscribe:fleet');
+};
+
+/** Driver app: stream the bus position over the socket driver:ping channel. */
+export const emitDriverPing = (payload: DriverPingPayload): void => {
+  socket?.emit('driver:ping', payload);
 };

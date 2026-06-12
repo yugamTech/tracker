@@ -37,12 +37,25 @@ export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, use
 
 // Trips
 export { tripsApi } from './trips/trips.api';
-export { tripKeys, useTodayTrips, useTripById, useStartTrip, useCompleteTrip } from './trips/trips.hooks';
+export {
+  tripKeys,
+  useTodayTrips,
+  useTripById,
+  useStartTrip,
+  useCompleteTrip,
+  useAbortTrip,
+  useCancelPickup,
+} from './trips/trips.hooks';
+
+// Tracking
+export { trackingApi } from './tracking/tracking.api';
+export type { LocationPingPayload, LatestPosition, FleetEntry } from './tracking/tracking.api';
+export { useTripHistory, useLatestPosition, useFleet, useTripReplay } from './tracking/tracking.hooks';
 
 // Attendance
 export { attendanceApi } from './attendance/attendance.api';
-export type { MarkAttendanceDto } from './attendance/attendance.api';
-export { attendanceKeys, useTripAttendance, useMarkAttendance } from './attendance/attendance.hooks';
+export type { MarkAttendanceDto, RosterResponse, RosterRider } from './attendance/attendance.api';
+export { attendanceKeys, useTripAttendance, useMarkAttendance, useRoster } from './attendance/attendance.hooks';
 
 // Complaints
 export { complaintsApi } from './complaints/complaints.api';
@@ -54,5 +67,15 @@ export { paymentsApi } from './payments/payments.api';
 export { paymentKeys, useMyInvoices, useInvoiceById, useMandate, useInitiatePayment, useCreateMandate } from './payments/payments.hooks';
 
 // Socket
-export { getSocket, connectSocket, disconnectSocket, subscribeToTrip, unsubscribeFromTrip } from './socket/socket.client';
-export { useTripSocket, useFleetSocket } from './socket/socket.hooks';
+export {
+  getSocket,
+  connectSocket,
+  disconnectSocket,
+  subscribeToTrip,
+  unsubscribeFromTrip,
+  subscribeToFleet,
+  unsubscribeFromFleet,
+  emitDriverPing,
+} from './socket/socket.client';
+export { useTripSocket, useFleetSocket, useDriverPing } from './socket/socket.hooks';
+export type { TripSocketHandlers } from './socket/socket.hooks';

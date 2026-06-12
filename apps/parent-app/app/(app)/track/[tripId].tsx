@@ -1,97 +1,155 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, StatusDot, Card } from '@saarthi/ui';
-
-// Mock live trip data
-const MOCK_TRIP = {
-  id: 'trip-today-001',
-  busNumber: 'HR26-DL-9900',
-  driverName: 'Ramesh Kumar',
-  driverPhone: '+919999000002',
-  currentStop: 'DLF Phase 2',
-  nextStop: 'Sector 18 Gate',
-  etaMinutes: 8,
-  totalStops: 6,
-  currentStopIndex: 4,
-  lat: 28.5678,
-  lng: 77.3234,
-  speed: 32,
-};
+import {
+  useTripById,
+  useLatestPosition,
+  useTripSocket,
+  useMyStudents,
+  useCancelPickup,
+} from '@saarthi/api-client';
 
 export default function TrackScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
+  const { data: trip, isLoading } = useTripById(tripId);
+  const { data: primed } = useLatestPosition(tripId);
+  const { data: myStudents } = useMyStudents();
+  const cancelPickup = useCancelPickup();
+
+  const [pos, setPos] = useState<{ lat: number; lng: number; speed: number | null } | null>(null);
+  const [eta, setEta] = useState<{ stopName: string; minutes: number } | null>(null);
+  const [departed, setDeparted] = useState<Set<string>>(new Set());
+  const [live, setLive] = useState(false);
+
+  // Prime from the REST latest snapshot before socket deltas arrive.
+  const latest = pos ?? (primed ? { lat: primed.lat, lng: primed.lng, speed: primed.speed } : null);
+
+  useTripSocket(tripId, {
+    onLocation: (d) => {
+      setPos({ lat: d.lat, lng: d.lng, speed: d.speed ?? null });
+      setLive(true);
+    },
+    onEta: (d) => setEta({ stopName: d.stopName, minutes: d.etaMinutes }),
+    onGeofence: (d) => {
+      if (d.event === 'DEPARTED') setDeparted((s) => new Set(s).add(d.stopId));
+    },
+  });
+
+  const routeStops: { id: string; name: string }[] =
+    (trip as any)?.route?.stops?.map((rs: any) => ({ id: rs.stop.id, name: rs.stop.name })) ?? [];
+  const totalStops = routeStops.length || 1;
+  const doneCount = routeStops.filter((s) => departed.has(s.id)).length;
+
+  // The parent's own child still expected on this trip (cancel-pickup target).
+  const myIds = new Set((myStudents ?? []).map((s: any) => s.id));
+  const cancellable = ((trip as any)?.riders ?? []).find(
+    (r: any) => myIds.has(r.studentId) && r.boardStatus === 'EXPECTED',
+  );
+
+  const onCancelPickup = () => {
+    if (!cancellable) return;
+    Alert.alert('Cancel pickup?', `Skip ${cancellable.student?.name ?? 'your child'} for this trip?`, [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Yes, cancel',
+        style: 'destructive',
+        onPress: () =>
+          cancelPickup.mutate(
+            { tripId, studentId: cancellable.studentId, reason: 'Cancelled by parent' },
+            {
+              onSuccess: () => Alert.alert('Pickup cancelled', 'The driver roster has been updated.'),
+              onError: (e: any) => Alert.alert('Could not cancel', e?.message ?? 'Try again'),
+            },
+          ),
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Live Tracking</Text>
-        <View style={styles.livePill}>
-          <StatusDot variant="live" size={8} />
-          <Text style={styles.liveText}>LIVE</Text>
+        <View style={[styles.livePill, !live && styles.livePillIdle]}>
+          <StatusDot variant={live ? 'live' : 'idle'} size={8} />
+          <Text style={[styles.liveText, !live && styles.liveTextIdle]}>{live ? 'LIVE' : 'OFFLINE'}</Text>
         </View>
       </View>
 
-      {/* Map Placeholder */}
       <View style={styles.mapPlaceholder}>
-        <Text style={styles.mapIcon}>🗺️</Text>
-        <Text style={styles.mapText}>Live Map</Text>
-        <Text style={styles.mapSub}>
-          Bus at {MOCK_TRIP.lat.toFixed(4)}, {MOCK_TRIP.lng.toFixed(4)}
-        </Text>
-        <Text style={styles.mapSub}>Speed: {MOCK_TRIP.speed} km/h</Text>
+        {isLoading && !latest ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : (
+          <>
+            <Text style={styles.mapIcon}>🚌</Text>
+            <Text style={styles.mapText}>Live Map</Text>
+            {latest ? (
+              <>
+                <Text style={styles.mapSub}>
+                  Bus at {latest.lat.toFixed(4)}, {latest.lng.toFixed(4)}
+                </Text>
+                <Text style={styles.mapSub}>
+                  Speed: {latest.speed != null ? `${Math.round(latest.speed * 3.6)} km/h` : '—'}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.mapSub}>Waiting for the bus to start moving…</Text>
+            )}
+          </>
+        )}
       </View>
 
-      {/* Bottom sheet */}
       <View style={styles.sheet}>
-        {/* ETA */}
         <View style={styles.etaRow}>
           <View>
             <Text style={styles.etaLabel}>Next Stop</Text>
-            <Text style={styles.etaStop}>{MOCK_TRIP.nextStop}</Text>
+            <Text style={styles.etaStop}>{eta?.stopName ?? '—'}</Text>
           </View>
           <View style={styles.etaBox}>
-            <Text style={styles.etaNumber}>{MOCK_TRIP.etaMinutes}</Text>
+            <Text style={styles.etaNumber}>{eta?.minutes ?? '–'}</Text>
             <Text style={styles.etaUnit}>min</Text>
           </View>
         </View>
 
-        {/* Progress */}
         <View style={styles.progress}>
           <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${(MOCK_TRIP.currentStopIndex / MOCK_TRIP.totalStops) * 100}%` },
-              ]}
-            />
+            <View style={[styles.progressFill, { width: `${(doneCount / totalStops) * 100}%` }]} />
           </View>
           <Text style={styles.progressText}>
-            Stop {MOCK_TRIP.currentStopIndex} of {MOCK_TRIP.totalStops}
+            {doneCount} of {totalStops} stops passed
           </Text>
         </View>
 
-        {/* Driver info */}
         <Card style={styles.driverCard} shadow="none">
           <View style={styles.driverRow}>
             <View style={styles.driverAvatar}>
-              <Text style={{ fontSize: 20 }}>👨‍✈️</Text>
+              <Text style={{ fontSize: 20 }}>🚌</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.driverName}>{MOCK_TRIP.driverName}</Text>
-              <Text style={styles.driverSub}>Bus {MOCK_TRIP.busNumber}</Text>
+              <Text style={styles.driverName}>{(trip as any)?.route?.name ?? 'Route'}</Text>
+              <Text style={styles.driverSub}>Bus {(trip as any)?.vehicle?.regNumber ?? '—'}</Text>
             </View>
-            <TouchableOpacity style={styles.callBtn} onPress={() => router.push(`/(app)/messages/driver?tripId=${tripId}` as never)}>
+            <TouchableOpacity
+              style={styles.callBtn}
+              onPress={() => router.push(`/(app)/messages/driver?tripId=${tripId}` as never)}
+            >
               <Text style={{ fontSize: 16 }}>💬</Text>
               <Text style={styles.callText}>Message</Text>
             </TouchableOpacity>
           </View>
         </Card>
+
+        {cancellable && (
+          <TouchableOpacity style={styles.cancelBtn} onPress={onCancelPickup} disabled={cancelPickup.isPending}>
+            <Text style={styles.cancelText}>
+              {cancelPickup.isPending ? 'Cancelling…' : '✕ Cancel pickup for today'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -120,7 +178,9 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: radius.full,
   },
+  livePillIdle: { backgroundColor: colors.gray100 },
   liveText: { fontSize: fontSizes.xs, color: colors.success, fontWeight: fontWeights.bold },
+  liveTextIdle: { color: colors.textMuted },
   mapPlaceholder: {
     flex: 1,
     alignItems: 'center',
@@ -156,11 +216,23 @@ const styles = StyleSheet.create({
   driverCard: { backgroundColor: colors.gray50 },
   driverRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   driverAvatar: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: colors.gray200, alignItems: 'center', justifyContent: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.gray200,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   driverName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   driverSub: { fontSize: fontSizes.sm, color: colors.textSecondary },
   callBtn: { alignItems: 'center', gap: 2 },
   callText: { fontSize: fontSizes.xs, color: colors.primary, fontWeight: fontWeights.medium },
+  cancelBtn: {
+    alignItems: 'center',
+    paddingVertical: spacing[3],
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  cancelText: { fontSize: fontSizes.sm, color: colors.error, fontWeight: fontWeights.semibold },
 });

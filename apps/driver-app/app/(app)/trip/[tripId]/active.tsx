@@ -1,82 +1,182 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, fontFamilies, radius, StatusDot, Button } from '@saarthi/ui';
+import { useTripById, useStartTrip, useCompleteTrip, useDriverPing } from '@saarthi/api-client';
+import { useAuthStore } from '../../../../store/auth.store';
 
-const MOCK_STOPS = [
-  { id: 's1', name: 'Sector 18 Gate', riderCount: 8, done: true },
-  { id: 's2', name: 'DLF Phase 2', riderCount: 7, done: false },
-  { id: 's3', name: 'Vatika City', riderCount: 5, done: false },
-  { id: 's4', name: 'School Gate', riderCount: 0, done: false },
-];
+const PING_INTERVAL_MS = 2500;
+const STEP_METERS = 20; // ~30 km/h at the ping interval
+
+const toRad = (d: number) => (d * Math.PI) / 180;
+function haversine(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(x)));
+}
 
 export default function ActiveTripScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
-  const [currentStopIdx, setCurrentStopIdx] = useState(1);
+  const { data: trip } = useTripById(tripId);
+  const startTrip = useStartTrip();
+  const completeTrip = useCompleteTrip();
+  const sendPing = useDriverPing();
+  const membership = useAuthStore((s) => s.activeMembership);
+
+  const [broadcasting, setBroadcasting] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [pingsSent, setPingsSent] = useState(0);
+  const [targetIdx, setTargetIdx] = useState(1);
+
+  const stops: { id: string; name: string; lat: number; lng: number }[] =
+    (trip as any)?.route?.stops?.map((rs: any) => ({
+      id: rs.stop.id,
+      name: rs.stop.name,
+      lat: rs.stop.lat,
+      lng: rs.stop.lng,
+    })) ?? [];
+
+  // Mutable driving state kept in refs so the ping interval reads fresh values.
+  const posRef = useRef<{ lat: number; lng: number } | null>(null);
+  const seqRef = useRef(Math.floor(Date.now() / 1000));
+  const targetRef = useRef(1);
+  targetRef.current = targetIdx;
 
   useEffect(() => {
-    const interval = setInterval(() => setElapsed((e) => e + 1), 1000);
-    return () => clearInterval(interval);
-  }, []);
+    if (stops.length && !posRef.current) posRef.current = { lat: stops[0].lat, lng: stops[0].lng };
+  }, [stops.length]);
 
-  const formatElapsed = (s: number) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
-  const currentStop = MOCK_STOPS[currentStopIdx];
+  // Elapsed timer once broadcasting.
+  useEffect(() => {
+    if (!broadcasting) return;
+    const t = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(t);
+  }, [broadcasting]);
+
+  // The live broadcast loop: step toward the next stop and emit driver:ping.
+  useEffect(() => {
+    if (!broadcasting || !membership || stops.length < 2) return;
+    const timer = setInterval(() => {
+      const cur = posRef.current;
+      const tgt = stops[targetRef.current] ?? stops[stops.length - 1];
+      if (!cur) return;
+
+      const dist = haversine(cur, tgt);
+      let next: { lat: number; lng: number };
+      if (dist <= STEP_METERS) {
+        next = { lat: tgt.lat, lng: tgt.lng };
+        if (targetRef.current < stops.length - 1) setTargetIdx((i) => i + 1);
+      } else {
+        const f = STEP_METERS / dist;
+        next = { lat: cur.lat + (tgt.lat - cur.lat) * f, lng: cur.lng + (tgt.lng - cur.lng) * f };
+      }
+      posRef.current = next;
+
+      sendPing({
+        tripId,
+        tenantId: membership.tenantId,
+        driverMembershipId: membership.membershipId,
+        lat: next.lat,
+        lng: next.lng,
+        accuracy: 5,
+        speed: STEP_METERS / (PING_INTERVAL_MS / 1000),
+        deviceTs: new Date().toISOString(),
+        sequence: seqRef.current++,
+      });
+      setPingsSent((n) => n + 1);
+    }, PING_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [broadcasting, membership, stops.length, tripId, sendPing]);
+
+  const onStart = () => {
+    startTrip.mutate(tripId, {
+      onSuccess: () => setBroadcasting(true),
+      onError: (e: any) => {
+        // Already started? Broadcast anyway.
+        if (String(e?.message ?? '').includes('STARTED')) setBroadcasting(true);
+        else Alert.alert('Could not start trip', e?.message ?? 'Try again');
+      },
+    });
+  };
+
+  const onComplete = () => {
+    setBroadcasting(false);
+    completeTrip.mutate(tripId, {
+      onSettled: () => router.replace(`/(app)/trip/${tripId}/complete` as never),
+    });
+  };
+
+  const fmt = (s: number) =>
+    `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
+  const nextStop = stops[targetIdx] ?? stops[stops.length - 1];
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Status bar */}
       <View style={styles.statusBar}>
         <View style={styles.liveRow}>
-          <StatusDot variant="live" size={10} />
-          <Text style={styles.liveText}>TRIP ACTIVE</Text>
+          <StatusDot variant={broadcasting ? 'live' : 'offline'} size={10} />
+          <Text style={styles.liveText}>{broadcasting ? 'BROADCASTING' : 'NOT STARTED'}</Text>
         </View>
-        <Text style={styles.timer}>⏱ {formatElapsed(elapsed)}</Text>
+        <Text style={styles.timer}>⏱ {fmt(elapsed)}</Text>
         <View style={styles.signalBadge}>
-          <Text style={styles.signalText}>📶 Strong</Text>
+          <Text style={styles.signalText}>📡 {pingsSent} pings</Text>
         </View>
       </View>
 
-      {/* Current stop */}
       <View style={styles.currentStop}>
         <Text style={styles.stopLabel}>NEXT STOP</Text>
-        <Text style={styles.stopName}>{currentStop?.name}</Text>
+        <Text style={styles.stopName}>{nextStop?.name ?? '—'}</Text>
         <Text style={styles.stopMeta}>
-          Stop {currentStopIdx + 1} of {MOCK_STOPS.length} · {currentStop?.riderCount} riders
+          Stop {Math.min(targetIdx + 1, stops.length)} of {stops.length || '—'} ·{' '}
+          {(trip as any)?.route?.name ?? 'Route'}
         </Text>
       </View>
 
-      {/* Mock map */}
       <View style={styles.mapArea}>
-        <Text style={{ fontSize: 56 }}>🗺️</Text>
-        <Text style={styles.mapText}>GPS Active</Text>
-        <Text style={styles.mapSub}>Location broadcasting every 5s</Text>
+        <Text style={{ fontSize: 56 }}>{broadcasting ? '🛰️' : '🗺️'}</Text>
+        <Text style={styles.mapText}>{broadcasting ? 'GPS Active' : 'GPS Idle'}</Text>
+        <Text style={styles.mapSub}>
+          {broadcasting
+            ? `Streaming via driver:ping every ${PING_INTERVAL_MS / 1000}s`
+            : 'Start the trip to begin broadcasting'}
+        </Text>
+        {posRef.current && broadcasting && (
+          <Text style={styles.mapSub}>
+            {posRef.current.lat.toFixed(4)}, {posRef.current.lng.toFixed(4)}
+          </Text>
+        )}
       </View>
 
-      {/* Action buttons */}
       <View style={styles.actions}>
-        <View style={styles.actionsTop}>
-          <Button
-            title={`✓ Stop ${currentStopIdx + 1} Done`}
-            onPress={() => {
-              if (currentStopIdx < MOCK_STOPS.length - 1) setCurrentStopIdx((i) => i + 1);
-              else router.replace(`/(app)/trip/${tripId}/complete` as never);
-            }}
-            fullWidth
-            size="lg"
-            style={{ flex: 1 }}
-          />
-          <TouchableOpacity style={styles.alertsBtn} onPress={() => router.push(`/(app)/trip/alerts?tripId=${tripId}` as never)}>
-            <Text style={{ fontSize: 20 }}>🔔</Text>
-            <Text style={styles.alertsBtnText}>Alerts</Text>
-          </TouchableOpacity>
-        </View>
+        {!broadcasting ? (
+          <Button title="▶ Start Trip" onPress={onStart} fullWidth size="lg" loading={startTrip.isPending} />
+        ) : (
+          <View style={styles.actionsTop}>
+            <Button
+              title="Stop at this stop"
+              onPress={() => router.push(`/(app)/trip/attendance/${nextStop?.id}?tripId=${tripId}` as never)}
+              size="lg"
+              style={{ flex: 1 }}
+            />
+            <TouchableOpacity
+              style={styles.alertsBtn}
+              onPress={() => router.push(`/(app)/trip/alerts?tripId=${tripId}` as never)}
+            >
+              <Text style={{ fontSize: 20 }}>🔔</Text>
+              <Text style={styles.alertsBtnText}>Alerts</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         <Button
           title="Complete Trip"
           variant="outline"
-          onPress={() => router.replace(`/(app)/trip/${tripId}/complete` as never)}
+          onPress={onComplete}
           fullWidth
+          loading={completeTrip.isPending}
         />
       </View>
     </SafeAreaView>
