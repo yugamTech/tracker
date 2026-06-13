@@ -35,9 +35,16 @@ export default function PeopleScreen() {
           placeholder="Search by name or ID…"
           placeholderTextColor={colors.gray400}
         />
-        {tab === 'students' && (
-          <Button title="+ Add" size="sm" onPress={() => router.push('/(app)/people/students/new' as never)} style={styles.addBtn} />
-        )}
+        <Button
+          title="+ Add"
+          size="sm"
+          onPress={() =>
+            router.push(
+              (tab === 'students' ? '/(app)/people/students/new' : '/(app)/people/staff/new') as never,
+            )
+          }
+          style={styles.addBtn}
+        />
       </View>
 
       {/* Tabs */}

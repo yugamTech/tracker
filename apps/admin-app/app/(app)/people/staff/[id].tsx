@@ -1,37 +1,39 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet,
+  View, Text, TextInput, ScrollView, StyleSheet,
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, Button } from '@saarthi/ui';
-import { useMemberById, useAssignVehicle, useVehicles } from '@saarthi/api-client';
+import { useMemberById, useUpdateMember, useDeactivateMember } from '@saarthi/api-client';
+
+/** Roles an admin may assign here (PRD-01 FR-13). Mirrors the backend STAFF_ROLES. */
+const ROLES = [
+  { value: 'DRIVER', label: 'Driver' },
+  { value: 'CONDUCTOR', label: 'Conductor' },
+  { value: 'ADMIN', label: 'Admin' },
+  { value: 'TRANSPORT_MANAGER', label: 'Transport Manager' },
+] as const;
 
 export default function StaffDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { data: member, isLoading } = useMemberById(id);
-  const { data: vehicles = [] } = useVehicles();
-  const assignVehicle = useAssignVehicle();
+  const updateMember = useUpdateMember();
+  const deactivateMember = useDeactivateMember();
 
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
-  const [showAssign, setShowAssign] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<string>('');
 
-  const currentVehicle = member?.vehicleAssignments?.[0]?.vehicle ?? null;
-
-  const handleAssign = (vehicleId: string | null) => {
-    assignVehicle.mutate(
-      { memberId: id, vehicleId },
-      {
-        onSuccess: () => {
-          Alert.alert('Saved', vehicleId ? 'Vehicle assigned' : 'Vehicle assignment cleared');
-          setShowAssign(false);
-          setSelectedVehicleId(null);
-        },
-        onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed'),
-      },
-    );
-  };
+  // Hydrate the form once the member loads.
+  useEffect(() => {
+    if (member) {
+      setName(member.person.name);
+      setEmail(member.person.email ?? '');
+      setRole(member.role);
+    }
+  }, [member]);
 
   if (isLoading) {
     return <View style={styles.loader}><ActivityIndicator color={colors.primary} /></View>;
@@ -41,10 +43,40 @@ export default function StaffDetailScreen() {
     return <View style={styles.loader}><Text style={styles.errorText}>Staff member not found</Text></View>;
   }
 
-  const activeVehicles = vehicles.filter((v) => v.status === 'ACTIVE');
+  const isActive = member.status === 'ACTIVE';
+
+  const handleSave = () => {
+    if (!name.trim()) { Alert.alert('Validation', 'Name is required'); return; }
+    updateMember.mutate(
+      { id, name: name.trim(), email: email.trim() || undefined, role },
+      {
+        onSuccess: () => Alert.alert('Saved', 'Staff member updated'),
+        onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to update'),
+      },
+    );
+  };
+
+  const handleDeactivate = () => {
+    Alert.alert(
+      'Deactivate staff member',
+      `${member.person.name} will lose access to this school. Their account is kept (not deleted) and can be re-added later.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Deactivate',
+          style: 'destructive',
+          onPress: () =>
+            deactivateMember.mutate(id, {
+              onSuccess: () => { Alert.alert('Done', 'Staff member deactivated'); router.back(); },
+              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to deactivate'),
+            }),
+        },
+      ],
+    );
+  };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Profile card */}
       <Card style={styles.header}>
         <Avatar name={member.person.name} size={56} />
@@ -52,101 +84,82 @@ export default function StaffDetailScreen() {
           <Text style={styles.headerName}>{member.person.name}</Text>
           <Text style={styles.headerPhone}>{member.person.phone}</Text>
           <Badge
-            label={member.role}
-            variant={member.role === 'DRIVER' ? 'active' : 'inactive'}
+            label={isActive ? member.role : `${member.role} · DEACTIVATED`}
+            variant={isActive ? 'active' : 'inactive'}
             size="sm"
           />
         </View>
       </Card>
 
-      {/* Vehicle assignment */}
+      {/* Edit form */}
       <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Vehicle Assignment</Text>
+        <Text style={styles.sectionTitle}>Edit Details</Text>
+        <Text style={styles.hint}>
+          Name &amp; email belong to the person's global identity (shared across schools).
+          Phone is the login key and can't be changed here.
+        </Text>
 
-        {currentVehicle ? (
-          <View style={styles.vehicleRow}>
-            <View style={styles.vehicleIcon}>
-              <Text style={{ fontSize: 24 }}>🚌</Text>
-            </View>
-            <View style={styles.vehicleInfo}>
-              <Text style={styles.vehicleReg}>{currentVehicle.regNumber}</Text>
-              <Text style={styles.vehicleSub}>Currently assigned</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.clearBtn}
-              onPress={() => Alert.alert('Clear Assignment', 'Remove vehicle from this driver?', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Remove', style: 'destructive', onPress: () => handleAssign(null) },
-              ])}
-            >
-              <Text style={styles.clearBtnText}>Clear</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <Text style={styles.unassignedText}>No vehicle assigned</Text>
-        )}
-
-        <Button
-          title={showAssign ? 'Cancel' : (currentVehicle ? 'Reassign Vehicle' : 'Assign Vehicle')}
-          variant="outline"
-          size="sm"
-          onPress={() => setShowAssign((v) => !v)}
+        <Text style={styles.label}>Full Name *</Text>
+        <TextInput
+          style={styles.input}
+          value={name}
+          onChangeText={setName}
+          placeholder="Full name"
+          placeholderTextColor={colors.gray400}
+          autoCapitalize="words"
         />
 
-        {showAssign && (
-          <View style={styles.vehicleList}>
-            <Text style={styles.listHint}>Select a vehicle:</Text>
-            {activeVehicles.length === 0 && (
-              <Text style={styles.unassignedText}>No active vehicles available</Text>
-            )}
-            {activeVehicles.map((v) => (
-              <TouchableOpacity
-                key={v.id}
-                style={[styles.vehicleOption, selectedVehicleId === v.id && styles.vehicleOptionActive]}
-                onPress={() => setSelectedVehicleId(v.id)}
-              >
-                <View>
-                  <Text style={[styles.vehicleOptionReg, selectedVehicleId === v.id && styles.vehicleOptionRegActive]}>
-                    {v.regNumber}
-                  </Text>
-                  <Text style={styles.vehicleOptionMeta}>{v.type} · {v.capacity} seats</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-            {selectedVehicleId && (
-              <Button
-                title="Confirm Assignment"
-                onPress={() => handleAssign(selectedVehicleId)}
-                loading={assignVehicle.isPending}
-                fullWidth
-              />
-            )}
-          </View>
-        )}
+        <Text style={styles.label}>Email</Text>
+        <TextInput
+          style={styles.input}
+          value={email}
+          onChangeText={setEmail}
+          placeholder="Optional"
+          placeholderTextColor={colors.gray400}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+
+        <Text style={styles.label}>Role</Text>
+        <View style={styles.chipRow}>
+          {ROLES.map((r) => (
+            <TouchableOpacity
+              key={r.value}
+              style={[styles.chip, role === r.value && styles.chipActive]}
+              onPress={() => setRole(r.value)}
+            >
+              <Text style={[styles.chipText, role === r.value && styles.chipTextActive]}>
+                {r.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Button
+          title="Save Changes"
+          onPress={handleSave}
+          loading={updateMember.isPending}
+          fullWidth
+          style={styles.saveBtn}
+        />
       </Card>
 
-      {/* Role info */}
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Account Info</Text>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Role</Text>
-          <Text style={styles.infoValue}>{member.role}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Status</Text>
-          <Text style={styles.infoValue}>{member.status}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Phone</Text>
-          <Text style={styles.infoValue}>{member.person.phone}</Text>
-        </View>
-        {member.person.email && (
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Email</Text>
-            <Text style={styles.infoValue}>{member.person.email}</Text>
-          </View>
-        )}
-      </Card>
+      {/* Deactivate */}
+      {isActive && (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Danger Zone</Text>
+          <Text style={styles.hint}>
+            Deactivating revokes access at this school but preserves the record (audit / DPDP).
+          </Text>
+          <Button
+            title="Deactivate Staff Member"
+            variant="danger"
+            onPress={handleDeactivate}
+            loading={deactivateMember.isPending}
+            fullWidth
+          />
+        </Card>
+      )}
     </ScrollView>
   );
 }
@@ -162,25 +175,22 @@ const styles = StyleSheet.create({
   headerPhone: { fontSize: fontSizes.sm, color: colors.textSecondary },
   section: { gap: spacing[3] },
   sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  vehicleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[2] },
-  vehicleIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.gray100, alignItems: 'center', justifyContent: 'center' },
-  vehicleInfo: { flex: 1 },
-  vehicleReg: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  vehicleSub: { fontSize: fontSizes.xs, color: colors.textSecondary, marginTop: 2 },
-  clearBtn: { paddingHorizontal: spacing[3], paddingVertical: spacing[2], borderRadius: radius.lg, borderWidth: 1, borderColor: colors.error },
-  clearBtnText: { fontSize: fontSizes.sm, color: colors.error, fontWeight: fontWeights.semibold },
-  unassignedText: { fontSize: fontSizes.sm, color: colors.textMuted, paddingVertical: spacing[2] },
-  vehicleList: { gap: spacing[3] },
-  listHint: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  vehicleOption: {
-    padding: spacing[3], borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
+  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18 },
+  label: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary },
+  input: {
+    backgroundColor: colors.gray100, borderRadius: radius.lg,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    fontSize: fontSizes.base, color: colors.textPrimary,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
+  chip: {
+    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
+    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
     backgroundColor: colors.white,
   },
-  vehicleOptionActive: { borderColor: colors.primary, backgroundColor: '#EEF2FF' },
-  vehicleOptionReg: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  vehicleOptionRegActive: { color: colors.primary },
-  vehicleOptionMeta: { fontSize: fontSizes.xs, color: colors.textSecondary, marginTop: 2 },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing[2], borderTopWidth: 1, borderTopColor: colors.border },
-  infoLabel: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  infoValue: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textPrimary },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
+  chipTextActive: { color: colors.white },
+  saveBtn: { marginTop: spacing[2] },
 });

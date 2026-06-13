@@ -51,7 +51,8 @@ export default function AppLayout() {
       <Drawer.Screen name="people/students/index" options={HIDDEN} />
       <Drawer.Screen name="people/students/[id]" options={{ ...HIDDEN, title: 'Student Detail' }} />
       <Drawer.Screen name="people/students/new" options={{ ...HIDDEN, title: 'Add Student' }} />
-      <Drawer.Screen name="people/staff/index" options={HIDDEN} />
+      <Drawer.Screen name="people/staff/index" options={{ ...HIDDEN, title: 'Staff' }} />
+      <Drawer.Screen name="people/staff/new" options={{ ...HIDDEN, title: 'Add Staff' }} />
       <Drawer.Screen name="people/staff/[id]" options={{ ...HIDDEN, title: 'Staff Detail' }} />
       <Drawer.Screen name="people/import/index" options={{ ...HIDDEN, title: 'Import Data' }} />
       <Drawer.Screen name="people/import/preview" options={{ ...HIDDEN, title: 'Import Preview' }} />
