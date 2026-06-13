@@ -19,11 +19,12 @@ model Person {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  memberships   Membership[]
-  guardianships Guardianship[]
-  deviceTokens  DeviceToken[]
-  consents      Consent[]
-  notifPrefs    NotificationPreference[]
+  memberships        Membership[]
+  guardianships      Guardianship[]
+  deviceTokens       DeviceToken[]
+  consents           Consent[]
+  notifPrefs         NotificationPreference[]
+  structuredMessages StructuredMessage[]
 }
 
 enum PersonStatus {
@@ -275,6 +276,7 @@ model Trip {
   pickupCancellations PickupCancellation[]
   complaints          Complaint[]
   rideRatings         RideRating[]
+  structuredMessages  StructuredMessage[]
 
   @@index([tenantId, date])
   @@index([tenantId, status])
@@ -709,4 +711,25 @@ model MetricSnapshot {
   posts AgentPost[]
 
   @@index([tenantId, date])
+}
+
+model StructuredMessage {
+  id          String     @id @default(uuid())
+  tripId      String
+  senderId    String
+  messageKey  MessageKey
+  sentAt      DateTime   @default(now())
+  deliveredAt DateTime?
+
+  trip   Trip   @relation(fields: [tripId], references: [id])
+  sender Person @relation(fields: [senderId], references: [id])
+
+  @@index([tripId, sentAt])
+}
+
+enum MessageKey {
+  RUNNING_LATE
+  NOT_COMING_TODAY
+  PLEASE_WAIT
+  DIFFERENT_STOP
 }
