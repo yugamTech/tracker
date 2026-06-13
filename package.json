@@ -13,8 +13,10 @@
     "dev:driver": "npm run start --workspace=apps/driver-app",
     "dev:admin": "npm run start --workspace=apps/admin-app",
     "sim": "node scripts/driver-sim.mjs",
+    "prepare": "husky",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
+    "verify": "npm run build --workspace=packages/types && npm run db:generate --workspace=backend/api && npm run typecheck",
     "docker:up": "docker compose -f docker/docker-compose.yml up -d",
     "docker:down": "docker compose -f docker/docker-compose.yml down",
     "docker:logs": "docker compose -f docker/docker-compose.yml logs -f",
@@ -29,9 +31,11 @@
   },
   "overrides": {
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "@types/react": "19.1.17"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
     "typescript": "^5.4.0"
   }
 }

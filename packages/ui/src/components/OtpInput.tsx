@@ -54,7 +54,9 @@ export const OtpInput: React.FC<OtpInputProps> = ({
         .map((_, i) => (
           <TextInput
             key={i}
-            ref={(ref) => (inputs.current[i] = ref)}
+            ref={(ref) => {
+              inputs.current[i] = ref;
+            }}
             style={[styles.input, otp[i] ? styles.inputFilled : styles.inputEmpty]}
             value={otp[i]}
             onChangeText={(t) => handleChange(t.slice(-1), i)}

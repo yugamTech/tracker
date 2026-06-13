@@ -54,6 +54,7 @@ export interface ActiveMembership {
   personId: string;
   membershipId: string;
   tenantId: string;
+  tenantName?: string;
   role: Role;
 }
 
