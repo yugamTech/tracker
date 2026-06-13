@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { TripStatus, RiderStatus, NotifCategory, Role, Direction } from '@saarthi/types';
 import type { ActiveMembership } from '@saarthi/types';
@@ -29,15 +30,23 @@ export class TripsService {
 
   /**
    * Role-scoped trip filter (PRD-01 FR-12 / PRD-02 FR-10, NFR-05). A DRIVER sees
-   * only trips they drive; a CONDUCTOR only trips they conduct; admins / transport
-   * managers (and other roles, e.g. a parent matching their child's route
-   * client-side) keep the tenant-wide view. The scope is derived from the JWT's
-   * active membership — never from a client-supplied value — so a driver can never
-   * see another driver's trip.
+   * only trips they drive; a CONDUCTOR only trips they conduct; a PARENT only
+   * trips carrying a student they guard; admins / transport managers keep the
+   * tenant-wide view. The scope is derived from the JWT's active membership —
+   * never from a client-supplied value — so no caller can see trips outside their
+   * scope.
    */
-  private scopeForActor(actor: ActiveMembership) {
+  private scopeForActor(actor: ActiveMembership): Prisma.TripWhereInput {
     if (actor.role === Role.DRIVER) return { tenantId: actor.tenantId, driverId: actor.personId };
     if (actor.role === Role.CONDUCTOR) return { tenantId: actor.tenantId, conductorId: actor.personId };
+    if (actor.role === Role.PARENT) {
+      return {
+        tenantId: actor.tenantId,
+        riders: {
+          some: { student: { guardianships: { some: { personId: actor.personId } } } },
+        },
+      };
+    }
     return { tenantId: actor.tenantId };
   }
 
