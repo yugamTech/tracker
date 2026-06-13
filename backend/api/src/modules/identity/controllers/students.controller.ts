@@ -49,8 +49,8 @@ export class StudentsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.studentsService.findById(id);
+  findOne(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.studentsService.findById(id, tenantId);
   }
 
   @Post()

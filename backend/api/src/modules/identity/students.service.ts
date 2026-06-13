@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { normalizeIndianPhone } from './phone.util';
 
@@ -19,9 +19,9 @@ export class StudentsService {
     });
   }
 
-  findById(id: string) {
-    return this.prisma.student.findUniqueOrThrow({
-      where: { id },
+  async findById(id: string, tenantId: string) {
+    const student = await this.prisma.student.findFirst({
+      where: { id, tenantId },
       include: {
         ageGroup: true,
         route: true,
@@ -29,6 +29,8 @@ export class StudentsService {
         guardianships: { include: { person: true } },
       },
     });
+    if (!student) throw new NotFoundException(`Student ${id} not found`);
+    return student;
   }
 
   /**

@@ -37,11 +37,13 @@ export class MembersService {
     });
   }
 
-  findById(id: string) {
-    return this.prisma.membership.findUniqueOrThrow({
-      where: { id },
+  async findById(id: string, tenantId: string) {
+    const member = await this.prisma.membership.findFirst({
+      where: { id, tenantId },
       include: MEMBER_INCLUDE,
     });
+    if (!member) throw new NotFoundException(`Member ${id} not found`);
+    return member;
   }
 
   /**
