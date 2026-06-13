@@ -1,9 +1,12 @@
 import { Controller, Get, Post, Patch, Param, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
+import { Roles } from '../../../common/decorators/roles.decorator';
 import { VehiclesService } from '../vehicles.service';
 import { TenantId } from '../../../common/decorators/tenant-id.decorator';
 import { IsString, IsNumber, IsOptional } from 'class-validator';
+import { Role } from '@saarthi/types';
 
 class CreateVehicleDto {
   @IsString() regNumber!: string;
@@ -20,7 +23,7 @@ class UpdateVehicleDto {
 
 @ApiTags('vehicles')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('vehicles')
 export class VehiclesController {
   constructor(private readonly vehiclesService: VehiclesService) {}
@@ -36,11 +39,13 @@ export class VehiclesController {
   }
 
   @Post()
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
   create(@TenantId() tenantId: string, @Body() dto: CreateVehicleDto) {
     return this.vehiclesService.create({ tenantId, ...dto });
   }
 
   @Patch(':id')
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
   update(@Param('id') id: string, @Body() dto: UpdateVehicleDto) {
     return this.vehiclesService.update(id, dto);
   }

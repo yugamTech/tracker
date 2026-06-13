@@ -2,9 +2,11 @@ import { Controller, Get, Post, Patch, Param, Query, Body, UseGuards } from '@ne
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { IsString, IsOptional, IsIn } from 'class-validator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
+import { Roles } from '../../../common/decorators/roles.decorator';
 import { MembersService, STAFF_ROLES } from '../members.service';
 import { TenantId } from '../../../common/decorators/tenant-id.decorator';
-import type { Role } from '@saarthi/types';
+import { Role } from '@saarthi/types';
 
 class CreateMemberDto {
   @IsString() name!: string;
@@ -19,9 +21,14 @@ class UpdateMemberDto {
   @IsOptional() @IsIn(STAFF_ROLES) role?: Role;
 }
 
+// Staff management is admin-only: every endpoint here exposes or mutates staff
+// records (incl. phone numbers), so the whole controller is gated to
+// ADMIN / TRANSPORT_MANAGER. RolesGuard is a no-op without @Roles metadata, so
+// the class-level guard only enforces where @Roles is present.
 @ApiTags('members')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
 @Controller('members')
 export class MembersController {
   constructor(private readonly membersService: MembersService) {}
