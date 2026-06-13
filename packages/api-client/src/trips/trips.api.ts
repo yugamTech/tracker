@@ -1,5 +1,5 @@
 import { apiClient } from '../axios';
-import type { Trip, Direction } from '@saarthi/types';
+import type { Trip } from '@saarthi/types';
 
 export interface ScheduleTripDto {
   routeId: string;
@@ -7,7 +7,7 @@ export interface ScheduleTripDto {
   driverId: string;
   conductorId?: string;
   date: string;
-  direction: Direction;
+  direction: 'PICKUP' | 'DROP';
 }
 
 export const tripsApi = {

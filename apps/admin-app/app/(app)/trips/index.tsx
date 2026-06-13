@@ -40,6 +40,12 @@ export default function TripHistoryScreen() {
           value={search}
           onChangeText={setSearch}
         />
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={() => router.push('/(app)/trips/new' as never)}
+        >
+          <Text style={styles.addBtnText}>+ Schedule</Text>
+        </TouchableOpacity>
       </View>
 
       {isLoading && <LoadingSpinner fullScreen />}
@@ -106,11 +112,20 @@ export default function TripHistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.gray50 },
-  searchRow: { padding: spacing[4], backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border },
+  searchRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing[2],
+    padding: spacing[4], backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
   search: {
+    flex: 1,
     backgroundColor: colors.gray50, borderRadius: radius.lg, borderWidth: 1,
     borderColor: colors.border, padding: spacing[3], fontSize: fontSizes.base, color: colors.textPrimary,
   },
+  addBtn: {
+    backgroundColor: '#7C3AED', borderRadius: radius.lg,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+  },
+  addBtnText: { color: colors.white, fontWeight: fontWeights.semibold, fontSize: fontSizes.sm },
   header: {
     fontSize: fontSizes.sm, fontWeight: fontWeights.semibold,
     color: colors.textSecondary, marginBottom: spacing[2],

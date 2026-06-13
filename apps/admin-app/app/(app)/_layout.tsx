@@ -48,6 +48,7 @@ export default function AppLayout() {
 
       {/* ── Hidden detail / CRUD screens ── */}
       <Drawer.Screen name="fleet/[tripId]" options={{ ...HIDDEN, title: 'Trip Monitor' }} />
+      <Drawer.Screen name="trips/new" options={{ ...HIDDEN, title: 'Schedule Trip' }} />
       <Drawer.Screen name="people/students/index" options={HIDDEN} />
       <Drawer.Screen name="people/students/[id]" options={{ ...HIDDEN, title: 'Student Detail' }} />
       <Drawer.Screen name="people/students/new" options={{ ...HIDDEN, title: 'Add Student' }} />
