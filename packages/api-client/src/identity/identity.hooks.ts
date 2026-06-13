@@ -58,6 +58,37 @@ export const useMembers = (role?: string) =>
 export const useMemberById = (id: string) =>
   useQuery({ queryKey: identityKeys.member(id), queryFn: () => identityApi.getMemberById(id), enabled: !!id });
 
+export const useCreateMember = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: identityApi.createMember,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['identity', 'members'] }),
+  });
+};
+
+export const useUpdateMember = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...dto }: { id: string } & Parameters<typeof identityApi.updateMember>[1]) =>
+      identityApi.updateMember(id, dto),
+    onSuccess: (_data, { id }) => {
+      qc.invalidateQueries({ queryKey: identityKeys.member(id) });
+      qc.invalidateQueries({ queryKey: ['identity', 'members'] });
+    },
+  });
+};
+
+export const useDeactivateMember = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => identityApi.deactivateMember(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: identityKeys.member(id) });
+      qc.invalidateQueries({ queryKey: ['identity', 'members'] });
+    },
+  });
+};
+
 export const useAgeGroups = () =>
   useQuery({ queryKey: identityKeys.ageGroups, queryFn: identityApi.listAgeGroups });
 

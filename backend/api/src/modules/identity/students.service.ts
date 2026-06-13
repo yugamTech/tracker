@@ -1,18 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../infra/database/prisma.service';
-
-/**
- * Coerce a user-entered number into the `+91XXXXXXXXXX` E.164 form the parent
- * app uses at login. Identity is keyed by this exact string, so admin-created
- * parents must match what the parent types (10 digits) or they can never log in.
- */
-function normalizeIndianPhone(input: string): string {
-  const digits = input.replace(/\D/g, '');
-  if (digits.length === 10) return `+91${digits}`;
-  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
-  if (input.trim().startsWith('+')) return `+${digits}`;
-  return `+91${digits}`;
-}
+import { normalizeIndianPhone } from './phone.util';
 
 @Injectable()
 export class StudentsService {

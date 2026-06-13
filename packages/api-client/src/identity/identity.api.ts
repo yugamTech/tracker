@@ -104,6 +104,30 @@ export const identityApi = {
     return data.data;
   },
 
+  createMember: async (dto: {
+    name: string;
+    phone: string;
+    role: string;
+    email?: string;
+  }): Promise<Member> => {
+    const { data } = await apiClient.post('/members', dto);
+    return data.data;
+  },
+
+  updateMember: async (id: string, dto: Partial<{
+    name: string;
+    email: string;
+    role: string;
+  }>): Promise<Member> => {
+    const { data } = await apiClient.patch(`/members/${id}`, dto);
+    return data.data;
+  },
+
+  deactivateMember: async (id: string): Promise<Member> => {
+    const { data } = await apiClient.post(`/members/${id}/deactivate`);
+    return data.data;
+  },
+
   assignVehicle: async (memberId: string, vehicleId: string | null): Promise<Member> => {
     const { data } = await apiClient.patch(`/members/${memberId}`, { vehicleId });
     return data.data;
