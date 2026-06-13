@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button } from '@saarthi/ui';
+import { useCreateComplaint } from '@saarthi/api-client';
 
 const CATEGORIES = [
   { id: 'TIMING', label: 'Timing', icon: '⏰' },
@@ -16,17 +17,23 @@ const CATEGORIES = [
 export default function NewComplaintScreen() {
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
-  const [loading, setLoading] = useState(false);
+  const { mutate: createComplaint, isPending } = useCreateComplaint();
 
   const handleSubmit = () => {
     if (!category) { Alert.alert('Select a category'); return; }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      Alert.alert('Complaint Raised', 'We\'ll review and get back to you within 24 hours.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
-    }, 800);
+    createComplaint(
+      { category: category as never, description: description || undefined },
+      {
+        onSuccess: () => {
+          Alert.alert('Complaint Raised', "We'll review and get back to you within 24 hours.", [
+            { text: 'OK', onPress: () => router.back() },
+          ]);
+        },
+        onError: () => {
+          Alert.alert('Error', 'Failed to submit complaint. Please try again.');
+        },
+      },
+    );
   };
 
   return (
@@ -68,7 +75,7 @@ export default function NewComplaintScreen() {
           textAlignVertical="top"
         />
 
-        <Button title="Submit Complaint" onPress={handleSubmit} loading={loading} fullWidth size="lg" style={{ marginTop: spacing[4] }} />
+        <Button title="Submit Complaint" onPress={handleSubmit} loading={isPending} fullWidth size="lg" style={{ marginTop: spacing[4] }} />
       </ScrollView>
     </SafeAreaView>
   );

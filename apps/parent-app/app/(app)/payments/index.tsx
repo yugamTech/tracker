@@ -1,21 +1,19 @@
 import React from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button } from '@saarthi/ui';
-
-const MOCK_INVOICES = [
-  { id: 'inv1', invoiceNo: 'INV-2024-001', month: 'June 2024', amount: 3500, status: 'DUE', dueDate: 'Jun 15' },
-  { id: 'inv2', invoiceNo: 'INV-2024-002', month: 'May 2024', amount: 3500, status: 'PAID', dueDate: 'May 15' },
-  { id: 'inv3', invoiceNo: 'INV-2024-003', month: 'Apr 2024', amount: 3500, status: 'PAID', dueDate: 'Apr 15' },
-];
+import { useMyInvoices } from '@saarthi/api-client';
 
 const STATUS_V: Record<string, 'warning' | 'success' | 'error'> = {
   DUE: 'warning', PAID: 'success', OVERDUE: 'error',
 };
 
 export default function PaymentsScreen() {
-  const due = MOCK_INVOICES.filter((i) => i.status === 'DUE');
-  const totalDue = due.reduce((s, i) => s + i.amount, 0);
+  const { data: invoices = [], isLoading } = useMyInvoices();
+
+  const due = invoices.filter((i) => i.status === 'DUE' || i.status === 'OVERDUE');
+  const totalDue = due.reduce((s, i) => s + (i.amountPaise ?? 0) / 100, 0);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -24,38 +22,59 @@ export default function PaymentsScreen() {
         <Text style={styles.subtitle}>Transport fee management</Text>
       </View>
 
-      {totalDue > 0 && (
-        <View style={styles.dueBanner}>
-          <View>
-            <Text style={styles.dueLabel}>Amount Due</Text>
-            <Text style={styles.dueAmount}>₹{totalDue.toLocaleString('en-IN')}</Text>
-          </View>
-          <Button title="Pay Now" size="sm" onPress={() => {}} />
-        </View>
-      )}
-
-      <FlatList
-        data={MOCK_INVOICES}
-        keyExtractor={(i) => i.id}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <Card style={styles.card}>
-            <View style={styles.cardRow}>
+      {isLoading ? (
+        <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
+      ) : (
+        <>
+          {totalDue > 0 && (
+            <View style={styles.dueBanner}>
               <View>
-                <Text style={styles.month}>{item.month}</Text>
-                <Text style={styles.invoiceNo}>{item.invoiceNo}</Text>
+                <Text style={styles.dueLabel}>Amount Due</Text>
+                <Text style={styles.dueAmount}>₹{totalDue.toLocaleString('en-IN')}</Text>
               </View>
-              <View style={{ alignItems: 'flex-end', gap: spacing[2] }}>
-                <Text style={styles.amount}>₹{item.amount.toLocaleString('en-IN')}</Text>
-                <Badge label={item.status} variant={STATUS_V[item.status] ?? 'default'} size="sm" />
-              </View>
+              <Button
+                title="Pay Now"
+                size="sm"
+                onPress={() => due[0] && router.push(`/(app)/payments/pay/${due[0].id}` as never)}
+              />
             </View>
-            {item.status !== 'PAID' && (
-              <Button title="Pay ₹3,500" variant="outline" size="sm" onPress={() => {}} style={{ marginTop: spacing[3] }} />
+          )}
+
+          <FlatList
+            data={invoices}
+            keyExtractor={(i) => i.id}
+            contentContainerStyle={styles.list}
+            ListEmptyComponent={
+              <View style={{ alignItems: 'center', marginTop: 60 }}>
+                <Text style={{ color: colors.textSecondary }}>No invoices yet.</Text>
+              </View>
+            }
+            renderItem={({ item }) => (
+              <Card style={styles.card}>
+                <View style={styles.cardRow}>
+                  <View>
+                    <Text style={styles.month}>{(item as any).month ?? item.id.slice(-6)}</Text>
+                    <Text style={styles.invoiceNo}>{(item as any).invoiceNo ?? `INV-${item.id.slice(-6)}`}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end', gap: spacing[2] }}>
+                    <Text style={styles.amount}>₹{((item.amountPaise ?? 0) / 100).toLocaleString('en-IN')}</Text>
+                    <Badge label={item.status} variant={STATUS_V[item.status] ?? 'default'} size="sm" />
+                  </View>
+                </View>
+                {item.status !== 'PAID' && (
+                  <Button
+                    title={`Pay ₹${((item.amountPaise ?? 0) / 100).toLocaleString('en-IN')}`}
+                    variant="outline"
+                    size="sm"
+                    onPress={() => router.push(`/(app)/payments/pay/${item.id}` as never)}
+                    style={{ marginTop: spacing[3] }}
+                  />
+                )}
+              </Card>
             )}
-          </Card>
-        )}
-      />
+          />
+        </>
+      )}
     </SafeAreaView>
   );
 }

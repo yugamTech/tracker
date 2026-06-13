@@ -29,4 +29,9 @@ export const complaintsApi = {
     const { data } = await apiClient.get('/complaints/all', { params });
     return data.data as Complaint[];
   },
+
+  updateComplaintStatus: async (id: string, status: string, note?: string) => {
+    const { data } = await apiClient.patch(`/complaints/${id}/status`, { status, note });
+    return data.data as Complaint;
+  },
 };

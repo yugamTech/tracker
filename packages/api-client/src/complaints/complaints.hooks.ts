@@ -26,3 +26,22 @@ export const useCreateComplaint = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: complaintKeys.all }),
   });
 };
+
+export const useAllComplaints = (params?: { status?: string }) =>
+  useQuery({
+    queryKey: ['complaints', 'all', params],
+    queryFn: () => complaintsApi.getAllComplaints(params),
+  });
+
+export const useUpdateComplaintStatus = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status, note }: { id: string; status: string; note?: string }) =>
+      complaintsApi.updateComplaintStatus(id, status, note),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: complaintKeys.all });
+      qc.invalidateQueries({ queryKey: ['complaints', 'all'] });
+      qc.invalidateQueries({ queryKey: complaintKeys.detail(id) });
+    },
+  });
+};

@@ -1,36 +1,56 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button } from '@saarthi/ui';
-
-const MOCK_COMPLAINT = {
-  id: 'complaint-004',
-  category: 'Late Arrival',
-  description: 'Bus was 25 minutes late on June 10th morning pickup. No notification was sent.',
-  status: 'RESOLVED',
-  createdAt: 'Jun 10, 08:15 AM',
-  resolvedAt: 'Jun 11, 02:30 PM',
-  assignedTo: 'Transport Coordinator',
-  events: [
-    { id: 'ev1', type: 'CREATED', note: 'Complaint submitted', time: 'Jun 10, 08:15 AM' },
-    { id: 'ev2', type: 'ASSIGNED', note: 'Assigned to Transport Coordinator', time: 'Jun 10, 09:00 AM' },
-    { id: 'ev3', type: 'IN_PROGRESS', note: 'Investigating route delay', time: 'Jun 10, 11:30 AM' },
-    { id: 'ev4', type: 'RESOLVED', note: 'Route timing has been adjusted. Apologies for the delay.', time: 'Jun 11, 02:30 PM' },
-  ],
-};
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Button } from '@saarthi/ui';
+import { useComplaintById } from '@saarthi/api-client';
 
 const EVENT_COLORS: Record<string, string> = {
-  CREATED: colors.gray400,
+  RECEIVED: colors.gray400,
   ASSIGNED: '#0EA5E9',
   IN_PROGRESS: '#F59E0B',
   RESOLVED: '#10B981',
   ESCALATED: '#EF4444',
+  CLOSED: colors.gray400,
+};
+
+const STATUS_TEXT_COLORS: Record<string, string> = {
+  RECEIVED: colors.warning,
+  IN_PROGRESS: '#F59E0B',
+  RESOLVED: colors.success,
+  CLOSED: colors.textMuted,
 };
 
 export default function ComplaintDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const complaint = MOCK_COMPLAINT;
+  const { data: complaint, isLoading, isError } = useComplaintById(id ?? '');
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ActivityIndicator style={{ marginTop: 60 }} color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (isError || !complaint) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={styles.back}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>Complaint</Text>
+          <View style={{ width: 60 }} />
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: colors.textSecondary }}>Complaint not found.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const events = (complaint as any).events ?? [];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -43,40 +63,44 @@ export default function ComplaintDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Status card */}
         <Card>
           <View style={styles.statusRow}>
-            <Text style={styles.category}>{complaint.category}</Text>
-            <Text style={[styles.status, { color: complaint.status === 'RESOLVED' ? colors.success : colors.warning }]}>
-              {complaint.status}
+            <Text style={styles.category}>{complaint.category.replace('_', ' ')}</Text>
+            <Text style={[styles.status, { color: STATUS_TEXT_COLORS[complaint.status] ?? colors.textSecondary }]}>
+              {complaint.status.replace('_', ' ')}
             </Text>
           </View>
-          <Text style={styles.description}>{complaint.description}</Text>
+          <Text style={styles.description}>{complaint.description ?? '—'}</Text>
           <View style={styles.meta}>
-            <Text style={styles.metaText}>Filed: {complaint.createdAt}</Text>
-            {complaint.resolvedAt && <Text style={styles.metaText}>Resolved: {complaint.resolvedAt}</Text>}
+            <Text style={styles.metaText}>
+              Filed: {new Date(complaint.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            </Text>
           </View>
         </Card>
 
-        {/* Resolution timeline */}
-        <Text style={styles.sectionTitle}>Resolution Timeline</Text>
-        <View style={styles.timeline}>
-          {complaint.events.map((ev, idx) => (
-            <View key={ev.id} style={styles.timelineItem}>
-              <View style={styles.timelineLine}>
-                <View style={[styles.timelineDot, { backgroundColor: EVENT_COLORS[ev.type] ?? colors.gray400 }]} />
-                {idx < complaint.events.length - 1 && <View style={styles.timelineConnector} />}
-              </View>
-              <View style={styles.timelineBody}>
-                <Text style={styles.timelineType}>{ev.type.replace('_', ' ')}</Text>
-                <Text style={styles.timelineNote}>{ev.note}</Text>
-                <Text style={styles.timelineTime}>{ev.time}</Text>
-              </View>
+        {events.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Resolution Timeline</Text>
+            <View style={styles.timeline}>
+              {events.map((ev: any, idx: number) => (
+                <View key={ev.id} style={styles.timelineItem}>
+                  <View style={styles.timelineLine}>
+                    <View style={[styles.timelineDot, { backgroundColor: EVENT_COLORS[ev.toStatus] ?? colors.gray400 }]} />
+                    {idx < events.length - 1 && <View style={styles.timelineConnector} />}
+                  </View>
+                  <View style={styles.timelineBody}>
+                    <Text style={styles.timelineType}>{ev.toStatus.replace('_', ' ')}</Text>
+                    {ev.note ? <Text style={styles.timelineNote}>{ev.note}</Text> : null}
+                    <Text style={styles.timelineTime}>
+                      {new Date(ev.ts ?? ev.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
+          </>
+        )}
 
-        {/* Rate resolution CTA */}
         {complaint.status === 'RESOLVED' && (
           <View style={styles.ratingCta}>
             <Text style={styles.ratingCtaText}>How was the resolution?</Text>

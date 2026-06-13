@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ComplaintsService } from './complaints.service';
@@ -12,6 +12,11 @@ class CreateComplaintDto {
   @IsOptional() @IsString() tripId?: string;
   @IsString() category!: string;
   @IsOptional() @IsString() description?: string;
+}
+
+class UpdateComplaintStatusDto {
+  @IsString() status!: string;
+  @IsOptional() @IsString() note?: string;
 }
 
 @ApiTags('complaints')
@@ -45,5 +50,14 @@ export class ComplaintsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.complaintsService.findById(id);
+  }
+
+  @Patch(':id/status')
+  updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateComplaintStatusDto,
+    @ActiveMembershipDec() membership: ActiveMembership,
+  ) {
+    return this.complaintsService.updateStatus(id, dto.status, membership.personId, dto.note);
   }
 }
