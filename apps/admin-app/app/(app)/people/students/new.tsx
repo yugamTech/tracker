@@ -13,6 +13,8 @@ export default function NewStudentScreen() {
   const [ageGroupId, setAgeGroupId] = useState('');
   const [routeId, setRouteId] = useState('');
   const [stopId, setStopId] = useState('');
+  const [parentName, setParentName] = useState('');
+  const [parentPhone, setParentPhone] = useState('');
 
   const { data: ageGroups = [], isLoading: agLoading } = useAgeGroups();
   const { data: routes = [], isLoading: routesLoading } = useRoutes();
@@ -32,8 +34,21 @@ export default function NewStudentScreen() {
   const handleSave = () => {
     if (!name.trim()) { Alert.alert('Validation', 'Student name is required'); return; }
     if (!ageGroupId) { Alert.alert('Validation', 'Please select an age group'); return; }
+    const phoneDigits = parentPhone.replace(/\D/g, '');
+    if (phoneDigits && phoneDigits.length !== 10) {
+      Alert.alert('Validation', "Parent's mobile number must be 10 digits");
+      return;
+    }
     createStudent.mutate(
-      { name: name.trim(), regId: regId.trim() || undefined, ageGroupId, routeId: routeId || undefined, stopId: stopId || undefined },
+      {
+        name: name.trim(),
+        regId: regId.trim() || undefined,
+        ageGroupId,
+        routeId: routeId || undefined,
+        stopId: stopId || undefined,
+        parentName: parentName.trim() || undefined,
+        parentPhone: phoneDigits || undefined,
+      },
       {
         onSuccess: () => { Alert.alert('Success', 'Student added'); router.back(); },
         onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to create student'),
@@ -130,6 +145,40 @@ export default function NewStudentScreen() {
         )}
       </Card>
 
+      <Card style={styles.section}>
+        <Text style={styles.sectionTitle}>Parent / Guardian</Text>
+        <Text style={styles.hint}>
+          The parent logs in with this mobile number and sees this child. Leave blank
+          to add the parent later.
+        </Text>
+
+        <Text style={styles.label}>Parent Name</Text>
+        <TextInput
+          style={styles.input}
+          value={parentName}
+          onChangeText={setParentName}
+          placeholder="e.g. Priya Sharma"
+          placeholderTextColor={colors.gray400}
+          autoCapitalize="words"
+        />
+
+        <Text style={styles.label}>Parent Mobile</Text>
+        <View style={styles.phoneRow}>
+          <View style={styles.phonePrefix}>
+            <Text style={styles.phonePrefixText}>+91</Text>
+          </View>
+          <TextInput
+            style={[styles.input, styles.phoneInput]}
+            value={parentPhone}
+            onChangeText={setParentPhone}
+            placeholder="98765 43210"
+            placeholderTextColor={colors.gray400}
+            keyboardType="phone-pad"
+            maxLength={10}
+          />
+        </View>
+      </Card>
+
       <Button
         title="Add Student"
         onPress={handleSave}
@@ -148,6 +197,15 @@ const styles = StyleSheet.create({
   section: { gap: spacing[3] },
   sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary, marginBottom: spacing[1] },
   label: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary },
+  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18 },
+  phoneRow: { flexDirection: 'row', gap: spacing[2], alignItems: 'center' },
+  phonePrefix: {
+    backgroundColor: colors.gray100, borderRadius: radius.lg,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    borderWidth: 1, borderColor: colors.border,
+  },
+  phonePrefixText: { fontSize: fontSizes.base, color: colors.textPrimary, fontWeight: fontWeights.medium },
+  phoneInput: { flex: 1 },
   input: {
     backgroundColor: colors.gray100, borderRadius: radius.lg,
     paddingHorizontal: spacing[4], paddingVertical: spacing[3],

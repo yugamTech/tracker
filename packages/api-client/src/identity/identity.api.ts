@@ -74,6 +74,9 @@ export const identityApi = {
     ageGroupId: string;
     routeId?: string;
     stopId?: string;
+    parentName?: string;
+    parentPhone?: string;
+    relation?: string;
   }): Promise<Student> => {
     const { data } = await apiClient.post('/students', dto);
     return data.data;

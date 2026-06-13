@@ -12,6 +12,11 @@ class CreateStudentDto {
   @IsString() ageGroupId!: string;
   @IsOptional() @IsString() routeId?: string;
   @IsOptional() @IsString() stopId?: string;
+  // Parent linkage — when supplied, the service upserts the parent Person,
+  // grants a PARENT membership, and creates the guardianship in one transaction.
+  @IsOptional() @IsString() parentName?: string;
+  @IsOptional() @IsString() parentPhone?: string;
+  @IsOptional() @IsString() relation?: string;
 }
 
 class UpdateStudentDto {
