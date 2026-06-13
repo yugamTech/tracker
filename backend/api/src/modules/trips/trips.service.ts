@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { TripStatus, RiderStatus, NotifCategory, Role, Direction } from '@saarthi/types';
+import type { ActiveMembership } from '@saarthi/types';
 import { TrackingGateway } from '../tracking/tracking.gateway';
 import { LocationService } from '../tracking/location.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -26,14 +27,34 @@ export class TripsService {
     private readonly notifications: NotificationsService,
   ) {}
 
-  list(tenantId: string, filters?: { date?: Date; status?: TripStatus }) {
+  /**
+   * Role-scoped trip filter (PRD-01 FR-12 / PRD-02 FR-10, NFR-05). A DRIVER sees
+   * only trips they drive; a CONDUCTOR only trips they conduct; admins / transport
+   * managers (and other roles, e.g. a parent matching their child's route
+   * client-side) keep the tenant-wide view. The scope is derived from the JWT's
+   * active membership — never from a client-supplied value — so a driver can never
+   * see another driver's trip.
+   */
+  private scopeForActor(actor: ActiveMembership) {
+    if (actor.role === Role.DRIVER) return { tenantId: actor.tenantId, driverId: actor.personId };
+    if (actor.role === Role.CONDUCTOR) return { tenantId: actor.tenantId, conductorId: actor.personId };
+    return { tenantId: actor.tenantId };
+  }
+
+  list(actor: ActiveMembership, filters?: { date?: Date; status?: TripStatus }) {
     return this.prisma.trip.findMany({
       where: {
-        tenantId,
+        ...this.scopeForActor(actor),
         ...(filters?.date && { date: { gte: filters.date } }),
         ...(filters?.status && { status: filters.status }),
       },
-      include: { route: true, vehicle: true, riders: { include: { student: true, stop: true } } },
+      include: {
+        route: true,
+        vehicle: true,
+        driver: true,
+        conductor: true,
+        riders: { include: { student: true, stop: true } },
+      },
       orderBy: { date: 'desc' },
     });
   }
@@ -51,14 +72,14 @@ export class TripsService {
     });
   }
 
-  getTodayTrips(tenantId: string) {
+  getTodayTrips(actor: ActiveMembership) {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
     const end = new Date();
     end.setHours(23, 59, 59, 999);
     return this.prisma.trip.findMany({
-      where: { tenantId, date: { gte: start, lte: end } },
-      include: { route: true, vehicle: true, riders: true },
+      where: { ...this.scopeForActor(actor), date: { gte: start, lte: end } },
+      include: { route: true, vehicle: true, driver: true, conductor: true, riders: true },
       orderBy: { date: 'asc' },
     });
   }

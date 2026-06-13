@@ -36,13 +36,13 @@ export class TripsController {
   ) {}
 
   @Get()
-  list(@TenantId() tenantId: string) {
-    return this.tripsService.list(tenantId);
+  list(@ActiveMembershipDec() actor: ActiveMembership) {
+    return this.tripsService.list(actor);
   }
 
   @Get('today')
-  today(@TenantId() tenantId: string) {
-    return this.tripsService.getTodayTrips(tenantId);
+  today(@ActiveMembershipDec() actor: ActiveMembership) {
+    return this.tripsService.getTodayTrips(actor);
   }
 
   @Get(':id')
