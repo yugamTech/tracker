@@ -60,7 +60,7 @@ export { useTripHistory, useLatestPosition, useFleet, useTripReplay } from './tr
 
 // Attendance
 export { attendanceApi } from './attendance/attendance.api';
-export type { MarkAttendanceDto, RosterResponse, RosterRider } from './attendance/attendance.api';
+export type { MarkAttendanceDto, RosterResponse, RosterRider, RosterGuardian } from './attendance/attendance.api';
 export { attendanceKeys, useTripAttendance, useMarkAttendance, useRoster } from './attendance/attendance.hooks';
 
 // Complaints

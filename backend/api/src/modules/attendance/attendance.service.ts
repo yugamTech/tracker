@@ -86,7 +86,14 @@ export class AttendanceService {
   async getRoster(tripId: string) {
     const riders = await this.prisma.tripRider.findMany({
       where: { tripId },
-      include: { student: true, stop: true },
+      include: {
+        student: {
+          include: {
+            guardianships: { include: { person: { select: { name: true, phone: true } } } },
+          },
+        },
+        stop: true,
+      },
     });
     const events = await this.prisma.attendanceEvent.findMany({
       where: { tripId },
@@ -101,6 +108,16 @@ export class AttendanceService {
         byStop.set(r.stopId, { stopId: r.stopId, stopName: r.stop.name, riders: [] });
       }
       const last = lastEvent.get(r.studentId);
+      // Guardian contact so an admin (or driver) can reach a parent/teacher "in
+      // case of anything" (FOUNDATION §2.5). Primary guardian first.
+      const guardians = [...r.student.guardianships]
+        .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
+        .map((g) => ({
+          name: g.person.name,
+          phone: g.person.phone,
+          relation: g.relation,
+          isPrimary: g.isPrimary,
+        }));
       byStop.get(r.stopId)!.riders.push({
         studentId: r.studentId,
         studentName: r.student.name,
@@ -108,6 +125,7 @@ export class AttendanceService {
         photoUrl: last?.photoUrl ?? null,
         lastEventType: last?.type ?? null,
         lastEventTs: last?.ts ?? null,
+        guardians,
       });
     }
 

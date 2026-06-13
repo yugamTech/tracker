@@ -30,6 +30,13 @@ export const attendanceApi = {
   },
 };
 
+export interface RosterGuardian {
+  name: string;
+  phone: string;
+  relation: string;
+  isPrimary: boolean;
+}
+
 export interface RosterRider {
   studentId: string;
   studentName: string;
@@ -37,6 +44,7 @@ export interface RosterRider {
   photoUrl: string | null;
   lastEventType: 'BOARDED' | 'ALIGHTED' | null;
   lastEventTs: string | null;
+  guardians: RosterGuardian[];
 }
 
 export interface RosterResponse {

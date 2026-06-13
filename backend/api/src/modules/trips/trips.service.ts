@@ -65,6 +65,8 @@ export class TripsService {
       include: {
         route: { include: { stops: { include: { stop: true }, orderBy: { sequence: 'asc' } } } },
         vehicle: true,
+        driver: true,
+        conductor: true,
         riders: { include: { student: true, stop: true } },
         attendanceEvents: { orderBy: { ts: 'asc' } },
         geofenceEvents: { orderBy: { ts: 'asc' } },
