@@ -25,6 +25,8 @@ model Person {
   consents           Consent[]
   notifPrefs         NotificationPreference[]
   structuredMessages StructuredMessage[]
+  drivenTrips        Trip[]                   @relation("TripDriver")
+  conductedTrips     Trip[]                   @relation("TripConductor")
 }
 
 enum PersonStatus {
@@ -258,6 +260,8 @@ model Trip {
   tenantId    String
   routeId     String
   vehicleId   String?
+  driverId    String?
+  conductorId String?
   date        DateTime
   direction   Direction
   status      TripStatus @default(SCHEDULED)
@@ -268,6 +272,8 @@ model Trip {
   tenant              Tenant               @relation(fields: [tenantId], references: [id])
   route               Route                @relation(fields: [routeId], references: [id])
   vehicle             Vehicle?             @relation(fields: [vehicleId], references: [id])
+  driver              Person?              @relation("TripDriver", fields: [driverId], references: [id])
+  conductor           Person?              @relation("TripConductor", fields: [conductorId], references: [id])
   riders              TripRider[]
   locationPings       LocationPing[]
   geofenceEvents      GeofenceEvent[]
@@ -280,6 +286,8 @@ model Trip {
 
   @@index([tenantId, date])
   @@index([tenantId, status])
+  @@index([driverId])
+  @@index([conductorId])
 }
 
 enum TripStatus {
