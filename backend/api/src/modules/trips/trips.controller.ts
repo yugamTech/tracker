@@ -1,16 +1,28 @@
 import { Controller, Get, Post, Param, Body, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsDateString } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { TripsService } from './trips.service';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
 import { ActiveMembershipDec } from '../../common/decorators/active-membership.decorator';
+import { Role, Direction } from '@saarthi/types';
 import type { ActiveMembership } from '@saarthi/types';
 
 class CancelPickupDto {
   @IsString() studentId!: string;
   @IsOptional() @IsString() reason?: string;
+}
+
+class CreateTripDto {
+  @IsString() routeId!: string;
+  @IsString() vehicleId!: string;
+  @IsString() driverId!: string;
+  @IsOptional() @IsString() conductorId?: string;
+  @IsDateString() date!: string;
+  @IsEnum(Direction) direction!: Direction;
 }
 
 @ApiTags('trips')
@@ -36,6 +48,22 @@ export class TripsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.tripsService.findById(id);
+  }
+
+  /** Schedule a trip + auto-build its roster (PRD-02 FR-01/FR-02). Admin only. */
+  @Post()
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  create(@TenantId() tenantId: string, @Body() dto: CreateTripDto) {
+    return this.tripsService.create({
+      tenantId,
+      routeId: dto.routeId,
+      vehicleId: dto.vehicleId,
+      driverId: dto.driverId,
+      conductorId: dto.conductorId,
+      date: new Date(dto.date),
+      direction: dto.direction,
+    });
   }
 
   @Post(':id/start')

@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../infra/database/prisma.service';
-import { TripStatus, RiderStatus, NotifCategory } from '@saarthi/types';
+import { TripStatus, RiderStatus, NotifCategory, Role, Direction } from '@saarthi/types';
 import { TrackingGateway } from '../tracking/tracking.gateway';
 import { LocationService } from '../tracking/location.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -211,14 +211,97 @@ export class TripsService {
     return cancellation;
   }
 
-  create(data: {
+  /**
+   * Schedule a trip (PRD-02 FR-01/FR-02). Binds route + vehicle + driver +
+   * optional conductor, then builds the roster: one TripRider (EXPECTED) for
+   * every ACTIVE student assigned to the route who has a boarding stop — "the
+   * roster of riders expected at each stop." Trip + riders are created in one
+   * transaction so a half-built trip can never exist.
+   *
+   * Every referenced entity is verified to belong to the caller's tenant before
+   * any write (NFR-05): a trip can never reference another school's route,
+   * vehicle, or staff.
+   */
+  async create(data: {
     tenantId: string;
     routeId: string;
-    vehicleId?: string;
+    vehicleId: string;
+    driverId: string;
+    conductorId?: string;
     date: Date;
-    direction: 'PICKUP' | 'DROP';
+    direction: Direction;
   }) {
-    return this.prisma.trip.create({ data });
+    const { tenantId, routeId, vehicleId, driverId, conductorId, date, direction } = data;
+
+    const route = await this.prisma.route.findFirst({
+      where: { id: routeId, tenantId },
+      select: { id: true },
+    });
+    if (!route) throw new BadRequestException('Route not found in this school');
+
+    const vehicle = await this.prisma.vehicle.findFirst({
+      where: { id: vehicleId, tenantId },
+      select: { id: true },
+    });
+    if (!vehicle) throw new BadRequestException('Vehicle not found in this school');
+
+    await this.assertActiveStaff(driverId, tenantId, Role.DRIVER, 'Driver');
+    if (conductorId) await this.assertActiveStaff(conductorId, tenantId, Role.CONDUCTOR, 'Conductor');
+
+    // Roster = ACTIVE students on this route that have a boarding stop. A
+    // stop-less student can't be placed in the "expected at stop X" roster.
+    const students = await this.prisma.student.findMany({
+      where: { tenantId, routeId, status: 'ACTIVE', stopId: { not: null } },
+      select: { id: true, stopId: true },
+    });
+
+    return this.prisma.$transaction(async (tx) => {
+      const trip = await tx.trip.create({
+        data: {
+          tenantId,
+          routeId,
+          vehicleId,
+          driverId,
+          conductorId: conductorId ?? null,
+          date,
+          direction,
+          status: TripStatus.SCHEDULED,
+        },
+      });
+
+      if (students.length) {
+        await tx.tripRider.createMany({
+          data: students.map((s) => ({
+            tripId: trip.id,
+            studentId: s.id,
+            stopId: s.stopId as string,
+            boardStatus: RiderStatus.EXPECTED,
+          })),
+        });
+      }
+
+      return tx.trip.findUniqueOrThrow({
+        where: { id: trip.id },
+        include: {
+          route: true,
+          vehicle: true,
+          driver: true,
+          conductor: true,
+          riders: { include: { student: true, stop: true } },
+        },
+      });
+    });
+  }
+
+  /** Verify a person holds an ACTIVE membership of the given role in this tenant. */
+  private async assertActiveStaff(personId: string, tenantId: string, role: Role, label: string) {
+    const membership = await this.prisma.membership.findFirst({
+      where: { personId, tenantId, role, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!membership) {
+      throw new BadRequestException(`${label} is not an active ${role.toLowerCase()} in this school`);
+    }
   }
 
   /**

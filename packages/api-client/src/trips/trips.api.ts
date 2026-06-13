@@ -1,10 +1,24 @@
 import { apiClient } from '../axios';
-import type { Trip } from '@saarthi/types';
+import type { Trip, Direction } from '@saarthi/types';
+
+export interface ScheduleTripDto {
+  routeId: string;
+  vehicleId: string;
+  driverId: string;
+  conductorId?: string;
+  date: string;
+  direction: Direction;
+}
 
 export const tripsApi = {
   getMyTrips: async (params?: { page?: number; limit?: number }) => {
     const { data } = await apiClient.get('/trips', { params });
     return data.data as Trip[];
+  },
+
+  createTrip: async (dto: ScheduleTripDto) => {
+    const { data } = await apiClient.post('/trips', dto);
+    return data.data as Trip;
   },
 
   getTripById: async (tripId: string) => {

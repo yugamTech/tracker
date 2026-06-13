@@ -20,6 +20,14 @@ export const useTripById = (tripId: string) =>
     enabled: !!tripId,
   });
 
+export const useCreateTrip = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: tripsApi.createTrip,
+    onSuccess: () => qc.invalidateQueries({ queryKey: tripKeys.all }),
+  });
+};
+
 export const useStartTrip = () => {
   const qc = useQueryClient();
   return useMutation({

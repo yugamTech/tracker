@@ -24,6 +24,8 @@ export interface Trip {
   tenantId: string;
   routeId: string;
   vehicleId?: string;
+  driverId?: string;
+  conductorId?: string;
   date: string;
   direction: Direction;
   status: TripStatus;

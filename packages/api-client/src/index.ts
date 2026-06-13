@@ -41,10 +41,12 @@ export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, use
 
 // Trips
 export { tripsApi } from './trips/trips.api';
+export type { ScheduleTripDto } from './trips/trips.api';
 export {
   tripKeys,
   useTodayTrips,
   useTripById,
+  useCreateTrip,
   useStartTrip,
   useCompleteTrip,
   useAbortTrip,
