@@ -743,3 +743,22 @@ enum MessageKey {
   PLEASE_WAIT
   DIFFERENT_STOP
 }
+
+// ─── DAILY CHECKS ─────────────────────────────────────────────────────────
+
+// Driver's daily pre-trip vehicle check (PRD-00 §4 driver persona). `items` is
+// the checklist result map (e.g. { tyres: true, brakes: true }). Photo/video
+// upload is intentionally out of scope (object-storage cost phase).
+model DailyCheck {
+  id            String   @id @default(uuid())
+  tenantId      String
+  tripId        String?
+  vehicleId     String
+  submittedById String
+  items         Json
+  note          String?
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([vehicleId, createdAt])
+}

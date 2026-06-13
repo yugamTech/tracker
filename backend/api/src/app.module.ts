@@ -16,6 +16,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { TripsModule } from './modules/trips/trips.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { DailyChecksModule } from './modules/daily-checks/daily-checks.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ComplaintsModule } from './modules/complaints/complaints.module';
 import { PaymentsModule } from './modules/payments/payments.module';
@@ -40,6 +41,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     TripsModule,
     TrackingModule,
     AttendanceModule,
+    DailyChecksModule,
     NotificationsModule,
     ComplaintsModule,
     PaymentsModule,

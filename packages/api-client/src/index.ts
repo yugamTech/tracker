@@ -63,6 +63,11 @@ export { attendanceApi } from './attendance/attendance.api';
 export type { MarkAttendanceDto, RosterResponse, RosterRider, RosterGuardian } from './attendance/attendance.api';
 export { attendanceKeys, useTripAttendance, useMarkAttendance, useRoster } from './attendance/attendance.hooks';
 
+// Daily Checks
+export { dailyChecksApi } from './daily-checks/daily-checks.api';
+export type { DailyCheck, SubmitDailyCheckDto } from './daily-checks/daily-checks.api';
+export { dailyCheckKeys, useDailyChecks, useSubmitDailyCheck } from './daily-checks/daily-checks.hooks';
+
 // Complaints
 export { complaintsApi } from './complaints/complaints.api';
 export type { CreateComplaintDto } from './complaints/complaints.api';
