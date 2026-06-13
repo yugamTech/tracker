@@ -36,11 +36,11 @@ export default function ProfileScreen() {
 
       <View style={styles.menu}>
         {[
-          { label: '👶 My Children', onPress: () => {} },
-          { label: '🔔 Notifications', onPress: () => {} },
-          { label: '🔒 Privacy Settings', onPress: () => {} },
-          { label: '📞 Contact Support', onPress: () => {} },
-          { label: '📜 Terms & Privacy', onPress: () => {} },
+          { label: '👶 My Children', onPress: () => Alert.alert('Coming soon', 'This feature is being built') },
+          { label: '🔔 Notifications', onPress: () => router.push('/(app)/profile/notifications' as never) },
+          { label: '🔒 Privacy Settings', onPress: () => Alert.alert('Coming soon', 'This feature is being built') },
+          { label: '📞 Contact Support', onPress: () => Alert.alert('Coming soon', 'This feature is being built') },
+          { label: '📜 Terms & Privacy', onPress: () => Alert.alert('Coming soon', 'This feature is being built') },
         ].map((item) => (
           <TouchableOpacity key={item.label} style={styles.menuItem} onPress={item.onPress}>
             <Text style={styles.menuLabel}>{item.label}</Text>

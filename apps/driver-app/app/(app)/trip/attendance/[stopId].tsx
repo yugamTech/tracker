@@ -2,24 +2,76 @@ import React, { useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Button } from '@saarthi/ui';
-
-const MOCK_ROSTER = [
-  { id: 'r1', name: 'Arjun Sharma', class: 'Grade 4-B', status: null as 'BOARDED' | 'NOT_BOARDED' | null },
-  { id: 'r2', name: 'Riya Gupta', class: 'Grade 3-A', status: null as 'BOARDED' | 'NOT_BOARDED' | null },
-  { id: 'r3', name: 'Rohan Yadav', class: 'Grade 5-C', status: null as 'BOARDED' | 'NOT_BOARDED' | null },
-  { id: 'r4', name: 'Priya Singh', class: 'Grade 2-B', status: null as 'BOARDED' | 'NOT_BOARDED' | null },
-];
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Button, LoadingSpinner, EmptyState } from '@saarthi/ui';
+import { useRoster, useMarkAttendance } from '@saarthi/api-client';
+import type { RosterRider } from '@saarthi/api-client';
 
 export default function AttendanceScreen() {
   const { stopId, tripId } = useLocalSearchParams<{ stopId: string; tripId: string }>();
-  const [roster, setRoster] = useState(MOCK_ROSTER);
+  const { data: rosterData, isLoading, isError } = useRoster(tripId);
+  const markAttendance = useMarkAttendance();
 
-  const mark = (id: string, status: 'BOARDED' | 'NOT_BOARDED') =>
-    setRoster((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+  // Local override map: studentId → 'BOARDED' | 'NOT_BOARDED' for optimistic UI on NOT_BOARDED
+  const [localOverrides, setLocalOverrides] = useState<Record<string, 'BOARDED' | 'NOT_BOARDED'>>({});
 
-  const marked = roster.filter((r) => r.status !== null).length;
-  const allMarked = marked === roster.length;
+  const stopRoster = rosterData?.stops.find((s) => s.stopId === stopId);
+  const riders: RosterRider[] = stopRoster?.riders ?? [];
+
+  const getStatus = (rider: RosterRider): 'BOARDED' | 'NOT_BOARDED' | 'EXPECTED' | 'CANCELLED' => {
+    if (localOverrides[rider.studentId]) return localOverrides[rider.studentId];
+    if (rider.boardStatus === 'BOARDED') return 'BOARDED';
+    if (rider.boardStatus === 'NOT_BOARDED') return 'NOT_BOARDED';
+    if (rider.boardStatus === 'CANCELLED') return 'CANCELLED';
+    return 'EXPECTED';
+  };
+
+  const handleMark = (rider: RosterRider, type: 'BOARDED' | 'NOT_BOARDED') => {
+    if (type === 'BOARDED') {
+      markAttendance.mutate({ tripId, studentId: rider.studentId, type: 'BOARDED' });
+    } else {
+      // NOT_BOARDED is local-only until Phase 4 adds the endpoint
+      setLocalOverrides((prev) => ({ ...prev, [rider.studentId]: 'NOT_BOARDED' }));
+    }
+  };
+
+  const markedCount = riders.filter((r) => {
+    const s = getStatus(r);
+    return s === 'BOARDED' || s === 'NOT_BOARDED';
+  }).length;
+  const allMarked = riders.length > 0 && markedCount === riders.length;
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={styles.back}>← Back</Text>
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.title}>Stop Attendance</Text>
+            <Text style={styles.sub}>Loading roster…</Text>
+          </View>
+          <View style={{ width: 60 }} />
+        </View>
+        <LoadingSpinner fullScreen />
+      </SafeAreaView>
+    );
+  }
+
+  if (isError) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={styles.back}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>Stop Attendance</Text>
+          <View style={{ width: 60 }} />
+        </View>
+        <EmptyState title="Could not load roster" description="Check your connection and try again" />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -29,7 +81,9 @@ export default function AttendanceScreen() {
         </TouchableOpacity>
         <View>
           <Text style={styles.title}>Stop Attendance</Text>
-          <Text style={styles.sub}>Stop: {stopId} · {marked}/{roster.length} marked</Text>
+          <Text style={styles.sub}>
+            {stopRoster?.stopName ?? stopId} · {markedCount}/{riders.length} marked
+          </Text>
         </View>
         <TouchableOpacity
           style={styles.photoBtn}
@@ -41,41 +95,52 @@ export default function AttendanceScreen() {
       </View>
 
       <FlatList
-        data={roster}
-        keyExtractor={(r) => r.id}
+        data={riders}
+        keyExtractor={(r) => r.studentId}
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <Card style={styles.card}>
-            <View style={styles.cardRow}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{item.name[0]}</Text>
+        ListEmptyComponent={
+          <EmptyState title="No riders at this stop" description="No students are expected at this stop" />
+        }
+        renderItem={({ item }) => {
+          const status = getStatus(item);
+          return (
+            <Card style={styles.card}>
+              <View style={styles.cardRow}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{item.studentName[0]}</Text>
+                </View>
+                <View style={styles.info}>
+                  <Text style={styles.name}>{item.studentName}</Text>
+                  {status === 'CANCELLED' && (
+                    <Text style={styles.cancelled}>Pickup cancelled</Text>
+                  )}
+                </View>
+                {status !== 'CANCELLED' && (
+                  <View style={styles.btns}>
+                    <TouchableOpacity
+                      style={[styles.markBtn, status === 'BOARDED' && styles.boardedActive]}
+                      onPress={() => handleMark(item, 'BOARDED')}
+                      disabled={markAttendance.isPending}
+                    >
+                      <Text style={[styles.markText, status === 'BOARDED' && styles.markTextActive]}>✓</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.markBtn, status === 'NOT_BOARDED' && styles.absentActive]}
+                      onPress={() => handleMark(item, 'NOT_BOARDED')}
+                    >
+                      <Text style={[styles.markText, status === 'NOT_BOARDED' && styles.markTextActive]}>✗</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
-              <View style={styles.info}>
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.class}>{item.class}</Text>
-              </View>
-              <View style={styles.btns}>
-                <TouchableOpacity
-                  style={[styles.markBtn, item.status === 'BOARDED' && styles.boardedActive]}
-                  onPress={() => mark(item.id, 'BOARDED')}
-                >
-                  <Text style={[styles.markText, item.status === 'BOARDED' && styles.markTextActive]}>✓</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.markBtn, item.status === 'NOT_BOARDED' && styles.absentActive]}
-                  onPress={() => mark(item.id, 'NOT_BOARDED')}
-                >
-                  <Text style={[styles.markText, item.status === 'NOT_BOARDED' && styles.markTextActive]}>✗</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </Card>
-        )}
+            </Card>
+          );
+        }}
       />
 
       <View style={styles.footer}>
         <Button
-          title={allMarked ? 'Confirm Attendance' : `Mark all (${roster.length - marked} remaining)`}
+          title={allMarked ? 'Confirm Attendance' : `Mark all (${riders.length - markedCount} remaining)`}
           onPress={() => router.back()}
           fullWidth
           size="lg"
@@ -107,7 +172,7 @@ const styles = StyleSheet.create({
   avatarText: { color: colors.white, fontWeight: fontWeights.bold, fontSize: fontSizes.base },
   info: { flex: 1 },
   name: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  class: { fontSize: fontSizes.xs, color: colors.textSecondary },
+  cancelled: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: 2 },
   btns: { flexDirection: 'row', gap: spacing[2] },
   markBtn: {
     width: 40, height: 40, borderRadius: 20,

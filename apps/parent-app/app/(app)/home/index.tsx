@@ -4,11 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, StatusDot } from '@saarthi/ui';
 import { useAuthStore } from '../../../store/auth.store';
-import { useMyStudents } from '@saarthi/api-client';
+import { useMyStudents, useTodayTrips } from '@saarthi/api-client';
 
 export default function HomeScreen() {
   const person = useAuthStore((s) => s.person);
   const { data: students, isLoading, refetch, isRefetching } = useMyStudents();
+  const { data: todayTrips } = useTodayTrips();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -51,10 +52,22 @@ export default function HomeScreen() {
               </View>
             )}
 
-            {students?.map((child) => (
+            {students?.map((child) => {
+              const activeTrip = todayTrips?.find(
+                (t) =>
+                  t.routeId === child.routeId &&
+                  (t.status === 'STARTED' || t.status === 'IN_PROGRESS' || t.status === 'SCHEDULED'),
+              );
+              return (
               <TouchableOpacity
                 key={child.id}
-                onPress={() => router.push(`/(app)/track/trip-today-001` as never)}
+                onPress={() => {
+                  if (activeTrip) {
+                    router.push(`/(app)/track/${activeTrip.id}` as never);
+                  } else {
+                    router.push('/(app)/trips' as never);
+                  }
+                }}
                 activeOpacity={0.85}
               >
                 <Card style={styles.childCard}>
@@ -66,7 +79,11 @@ export default function HomeScreen() {
                       <Text style={styles.childName}>{child.name}</Text>
                       {child.regId && <Text style={styles.childClass}>{child.regId}</Text>}
                     </View>
-                    <Badge label="Active ✓" variant="active" size="sm" />
+                    <Badge
+                      label={activeTrip ? 'Live ●' : 'No trip'}
+                      variant={activeTrip ? 'active' : 'inactive'}
+                      size="sm"
+                    />
                   </View>
 
                   <View style={styles.divider} />
@@ -97,7 +114,8 @@ export default function HomeScreen() {
                   </View>
                 </Card>
               </TouchableOpacity>
-            ))}
+              );
+            })}
           </>
         )}
 

@@ -2,31 +2,26 @@ import React from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, LoadingSpinner, EmptyState } from '@saarthi/ui';
 import { useAuthStore } from '../../store/auth.store';
+import { useTodayTrips } from '@saarthi/api-client';
+import type { BadgeVariant } from '@saarthi/ui';
 
-const MOCK_TRIPS = [
-  {
-    id: 'trip-today-001',
-    route: 'Route A — Sector 18',
-    direction: 'PICKUP',
-    time: '07:15 AM',
-    riderCount: 22,
-    status: 'SCHEDULED',
-  },
-  {
-    id: 'trip-today-002',
-    route: 'Route A — Sector 18',
-    direction: 'DROP',
-    time: '02:30 PM',
-    riderCount: 22,
-    status: 'SCHEDULED',
-  },
-];
+function tripStatusVariant(status: string): BadgeVariant {
+  switch (status) {
+    case 'COMPLETED': return 'success';
+    case 'IN_PROGRESS': case 'STARTED': return 'info';
+    case 'SCHEDULED': return 'warning';
+    case 'CANCELLED': return 'cancelled';
+    case 'ABORTED': return 'error';
+    default: return 'default';
+  }
+}
 
 export default function DriverHomeScreen() {
   const person = useAuthStore((s) => s.person);
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' });
+  const { data: trips, isLoading, isError } = useTodayTrips();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -36,41 +31,62 @@ export default function DriverHomeScreen() {
           <Text style={styles.greeting}>Hello, {person?.name?.split(' ')[0] ?? 'Driver'} 👋</Text>
           <Text style={styles.date}>{today}</Text>
         </View>
-        <TouchableOpacity style={styles.checkBtn} onPress={() => router.push('/(app)/vehicle-check' as never)}>
-          <Text style={{ fontSize: 20 }}>🔧</Text>
-          <Text style={styles.checkLabel}>Vehicle Check</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(app)/profile' as never)}>
+            <Text style={{ fontSize: 22 }}>👤</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.checkBtn} onPress={() => router.push('/(app)/vehicle-check' as never)}>
+            <Text style={{ fontSize: 20 }}>🔧</Text>
+            <Text style={styles.checkLabel}>Check</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Today's Trips ({MOCK_TRIPS.length})</Text>
+      {isLoading && <LoadingSpinner fullScreen />}
 
-      <FlatList
-        data={MOCK_TRIPS}
-        keyExtractor={(t) => t.id}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <Card style={styles.card}>
-            <View style={styles.cardTop}>
-              <View>
-                <Text style={styles.time}>{item.time}</Text>
-                <Text style={styles.route}>{item.route}</Text>
-                <Text style={styles.direction}>{item.direction === 'PICKUP' ? '⬆️ Pickup' : '⬇️ Drop'}</Text>
-              </View>
-              <Badge label={item.status} variant="warning" size="sm" />
-            </View>
-            <View style={styles.riderRow}>
-              <Text style={styles.riderCount}>👥 {item.riderCount} Riders</Text>
-            </View>
-            <Button
-              title="Start Trip →"
-              onPress={() => router.push(`/(app)/trip/${item.id}/index` as never)}
-              fullWidth
-              size="md"
-              style={{ marginTop: spacing[3] }}
-            />
-          </Card>
-        )}
-      />
+      {isError && (
+        <EmptyState title="Could not load trips" description="Check your connection and try again" />
+      )}
+
+      {!isLoading && !isError && (
+        <>
+          <Text style={styles.sectionTitle}>Today's Trips ({trips?.length ?? 0})</Text>
+          <FlatList
+            data={trips ?? []}
+            keyExtractor={(t) => t.id}
+            contentContainerStyle={styles.list}
+            ListEmptyComponent={
+              <EmptyState title="No trips today" description="You have no assigned trips for today" />
+            }
+            renderItem={({ item }) => (
+              <Card style={styles.card}>
+                <View style={styles.cardTop}>
+                  <View>
+                    <Text style={styles.route}>{(item as any)?.route?.name ?? item.routeId}</Text>
+                    <Text style={styles.direction}>{item.direction === 'PICKUP' ? '⬆️ Pickup' : '⬇️ Drop'}</Text>
+                    {(item as any)?.scheduledTime && (
+                      <Text style={styles.time}>{(item as any).scheduledTime}</Text>
+                    )}
+                  </View>
+                  <Badge label={item.status} variant={tripStatusVariant(item.status)} size="sm" />
+                </View>
+                {(item as any)?.riderCount != null && (
+                  <View style={styles.riderRow}>
+                    <Text style={styles.riderCount}>👥 {(item as any).riderCount} Riders</Text>
+                  </View>
+                )}
+                <TouchableOpacity
+                  style={styles.startBtn}
+                  onPress={() => router.push(`/(app)/trip/${item.id}/index` as never)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.startBtnText}>View Trip →</Text>
+                </TouchableOpacity>
+              </Card>
+            )}
+          />
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -83,15 +99,22 @@ const styles = StyleSheet.create({
   },
   greeting: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
   date: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing[4] },
+  profileBtn: { padding: spacing[1] },
   checkBtn: { alignItems: 'center', gap: 4 },
   checkLabel: { fontSize: fontSizes.xs, color: colors.textSecondary },
   sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary, margin: spacing[4] },
   list: { padding: spacing[4], gap: spacing[3] },
   card: {},
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  time: { fontSize: fontSizes.xl, fontWeight: fontWeights.extrabold, color: colors.textPrimary },
-  route: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  route: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   direction: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  time: { fontSize: fontSizes.xl, fontWeight: fontWeights.extrabold, color: colors.textPrimary, marginTop: spacing[1] },
   riderRow: { marginTop: spacing[3], paddingTop: spacing[3], borderTopWidth: 1, borderTopColor: colors.border },
   riderCount: { fontSize: fontSizes.base, color: colors.textPrimary, fontWeight: fontWeights.medium },
+  startBtn: {
+    marginTop: spacing[3], backgroundColor: '#0EA5E9', borderRadius: radius.lg,
+    padding: spacing[3], alignItems: 'center',
+  },
+  startBtnText: { color: colors.white, fontWeight: fontWeights.semibold, fontSize: fontSizes.base },
 });

@@ -2,17 +2,55 @@ import React from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button } from '@saarthi/ui';
-
-const MOCK_STOPS = [
-  { id: 'stop-001', name: 'Sector 18 Gate', sequence: 1, riderCount: 8, arrived: false },
-  { id: 'stop-002', name: 'DLF Phase 2', sequence: 2, riderCount: 7, arrived: false },
-  { id: 'stop-003', name: 'Vatika City', sequence: 3, riderCount: 5, arrived: false },
-  { id: 'stop-004', name: 'School Gate', sequence: 4, riderCount: 0, arrived: false },
-];
+import { colors, spacing, fontSizes, fontWeights, radius, Button, LoadingSpinner, EmptyState } from '@saarthi/ui';
+import { useTripById } from '@saarthi/api-client';
 
 export default function TripPreScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
+  const { data: trip, isLoading, isError } = useTripById(tripId);
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={styles.back}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Pre-Trip Check</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <LoadingSpinner fullScreen />
+      </SafeAreaView>
+    );
+  }
+
+  if (isError || !trip) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={styles.back}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Pre-Trip Check</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <EmptyState title="Trip not found" description="Could not load trip details" />
+      </SafeAreaView>
+    );
+  }
+
+  const t = trip as any;
+  const routeName: string = t?.route?.name ?? trip.routeId;
+  const stops: Array<{ id: string; name: string; sequence: number; riderCount: number }> =
+    (t?.route?.stops ?? [])
+      .sort((a: any, b: any) => a.sequence - b.sequence)
+      .map((rs: any) => ({
+        id: rs.stop?.id ?? rs.stopId,
+        name: rs.stop?.name ?? rs.stopId,
+        sequence: rs.sequence,
+        riderCount: (t?.riders ?? []).filter((r: any) => r.stopId === (rs.stop?.id ?? rs.stopId)).length,
+      }));
+  const totalRiders = (t?.riders ?? []).length;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -25,16 +63,23 @@ export default function TripPreScreen() {
       </View>
 
       <View style={styles.summary}>
-        <Text style={styles.summaryTitle}>Route A — Sector 18</Text>
-        <Text style={styles.summaryMeta}>PICKUP · {MOCK_STOPS.length} stops · 22 riders</Text>
+        <Text style={styles.summaryTitle}>{routeName}</Text>
+        <Text style={styles.summaryMeta}>
+          {trip.direction} · {stops.length} stop{stops.length !== 1 ? 's' : ''} · {totalRiders} rider{totalRiders !== 1 ? 's' : ''}
+        </Text>
       </View>
 
       <Text style={styles.sectionLabel}>Stop Order</Text>
       <FlatList
-        data={MOCK_STOPS}
+        data={stops}
         keyExtractor={(s) => s.id}
         contentContainerStyle={styles.list}
-        renderItem={({ item, index }) => (
+        ListEmptyComponent={
+          <View style={styles.noStops}>
+            <Text style={styles.noStopsText}>No stops found for this route</Text>
+          </View>
+        }
+        renderItem={({ item }) => (
           <View style={styles.stopRow}>
             <View style={styles.stopNumber}>
               <Text style={styles.stopNum}>{item.sequence}</Text>
@@ -85,5 +130,7 @@ const styles = StyleSheet.create({
   stopInfo: { flex: 1 },
   stopName: { fontSize: fontSizes.base, fontWeight: fontWeights.medium, color: colors.textPrimary },
   stopRiders: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  noStops: { padding: spacing[6], alignItems: 'center' },
+  noStopsText: { fontSize: fontSizes.sm, color: colors.textSecondary },
   footer: { padding: spacing[5] },
 });
