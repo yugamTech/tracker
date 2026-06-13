@@ -1,50 +1,59 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius } from '@saarthi/ui';
+import { useSendDriverMessage } from '@saarthi/api-client';
 
-const MESSAGE_CATEGORIES = [
-  {
-    category: 'Pickup',
-    messages: [
-      { id: 'm1', icon: '🚫', text: 'Cancel pickup today — Arjun is absent' },
-      { id: 'm2', icon: '⏳', text: 'Running 5 minutes late — please wait' },
-      { id: 'm3', icon: '📍', text: 'We are at the stop' },
-    ],
-  },
-  {
-    category: 'Drop-off',
-    messages: [
-      { id: 'm4', icon: '🏠', text: 'Different drop point today — please call' },
-      { id: 'm5', icon: '👨‍👩‍👧', text: 'Guardian will collect at school gate' },
-    ],
-  },
-  {
-    category: 'Emergency',
-    messages: [
-      { id: 'm6', icon: '🆘', text: 'Please call me urgently' },
-      { id: 'm7', icon: '🏥', text: 'Medical emergency — stop the bus' },
-    ],
-  },
-];
+const MESSAGE_OPTIONS = [
+  { key: 'RUNNING_LATE', icon: '⏳', label: 'Running late to stop', description: 'Running 2–3 min late to the stop' },
+  { key: 'NOT_COMING_TODAY', icon: '🚫', label: 'Not coming today', description: 'Child is not coming today' },
+  { key: 'PLEASE_WAIT', icon: '🙏', label: 'Please wait', description: 'Please wait at the stop' },
+  { key: 'DIFFERENT_STOP', icon: '📍', label: 'Different stop', description: 'Child is at a different stop today' },
+] as const;
+
+type MessageKey = (typeof MESSAGE_OPTIONS)[number]['key'];
+
+const COOLDOWN_MS = 30_000;
 
 export default function MessageDriverScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
-  const [sent, setSent] = useState<string | null>(null);
+  const { mutate: send, isPending, variables: pendingVars } = useSendDriverMessage();
 
-  if (sent) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.success}>
-          <Text style={{ fontSize: 56 }}>📤</Text>
-          <Text style={styles.successTitle}>Message sent</Text>
-          <Text style={styles.successSub}>The driver will see your message on their screen.</Text>
-          <Button title="Done" onPress={() => router.back()} fullWidth size="lg" style={{ marginTop: spacing[6] }} />
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // Per-key cooldown: key → timestamp when cooldown expires
+  const [cooldowns, setCooldowns] = useState<Partial<Record<MessageKey, number>>>({});
+  const [now, setNow] = useState(Date.now());
+
+  // Tick every second to re-render cooldown countdowns.
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleSend = useCallback(
+    (key: MessageKey) => {
+      if (!tripId) return;
+      send(
+        { tripId, messageKey: key },
+        {
+          onSuccess: () => {
+            setCooldowns((prev) => ({ ...prev, [key]: Date.now() + COOLDOWN_MS }));
+          },
+        },
+      );
+    },
+    [tripId, send],
+  );
+
+  const isCooling = (key: MessageKey) => {
+    const exp = cooldowns[key];
+    return exp !== undefined && now < exp;
+  };
+
+  const secsLeft = (key: MessageKey) => {
+    const exp = cooldowns[key];
+    return exp ? Math.ceil((exp - now) / 1000) : 0;
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -55,26 +64,39 @@ export default function MessageDriverScreen() {
         <Text style={styles.title}>Message Driver</Text>
         <View style={{ width: 32 }} />
       </View>
-      <Text style={styles.hint}>Select a quick message to send to the driver</Text>
+      <Text style={styles.hint}>Tap a message to send it to the driver</Text>
 
       <ScrollView contentContainerStyle={styles.list}>
-        {MESSAGE_CATEGORIES.map((cat) => (
-          <View key={cat.category} style={styles.section}>
-            <Text style={styles.category}>{cat.category}</Text>
-            {cat.messages.map((msg) => (
-              <TouchableOpacity
-                key={msg.id}
-                style={styles.msgCard}
-                activeOpacity={0.85}
-                onPress={() => setSent(msg.text)}
-              >
-                <Text style={styles.msgIcon}>{msg.icon}</Text>
-                <Text style={styles.msgText}>{msg.text}</Text>
-                <Text style={styles.send}>Send →</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ))}
+        {MESSAGE_OPTIONS.map((opt) => {
+          const sending =
+            isPending &&
+            (pendingVars as { messageKey: string } | undefined)?.messageKey === opt.key;
+          const cooling = isCooling(opt.key);
+          const disabled = sending || cooling;
+
+          return (
+            <TouchableOpacity
+              key={opt.key}
+              style={[styles.card, disabled && styles.cardDisabled]}
+              activeOpacity={0.8}
+              disabled={disabled}
+              onPress={() => handleSend(opt.key)}
+            >
+              <Text style={styles.icon}>{opt.icon}</Text>
+              <View style={styles.cardBody}>
+                <Text style={[styles.cardLabel, disabled && styles.textMuted]}>{opt.label}</Text>
+                <Text style={[styles.cardDesc, disabled && styles.textMuted]}>{opt.description}</Text>
+              </View>
+              {sending ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : cooling ? (
+                <Text style={styles.cooldown}>Wait {secsLeft(opt.key)}s</Text>
+              ) : (
+                <Text style={styles.sendArrow}>Send →</Text>
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </SafeAreaView>
   );
@@ -83,24 +105,42 @@ export default function MessageDriverScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: spacing[5], borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing[5],
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   back: { fontSize: 20, color: colors.textSecondary, width: 32 },
   title: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, paddingHorizontal: spacing[5], paddingTop: spacing[3] },
-  list: { padding: spacing[4], gap: spacing[4] },
-  section: { gap: spacing[2] },
-  category: { fontSize: fontSizes.xs, fontWeight: fontWeights.semibold, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
-  msgCard: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing[3],
-    backgroundColor: colors.gray50, borderRadius: radius.xl,
-    padding: spacing[4], borderWidth: 1, borderColor: colors.border,
+  hint: {
+    fontSize: fontSizes.sm,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[3],
   },
-  msgIcon: { fontSize: 24 },
-  msgText: { flex: 1, fontSize: fontSizes.base, color: colors.textPrimary },
-  send: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.semibold },
-  success: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing[8] },
-  successTitle: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.bold, color: colors.textPrimary, marginTop: spacing[4] },
-  successSub: { fontSize: fontSizes.base, color: colors.textSecondary, marginTop: spacing[2], textAlign: 'center' },
+  list: { padding: spacing[4], gap: spacing[3] },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+    backgroundColor: colors.gray50,
+    borderRadius: radius.xl,
+    padding: spacing[4],
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cardDisabled: { opacity: 0.55 },
+  icon: { fontSize: 28 },
+  cardBody: { flex: 1 },
+  cardLabel: {
+    fontSize: fontSizes.base,
+    fontWeight: fontWeights.semibold,
+    color: colors.textPrimary,
+  },
+  cardDesc: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  textMuted: { color: colors.textMuted },
+  sendArrow: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.semibold },
+  cooldown: { fontSize: fontSizes.xs, color: colors.textMuted, fontWeight: fontWeights.medium },
 });
