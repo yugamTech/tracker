@@ -147,6 +147,16 @@ export class NotificationsService {
     });
   }
 
+  listForTenant(tenantId: string, page = 1) {
+    const p = Math.max(1, page);
+    return this.prisma.notification.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      skip: (p - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    });
+  }
+
   async markRead(notificationId: string): Promise<void> {
     await this.prisma.notification.update({
       where: { id: notificationId },

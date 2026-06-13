@@ -1,12 +1,25 @@
+import React, { useEffect } from 'react';
 import { Drawer } from 'expo-router/drawer';
+import { Platform, Text } from 'react-native';
 import { colors, fontSizes, fontWeights } from '@saarthi/ui';
-import { Text } from 'react-native';
+import { useRegisterDeviceToken } from '@saarthi/api-client';
+import { useAuthStore } from '../../store/auth.store';
 
 const HIDDEN: React.ComponentProps<typeof Drawer.Screen>['options'] = {
   drawerItemStyle: { display: 'none' },
 };
 
 export default function AppLayout() {
+  const person = useAuthStore((s) => s.person);
+  const { mutate: registerToken } = useRegisterDeviceToken();
+
+  useEffect(() => {
+    if (person?.id) {
+      // Dev stub — replace with real Expo push token in Phase 4-prod.
+      registerToken({ token: `dev-token-${person.id}`, platform: Platform.OS });
+    }
+  }, [person?.id]);
+
   return (
     <Drawer
       screenOptions={{

@@ -22,7 +22,11 @@ import {
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
 import { PersonId } from '../../common/decorators/person-id.decorator';
+import { ActiveMembershipDec } from '../../common/decorators/active-membership.decorator';
 import { NotificationsService } from './notifications.service';
+import type { ActiveMembership } from '@saarthi/types';
+
+const ADMIN_ROLES = ['ADMIN', 'TRANSPORT_MANAGER', 'FOUNDER', 'SUPER_ADMIN'];
 
 class RegisterDeviceTokenDto {
   @IsString() token!: string;
@@ -54,13 +58,15 @@ export class NotificationsController {
   list(
     @PersonId() personId: string,
     @TenantId() tenantId: string,
+    @ActiveMembershipDec() membership: ActiveMembership,
     @Query('page') page?: string,
   ) {
-    return this.notificationsService.listForPerson(
-      personId,
-      tenantId,
-      page ? Number(page) : 1,
-    );
+    const p = page ? Number(page) : 1;
+    // Admin roles see all tenant notifications (delivery audit). Others see only their own.
+    if (ADMIN_ROLES.includes(membership.role)) {
+      return this.notificationsService.listForTenant(tenantId, p);
+    }
+    return this.notificationsService.listForPerson(personId, tenantId, p);
   }
 
   @Get('preferences')

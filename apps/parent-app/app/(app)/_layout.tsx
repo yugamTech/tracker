@@ -1,8 +1,21 @@
+import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
+import { Platform, Text } from 'react-native';
 import { colors } from '@saarthi/ui';
-import { Text } from 'react-native';
+import { useRegisterDeviceToken } from '@saarthi/api-client';
+import { useAuthStore } from '../../store/auth.store';
 
 export default function AppLayout() {
+  const person = useAuthStore((s) => s.person);
+  const { mutate: registerToken } = useRegisterDeviceToken();
+
+  useEffect(() => {
+    if (person?.id) {
+      // Dev stub — replace with real Expo push token in Phase 4-prod.
+      registerToken({ token: `dev-token-${person.id}`, platform: Platform.OS });
+    }
+  }, [person?.id]);
+
   return (
     <Tabs
       screenOptions={{
