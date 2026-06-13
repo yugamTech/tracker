@@ -441,8 +441,10 @@ model Notification {
   createdAt   DateTime     @default(now())
   sentAt      DateTime?
   deliveredAt DateTime?
+  readAt      DateTime?
 
   @@index([tenantId, createdAt])
+  @@index([recipientId, readAt])
   @@index([dedupKey])
 }
 
