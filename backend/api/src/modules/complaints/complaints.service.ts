@@ -1,9 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { NotifCategory } from '@saarthi/types';
 import { PrismaService } from '../../infra/database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ComplaintsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(ComplaintsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   create(data: {
     tenantId: string;
@@ -52,6 +59,20 @@ export class ComplaintsService {
         },
       }),
     ]);
+    // Fire-and-forget: notify the guardian who filed the complaint of the new status.
+    if (complaint.raisedBy) {
+      this.notifications
+        .dispatch({
+          eventType: NotifCategory.COMPLAINT_UPDATE,
+          tenantId: complaint.tenantId,
+          recipientIds: [complaint.raisedBy],
+          variables: { status: toStatus, complaintId: id, deepLink: `/complaints/${id}` },
+          entityId: id,
+        })
+        .catch((err) =>
+          this.logger.error(`COMPLAINT_UPDATE dispatch failed: ${(err as Error).message}`),
+        );
+    }
     return updated;
   }
 }

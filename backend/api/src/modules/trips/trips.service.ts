@@ -1,8 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../infra/database/prisma.service';
-import { TripStatus, RiderStatus } from '@saarthi/types';
+import { TripStatus, RiderStatus, NotifCategory } from '@saarthi/types';
 import { TrackingGateway } from '../tracking/tracking.gateway';
 import { LocationService } from '../tracking/location.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 /** Allowed status transitions for the trip lifecycle state machine. */
 const TRANSITIONS: Record<string, TripStatus[]> = {
@@ -16,10 +17,13 @@ const TRANSITIONS: Record<string, TripStatus[]> = {
 
 @Injectable()
 export class TripsService {
+  private readonly logger = new Logger(TripsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: TrackingGateway,
     private readonly location: LocationService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   list(tenantId: string, filters?: { date?: Date; status?: TripStatus }) {
@@ -87,22 +91,95 @@ export class TripsService {
     return updated;
   }
 
-  start(id: string) {
-    return this.transition(id, TripStatus.STARTED, { startedAt: new Date() });
+  async start(id: string) {
+    const updated = await this.transition(id, TripStatus.STARTED, { startedAt: new Date() });
+    this.notifyGuardiansOnTrip(id, NotifCategory.TRIP_START).catch((err) =>
+      this.logger.error(`TRIP_START dispatch failed: ${(err as Error).message}`),
+    );
+    return updated;
   }
 
-  complete(id: string) {
-    return this.transition(id, TripStatus.COMPLETED, { completedAt: new Date() });
+  async complete(id: string) {
+    const updated = await this.transition(id, TripStatus.COMPLETED, { completedAt: new Date() });
+    this.notifyGuardiansOnTrip(id, NotifCategory.TRIP_END).catch((err) =>
+      this.logger.error(`TRIP_END dispatch failed: ${(err as Error).message}`),
+    );
+    return updated;
   }
 
   /** Cancel a trip that hasn't started yet (e.g. vehicle breakdown before departure). */
-  cancel(id: string) {
-    return this.transition(id, TripStatus.CANCELLED);
+  async cancel(id: string) {
+    const updated = await this.transition(id, TripStatus.CANCELLED);
+    this.notifyPickupCancelled(id).catch((err) =>
+      this.logger.error(`PICKUP_CANCELLED dispatch failed: ${(err as Error).message}`),
+    );
+    return updated;
   }
 
   /** Abort a trip already under way (mid-route emergency stop). */
-  abort(id: string) {
-    return this.transition(id, TripStatus.ABORTED, { completedAt: new Date() });
+  async abort(id: string) {
+    const updated = await this.transition(id, TripStatus.ABORTED, { completedAt: new Date() });
+    this.notifyPickupCancelled(id).catch((err) =>
+      this.logger.error(`PICKUP_CANCELLED dispatch failed: ${(err as Error).message}`),
+    );
+    return updated;
+  }
+
+  /** Resolve every guardian of every rider on the trip and dispatch a trip-lifecycle event. */
+  private async notifyGuardiansOnTrip(tripId: string, eventType: NotifCategory) {
+    const trip = await this.prisma.trip.findUnique({
+      where: { id: tripId },
+      select: { tenantId: true },
+    });
+    if (!trip) return;
+    const riders = await this.prisma.tripRider.findMany({
+      where: { tripId },
+      select: { studentId: true },
+    });
+    if (!riders.length) return;
+    const guardians = await this.prisma.guardianship.findMany({
+      where: { studentId: { in: riders.map((r) => r.studentId) } },
+      select: { personId: true },
+    });
+    const recipientIds = [...new Set(guardians.map((g) => g.personId))];
+    if (!recipientIds.length) return;
+    await this.notifications.dispatch({
+      eventType,
+      tenantId: trip.tenantId,
+      recipientIds,
+      variables: { tripId, deepLink: `/track/${tripId}` },
+      entityId: tripId,
+    });
+  }
+
+  /** Resolve the trip's driver/conductor + tenant admins and dispatch PICKUP_CANCELLED. */
+  private async notifyPickupCancelled(tripId: string) {
+    const trip = await this.prisma.trip.findUnique({
+      where: { id: tripId },
+      select: { tenantId: true, vehicleId: true },
+    });
+    if (!trip) return;
+    const recipientIds = new Set<string>();
+    if (trip.vehicleId) {
+      const assignments = await this.prisma.vehicleAssignment.findMany({
+        where: { vehicleId: trip.vehicleId },
+        include: { membership: { select: { personId: true } } },
+      });
+      for (const a of assignments) recipientIds.add(a.membership.personId);
+    }
+    const admins = await this.prisma.membership.findMany({
+      where: { tenantId: trip.tenantId, role: { in: ['ADMIN', 'TRANSPORT_MANAGER'] as never } },
+      select: { personId: true },
+    });
+    for (const a of admins) recipientIds.add(a.personId);
+    if (!recipientIds.size) return;
+    await this.notifications.dispatch({
+      eventType: NotifCategory.PICKUP_CANCELLED,
+      tenantId: trip.tenantId,
+      recipientIds: [...recipientIds],
+      variables: { tripId, deepLink: `/track/${tripId}` },
+      entityId: tripId,
+    });
   }
 
   /**

@@ -1,12 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { NotifCategory } from '@saarthi/types';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { StorageService } from '../../infra/storage/storage.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AttendanceService {
+  private readonly logger = new Logger(AttendanceService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /**
@@ -32,8 +37,38 @@ export class AttendanceService {
         where: { tripId: data.tripId, studentId: data.studentId },
         data: { boardStatus: 'BOARDED' },
       });
+      // Fire-and-forget: tell the guardians their child boarded. Never block or
+      // fail the attendance write on a notification error.
+      this.notifyBoarding(data.tripId, data.studentId, data.tenantId, event.student.name).catch(
+        (err) => this.logger.error(`BOARDING dispatch failed: ${(err as Error).message}`),
+      );
     }
     return event;
+  }
+
+  /** Resolve the boarded student's guardians and dispatch a BOARDING notification. */
+  private async notifyBoarding(
+    tripId: string,
+    studentId: string,
+    tenantId: string,
+    studentName: string,
+  ) {
+    const guardians = await this.prisma.guardianship.findMany({
+      where: { studentId },
+      select: { personId: true },
+    });
+    if (!guardians.length) return;
+    await this.notifications.dispatch({
+      eventType: NotifCategory.BOARDING,
+      tenantId,
+      recipientIds: guardians.map((g) => g.personId),
+      variables: {
+        studentName,
+        time: new Date().toISOString(),
+        deepLink: `/track/${tripId}`,
+      },
+      entityId: `${tripId}:${studentId}`,
+    });
   }
 
   getTripAttendance(tripId: string) {

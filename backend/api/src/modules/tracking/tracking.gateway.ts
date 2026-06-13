@@ -17,7 +17,10 @@ import { GeofenceService } from './geofence.service';
 import { EtaService } from './eta.service';
 import { SpeedService } from './speed.service';
 import type { LocationPingDto } from './dto/location-ping.dto';
+import { NotifCategory } from '@saarthi/types';
 import type { JwtPayload } from '@saarthi/types';
+import { PrismaService } from '../../infra/database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 /** Roles allowed to watch the whole tenant fleet. */
 const FLEET_ROLES = ['ADMIN', 'TRANSPORT_MANAGER', 'FOUNDER', 'SUPER_ADMIN'];
@@ -41,6 +44,8 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
     private readonly speedService: SpeedService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** Verify the JWT presented on the handshake; reject the socket if invalid. */
@@ -177,8 +182,55 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
           type: 'NOT_BOARDED',
           ts: t.ts,
         });
+        // Fire-and-forget: alert the child's guardians and tenant admins.
+        this.dispatchNotBoarded(
+          t.tripId,
+          r.studentId,
+          r.studentName,
+          t.stopName,
+          pos.tenantId,
+        ).catch((err) =>
+          this.logger.error(`NOT_BOARDED dispatch failed: ${(err as Error).message}`),
+        );
       }
     }
+  }
+
+  /**
+   * Resolve a not-boarded student's guardians + the tenant's admins and dispatch
+   * an ALIGHTING notification (the closest NotifCategory for NOT_BOARDED).
+   */
+  private async dispatchNotBoarded(
+    tripId: string,
+    studentId: string,
+    studentName: string,
+    stopName: string,
+    tenantId: string,
+  ) {
+    const [guardians, admins] = await Promise.all([
+      this.prisma.guardianship.findMany({
+        where: { studentId },
+        select: { personId: true },
+      }),
+      this.prisma.membership.findMany({
+        where: { tenantId, role: { in: ['ADMIN', 'TRANSPORT_MANAGER'] as never } },
+        select: { personId: true },
+      }),
+    ]);
+    const recipientIds = [
+      ...new Set([
+        ...guardians.map((g) => g.personId),
+        ...admins.map((a) => a.personId),
+      ]),
+    ];
+    if (!recipientIds.length) return;
+    await this.notifications.dispatch({
+      eventType: NotifCategory.ALIGHTING,
+      tenantId,
+      recipientIds,
+      variables: { studentName, stopName: stopName ?? '', tripId, deepLink: `/track/${tripId}` },
+      entityId: `notboarded:${tripId}:${studentId}`,
+    });
   }
 
   /**
