@@ -67,6 +67,22 @@ export { complaintKeys, useMyComplaints, useComplaintById, useCreateComplaint, u
 export { paymentsApi } from './payments/payments.api';
 export { paymentKeys, useMyInvoices, useInvoiceById, useMandate, useInitiatePayment, useCreateMandate } from './payments/payments.hooks';
 
+// Notifications + StructuredMessages
+export { notificationsApi } from './notifications/notifications.api';
+export type { PreferenceUpdate, RegisterDeviceTokenDto, DriverMessage } from './notifications/notifications.api';
+export {
+  notificationKeys,
+  useMyNotifications,
+  useMarkRead,
+  useMarkAllRead,
+  useNotificationPreferences,
+  useUpdatePreferences,
+  useRegisterDeviceToken,
+  useRemoveDeviceToken,
+  useSendDriverMessage,
+  useDriverMessages,
+} from './notifications/notifications.hooks';
+
 // Socket
 export {
   getSocket,
