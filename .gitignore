@@ -38,6 +38,9 @@ packages/types/src/**/*.js
 packages/types/src/**/*.d.ts
 packages/types/src/**/*.map
 
+# Internal product specs — kept local, not published to the repo
+PRDS/
+
 # Logs
 *.log
 npm-debug.log*
