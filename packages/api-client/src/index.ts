@@ -36,7 +36,7 @@ export { vehicleKeys, useVehicles, useVehicleById, useCreateVehicle, useUpdateVe
 // Routes & Stops
 export { routesApi, stopsApi } from './routes/routes.api';
 export type { Route, Stop } from './routes/routes.api';
-export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, useStops, useCreateStop } from './routes/routes.hooks';
+export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, useStops, useCreateStop, useAddStop } from './routes/routes.hooks';
 
 // Trips
 export { tripsApi } from './trips/trips.api';

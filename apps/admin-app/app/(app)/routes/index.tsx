@@ -18,7 +18,7 @@ export default function RoutesScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.toolbar}>
-        <Button title="+ Add Vehicle" size="sm" variant="outline" onPress={() => router.push('/(app)/routes/vehicle/new' as never)} />
+        <Button title="+ Add Route" size="sm" variant="outline" onPress={() => router.push('/(app)/routes/new' as never)} />
       </View>
       <FlatList
         data={routes ?? []}

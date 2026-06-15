@@ -43,3 +43,15 @@ export const useCreateStop = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: routeKeys.stops }),
   });
 };
+
+export const useAddStop = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ routeId, stopId, sequence }: { routeId: string; stopId: string; sequence: number }) =>
+      routesApi.addStop(routeId, { stopId, sequence }),
+    onSuccess: (_data, { routeId }) => {
+      qc.invalidateQueries({ queryKey: routeKeys.route(routeId) });
+      qc.invalidateQueries({ queryKey: routeKeys.all });
+    },
+  });
+};

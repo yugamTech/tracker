@@ -7,7 +7,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge } from '@saarthi/ui';
 import {
   useRouteById, useCreateRoute, useUpdateRoute,
-  useStops, useCreateStop,
+  useStops, useCreateStop, useAddStop,
 } from '@saarthi/api-client';
 import type { Stop } from '@saarthi/api-client';
 
@@ -22,6 +22,7 @@ export default function RouteDetailScreen() {
   const createRoute = useCreateRoute();
   const updateRoute = useUpdateRoute();
   const createStop = useCreateStop();
+  const addStop = useAddStop();
 
   const [name, setName] = useState('');
   const [direction, setDirection] = useState<typeof DIRECTIONS[number]>('PICKUP');
@@ -69,13 +70,24 @@ export default function RouteDetailScreen() {
     const lng = parseFloat(newStopLng);
     if (!newStopName.trim()) { Alert.alert('Validation', 'Stop name is required'); return; }
     if (isNaN(lat) || isNaN(lng)) { Alert.alert('Validation', 'Enter valid lat/lng'); return; }
+    const existing = route?.stops ?? [];
+    const nextSeq = existing.length ? Math.max(...existing.map((rs) => rs.sequence)) + 1 : 1;
     createStop.mutate(
       { name: newStopName.trim(), lat, lng },
       {
-        onSuccess: () => {
-          Alert.alert('Success', 'Stop added to the stop library. Assign it to this route from the list below.');
-          setNewStopName(''); setNewStopLat(''); setNewStopLng('');
-          setShowStopForm(false);
+        onSuccess: (created) => {
+          // Attach the new stop to this route at the next sequence so the admin
+          // builds the ordered path (market → via → destination) in one step.
+          addStop.mutate(
+            { routeId, stopId: created.id, sequence: nextSeq },
+            {
+              onSuccess: () => {
+                setNewStopName(''); setNewStopLat(''); setNewStopLng('');
+                setShowStopForm(false);
+              },
+              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to add stop to route'),
+            },
+          );
         },
         onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed'),
       },
@@ -163,7 +175,7 @@ export default function RouteDetailScreen() {
                   <TextInput style={styles.input} value={newStopLng} onChangeText={setNewStopLng} keyboardType="decimal-pad" placeholder="77.0266" placeholderTextColor={colors.gray400} />
                 </View>
               </View>
-              <Button title="Add Stop" onPress={handleAddStop} loading={createStop.isPending} size="sm" />
+              <Button title="Add Stop" onPress={handleAddStop} loading={createStop.isPending || addStop.isPending} size="sm" />
             </View>
           )}
 
