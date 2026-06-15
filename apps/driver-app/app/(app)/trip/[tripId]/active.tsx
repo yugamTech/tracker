@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, fontFamilies, radius, StatusDot, Button } from '@saarthi/ui';
@@ -155,20 +155,34 @@ export default function ActiveTripScreen() {
         {!broadcasting ? (
           <Button title="▶ Start Trip" onPress={onStart} fullWidth size="lg" loading={startTrip.isPending} />
         ) : (
-          <View style={styles.actionsTop}>
-            <Button
-              title="Stop at this stop"
-              onPress={() => router.push(`/(app)/trip/attendance/${nextStop?.id}?tripId=${tripId}` as never)}
-              size="lg"
-              style={{ flex: 1 }}
-            />
-            <TouchableOpacity
-              style={styles.alertsBtn}
-              onPress={() => router.push(`/(app)/trip/alerts?tripId=${tripId}` as never)}
-            >
-              <Text style={{ fontSize: 20 }}>🔔</Text>
-              <Text style={styles.alertsBtnText}>Alerts</Text>
-            </TouchableOpacity>
+          <View style={styles.markSection}>
+            <View style={styles.markHeader}>
+              <Text style={styles.markLabel}>MARK ATTENDANCE — tap a stop</Text>
+              <TouchableOpacity
+                style={styles.alertsBtn}
+                onPress={() => router.push(`/(app)/trip/alerts?tripId=${tripId}` as never)}
+              >
+                <Text style={{ fontSize: 18 }}>🔔</Text>
+                <Text style={styles.alertsBtnText}>Alerts</Text>
+              </TouchableOpacity>
+            </View>
+            {/* Every stop is reachable (incl. the first), not just the live target. */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stopChips}>
+              {stops.map((s, i) => (
+                <TouchableOpacity
+                  key={s.id}
+                  style={[styles.stopChip, i === targetIdx && styles.stopChipActive]}
+                  onPress={() => router.push(`/(app)/trip/attendance/${s.id}?tripId=${tripId}` as never)}
+                >
+                  <Text
+                    style={[styles.stopChipText, i === targetIdx && styles.stopChipTextActive]}
+                    numberOfLines={1}
+                  >
+                    {i + 1}. {s.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         )}
         <Button
@@ -202,7 +216,18 @@ const styles = StyleSheet.create({
   mapText: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.white },
   mapSub: { fontSize: fontSizes.sm, color: colors.gray400 },
   actions: { padding: spacing[4], gap: spacing[3], backgroundColor: '#1a1a2e' },
-  actionsTop: { flexDirection: 'row', gap: spacing[2], alignItems: 'center' },
+  markSection: { gap: spacing[2] },
+  markHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  markLabel: { fontSize: fontSizes.xs, color: colors.gray300, fontWeight: fontWeights.bold, letterSpacing: 1 },
+  stopChips: { gap: spacing[2], paddingVertical: spacing[1] },
+  stopChip: {
+    backgroundColor: '#16213e', borderRadius: radius.lg,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    borderWidth: 1, borderColor: colors.gray600, maxWidth: 180,
+  },
+  stopChipActive: { backgroundColor: '#0EA5E9', borderColor: '#0EA5E9' },
+  stopChipText: { fontSize: fontSizes.sm, color: colors.gray200, fontWeight: fontWeights.medium },
+  stopChipTextActive: { color: colors.white, fontWeight: fontWeights.bold },
   alertsBtn: {
     alignItems: 'center', justifyContent: 'center', gap: 2,
     backgroundColor: '#16213e', borderRadius: radius.lg,
