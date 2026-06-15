@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { queryClient } from '@saarthi/api-client';
 import type { ActiveMembership, Role } from '@saarthi/types';
 
 interface Person { id: string; phone: string; name: string; }
@@ -19,8 +20,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   activeMembership: null,
   memberships: [],
   isAuthenticated: false,
-  setAuth: (person, memberships, activeMembership) =>
-    set({ person, memberships, activeMembership, isAuthenticated: true }),
+  setAuth: (person, memberships, activeMembership) => {
+    // Fresh login: wipe any cached data from a previous session (account-switch leak).
+    queryClient.clear();
+    set({ person, memberships, activeMembership, isAuthenticated: true });
+  },
   setActiveMembership: (m) =>
     set({
       activeMembership: {
@@ -30,6 +34,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         role: m.role,
       },
     }),
-  logout: () =>
-    set({ person: null, activeMembership: null, memberships: [], isAuthenticated: false }),
+  logout: () => {
+    queryClient.clear();
+    set({ person: null, activeMembership: null, memberships: [], isAuthenticated: false });
+  },
 }));
