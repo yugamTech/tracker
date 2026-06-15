@@ -5,6 +5,9 @@ import { colors, spacing, fontSizes, fontWeights, OtpInput, Button } from '@saar
 import { useAuthStore } from '../../store/auth.store';
 import { useVerifyOtp } from '@saarthi/api-client';
 
+/** Roles this app serves — login is refused for numbers without one of these. */
+const APP_ROLES = ['ADMIN', 'TRANSPORT_MANAGER'];
+
 export default function AdminOtpScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const [otp, setOtp] = useState('');
@@ -19,7 +22,7 @@ export default function AdminOtpScreen() {
     const code = otp.length === 6 ? otp : '';
     if (code.length !== 6) return;
     try {
-      const result = await verifyOtp.mutateAsync({ phone: phone ?? '', otp: code });
+      const result = await verifyOtp.mutateAsync({ phone: phone ?? '', otp: code, allowedRoles: APP_ROLES });
       const activeMembership = result.memberships[0];
       const memberships = result.memberships.map((m) => ({ ...m, role: m.role as any }));
       setAuth(
@@ -38,7 +41,14 @@ export default function AdminOtpScreen() {
         router.replace('/(app)/dashboard');
       }
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.message ?? 'Invalid OTP');
+      if (err?.response?.status === 403) {
+        Alert.alert(
+          'Not an admin account',
+          "This number isn't registered as an admin or transport manager for any school. Contact your school admin.",
+        );
+      } else {
+        Alert.alert('Could not sign in', err?.response?.data?.message ?? 'Invalid or expired OTP');
+      }
     }
   };
 

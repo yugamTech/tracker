@@ -6,6 +6,9 @@ import { Button } from '@saarthi/ui';
 import { useAuthStore } from '../../store/auth.store';
 import { useVerifyOtp } from '@saarthi/api-client';
 
+/** Roles this app serves — login is refused for numbers without one of these. */
+const APP_ROLES = ['PARENT', 'TEACHER_RIDER'];
+
 export default function OtpScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const [otp, setOtp] = useState('');
@@ -20,7 +23,7 @@ export default function OtpScreen() {
     const code = otp.length === 6 ? otp : '';
     if (code.length !== 6) return;
     try {
-      const result = await verifyOtp.mutateAsync({ phone: phone ?? '', otp: code });
+      const result = await verifyOtp.mutateAsync({ phone: phone ?? '', otp: code, allowedRoles: APP_ROLES });
       const activeMembership = result.memberships[0];
       const memberships = result.memberships.map((m) => ({ ...m, role: m.role as any }));
       setAuth(
@@ -35,7 +38,14 @@ export default function OtpScreen() {
       );
       router.replace('/(app)/home');
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.message ?? 'Invalid OTP');
+      if (err?.response?.status === 403) {
+        Alert.alert(
+          'Not a parent account',
+          "This number isn't registered as a parent or teacher-rider. If you're a driver, please use the Saarthi Driver app, or contact your school admin.",
+        );
+      } else {
+        Alert.alert('Could not sign in', err?.response?.data?.message ?? 'Invalid or expired OTP');
+      }
     }
   };
 

@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { OtpService } from './otp.service';
 import { TokenService } from './token.service';
@@ -24,15 +24,15 @@ export class AuthService {
     const valid = await this.otpService.verify(dto.phone, dto.otp);
     if (!valid) throw new UnauthorizedException('Invalid or expired OTP');
 
-    // Find or create person
-    let person = await this.prisma.person.findUnique({
+    // Anti-self-signup (PRD-01 FR-03): identity is provisioned, never created at
+    // login. An unknown number is refused — we don't mint an orphan Person.
+    const person = await this.prisma.person.findUnique({
       where: { phone: dto.phone },
     });
-
     if (!person) {
-      person = await this.prisma.person.create({
-        data: { phone: dto.phone, name: dto.phone },
-      });
+      throw new UnauthorizedException(
+        "This number isn't registered with any school yet. Contact your school admin.",
+      );
     }
 
     // Get active memberships
@@ -42,11 +42,27 @@ export class AuthService {
     });
 
     if (memberships.length === 0) {
-      throw new UnauthorizedException('No active membership found for this number');
+      throw new UnauthorizedException(
+        "This number isn't registered with any school yet. Contact your school admin.",
+      );
     }
 
-    // Use first membership by default (context-switch handles multi-tenant)
-    const membership = memberships[0];
+    // Role-aware login: each app passes the roles it serves. One person may hold
+    // many roles (one identity, many memberships — PRD-01 §2), but an app only
+    // admits memberships whose role it serves, so e.g. a parent can never land in
+    // the driver app. Omitting allowedRoles keeps the unrestricted behaviour.
+    const eligible = dto.allowedRoles?.length
+      ? memberships.filter((m) => dto.allowedRoles!.includes(m.role))
+      : memberships;
+
+    if (eligible.length === 0) {
+      throw new ForbiddenException(
+        `This number is registered, but not for this app (needs one of: ${dto.allowedRoles!.join(', ')}).`,
+      );
+    }
+
+    // Use the first eligible membership by default (context-switch handles multi-tenant).
+    const membership = eligible[0];
 
     const payload = {
       sub: person.id,
@@ -59,7 +75,7 @@ export class AuthService {
       accessToken: this.tokenService.signAccess(payload),
       refreshToken: this.tokenService.signRefresh(payload),
       person: { id: person.id, phone: person.phone, name: person.name },
-      memberships: memberships.map((m: any) => ({
+      memberships: eligible.map((m: any) => ({
         id: m.id,
         tenantId: m.tenantId,
         tenantName: m.tenant.name,

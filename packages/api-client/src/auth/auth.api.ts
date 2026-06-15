@@ -9,6 +9,8 @@ export interface RequestOtpDto {
 export interface VerifyOtpDto {
   phone: string;
   otp: string;
+  /** Roles the calling app serves; the backend refuses a number lacking any of them. */
+  allowedRoles?: string[];
 }
 
 export interface AuthResponse {
