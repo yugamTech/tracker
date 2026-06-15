@@ -77,7 +77,7 @@ export default function DriverHomeScreen() {
                 )}
                 <TouchableOpacity
                   style={styles.startBtn}
-                  onPress={() => router.push(`/(app)/trip/${item.id}/index` as never)}
+                  onPress={() => router.push(`/(app)/trip/${item.id}`)}
                   activeOpacity={0.85}
                 >
                   <Text style={styles.startBtnText}>View Trip →</Text>
