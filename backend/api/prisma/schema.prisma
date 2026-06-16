@@ -139,6 +139,38 @@ model Guardianship {
   @@unique([studentId, personId])
 }
 
+// Audit record for one bulk Excel import (PRD-01 FR-16–21). tenant-scoped for
+// isolation; counts + per-row error report let an admin see exactly what a batch
+// did. status COMMITTED only after the atomic transaction succeeds; VALIDATED is
+// a dry-run that wrote nothing (so it is never persisted — kept for clarity).
+model ImportBatch {
+  id           String            @id @default(uuid())
+  tenantId     String
+  entityType   ImportEntityType
+  status       ImportBatchStatus @default(COMMITTED)
+  createdById  String
+  createdCount Int               @default(0)
+  updatedCount Int               @default(0)
+  errorCount   Int               @default(0)
+  errorReport  Json?
+  createdAt    DateTime          @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+enum ImportEntityType {
+  students
+  staff
+  vehicles
+  routes_stops
+  age_groups
+}
+
+enum ImportBatchStatus {
+  COMMITTED
+  FAILED
+}
+
 model Consent {
   id         String   @id @default(uuid())
   personId   String
