@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, Query, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { IsString, IsOptional, IsEnum, IsDateString } from 'class-validator';
@@ -23,6 +23,12 @@ class CreateTripDto {
   @IsOptional() @IsString() conductorId?: string;
   @IsDateString() date!: string;
   @IsEnum(Direction) direction!: Direction;
+  @IsOptional() @IsDateString() scheduledStart?: string;
+}
+
+class StartTripDto {
+  /** Mandatory only when the trip starts off-protocol (no daily check / outside window). */
+  @IsOptional() @IsString() reason?: string;
 }
 
 @ApiTags('trips')
@@ -45,6 +51,17 @@ export class TripsController {
     return this.tripsService.getTodayTrips(actor);
   }
 
+  /** List trip-start exceptions for the admin alarm panel (default: open only).
+   *  Declared before the `:id` route so "exceptions" isn't captured as a trip id. */
+  @Get('exceptions')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  listExceptions(@TenantId() tenantId: string, @Query('resolved') resolved?: string) {
+    const filter =
+      resolved === 'true' ? { resolved: true } : resolved === 'all' ? {} : { resolved: false };
+    return this.tripsService.listStartExceptions(tenantId, filter);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.tripsService.findById(id);
@@ -63,12 +80,25 @@ export class TripsController {
       conductorId: dto.conductorId,
       date: new Date(dto.date),
       direction: dto.direction,
+      scheduledStart: dto.scheduledStart ? new Date(dto.scheduledStart) : undefined,
     });
   }
 
+  /** Resolve a trip-start exception — records resolver + timestamp. Admin only. */
+  @Post('exceptions/:id/resolve')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  resolveException(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+    @ActiveMembershipDec() actor: ActiveMembership,
+  ) {
+    return this.tripsService.resolveStartException(id, tenantId, actor.personId);
+  }
+
   @Post(':id/start')
-  start(@Param('id') id: string) {
-    return this.tripsService.start(id);
+  start(@Param('id') id: string, @Body() dto: StartTripDto) {
+    return this.tripsService.start(id, { reason: dto.reason });
   }
 
   @Post(':id/complete')

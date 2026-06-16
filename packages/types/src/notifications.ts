@@ -13,6 +13,7 @@ export enum NotifStatus {
 
 export enum NotifCategory {
   TRIP_START = 'TRIP_START',
+  TRIP_START_EXCEPTION = 'TRIP_START_EXCEPTION',
   TRIP_END = 'TRIP_END',
   BOARDING = 'BOARDING',
   ALIGHTING = 'ALIGHTING',

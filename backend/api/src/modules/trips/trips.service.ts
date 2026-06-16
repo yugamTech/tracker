@@ -17,6 +17,15 @@ const TRANSITIONS: Record<string, TripStatus[]> = {
   [TripStatus.ABORTED]: [],
 };
 
+/** Prisma date filter for [start-of-day, end-of-day] around the given instant. */
+function dayRange(at: Date): { gte: Date; lte: Date } {
+  const gte = new Date(at);
+  gte.setHours(0, 0, 0, 0);
+  const lte = new Date(at);
+  lte.setHours(23, 59, 59, 999);
+  return { gte, lte };
+}
+
 @Injectable()
 export class TripsService {
   private readonly logger = new Logger(TripsService.name);
@@ -123,12 +132,143 @@ export class TripsService {
     return updated;
   }
 
-  async start(id: string) {
-    const updated = await this.transition(id, TripStatus.STARTED, { startedAt: new Date() });
+  /**
+   * Start a trip under the trip-start governance rule (2B). A trip starts CLEANLY
+   * only if BOTH a DailyCheck exists for its vehicle today AND `now` is within
+   * [scheduledStart − 1h, scheduledStart + 1h]. If either gate fails the driver must
+   * supply a `reason` note — that starts the trip anyway, records a TripStartException,
+   * and fires a fire-and-forget admin alarm notification. Without a note a blocked
+   * start throws TRIP_START_BLOCKED so the driver UI can show why and prompt for one.
+   */
+  async start(id: string, opts: { reason?: string } = {}) {
+    const trip = await this.prisma.trip.findUnique({
+      where: { id },
+      select: { id: true, tenantId: true, vehicleId: true, scheduledStart: true, date: true },
+    });
+    if (!trip) throw new NotFoundException(`Trip ${id} not found`);
+
+    const now = new Date();
+    const scheduledStart = trip.scheduledStart ?? trip.date;
+
+    // Gate 1 — a daily vehicle check exists for this vehicle today.
+    const dailyCheckDone = trip.vehicleId
+      ? (await this.prisma.dailyCheck.count({
+          where: { vehicleId: trip.vehicleId, createdAt: dayRange(now) },
+        })) > 0
+      : false;
+
+    // Gate 2 — `now` is within ±1h of the scheduled start.
+    const deltaMinutes = Math.round((now.getTime() - scheduledStart.getTime()) / 60_000);
+    const withinWindow = Math.abs(deltaMinutes) <= 60;
+
+    const clean = dailyCheckDone && withinWindow;
+    const reason = opts.reason?.trim();
+
+    if (!clean && !reason) {
+      // Blocked — surface WHY so the driver UI can prompt for a reason note.
+      const why: string[] = [];
+      if (!dailyCheckDone) why.push('No daily vehicle check has been submitted today.');
+      if (!withinWindow) {
+        why.push(
+          `Now is ${Math.abs(deltaMinutes)} min ${deltaMinutes < 0 ? 'before' : 'after'} the scheduled start (allowed: ±60 min).`,
+        );
+      }
+      throw new BadRequestException({ error: 'TRIP_START_BLOCKED', message: why.join(' ') });
+    }
+
+    const updated = await this.transition(id, TripStatus.STARTED, { startedAt: now });
+
+    if (!clean) {
+      // Off-protocol start: persist the exception, then alert admins (fire-and-forget).
+      const exception = await this.prisma.tripStartException.create({
+        data: {
+          tenantId: trip.tenantId,
+          tripId: id,
+          startedAt: now,
+          scheduledStart,
+          deltaMinutes,
+          dailyCheckDone,
+          reason: reason as string,
+        },
+      });
+      this.notifyAdminsOfStartException(trip.tenantId, id, exception.reason).catch((err) =>
+        this.logger.error(`TRIP_START_EXCEPTION dispatch failed: ${(err as Error).message}`),
+      );
+    }
+
     this.notifyGuardiansOnTrip(id, NotifCategory.TRIP_START).catch((err) =>
       this.logger.error(`TRIP_START dispatch failed: ${(err as Error).message}`),
     );
     return updated;
+  }
+
+  /** Open (or all) trip-start exceptions for the alarm panel, tenant-scoped. */
+  listStartExceptions(tenantId: string, opts: { resolved?: boolean } = {}) {
+    const where: Prisma.TripStartExceptionWhereInput = { tenantId };
+    if (opts.resolved === true) where.resolvedAt = { not: null };
+    if (opts.resolved === false) where.resolvedAt = null;
+    return this.prisma.tripStartException.findMany({
+      where,
+      include: { trip: { include: { route: true, vehicle: true, driver: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /** Resolve a trip-start exception — records the resolver + timestamp. Tenant-scoped. */
+  async resolveStartException(id: string, tenantId: string, resolvedById: string) {
+    const exception = await this.prisma.tripStartException.findFirst({
+      where: { id, tenantId },
+      select: { id: true },
+    });
+    if (!exception) throw new NotFoundException(`Trip-start exception ${id} not found`);
+    return this.prisma.tripStartException.update({
+      where: { id },
+      data: { resolvedById, resolvedAt: new Date() },
+    });
+  }
+
+  /**
+   * Derive a trip's planned departure from the route's age-group pickup/drop time
+   * (by direction), applied to the trip's calendar day. Note: the "HH:mm" times are
+   * wall-clock in the tenant timezone; for staging we apply them in the server's
+   * local time. Falls back to the date itself when no age-group time exists.
+   */
+  private async deriveScheduledStart(
+    routeId: string,
+    tenantId: string,
+    date: Date,
+    direction: Direction,
+  ): Promise<Date> {
+    const ageGroups = await this.prisma.ageGroup.findMany({
+      where: { tenantId, routeId },
+      select: { pickupTime: true, dropTime: true },
+    });
+    const times = ageGroups
+      .map((g) => (direction === Direction.PICKUP ? g.pickupTime : g.dropTime))
+      .filter((t): t is string => !!t && /^\d{1,2}:\d{2}$/.test(t))
+      .sort();
+    if (!times.length) return date;
+    const [h, m] = times[0].split(':').map(Number);
+    const d = new Date(date);
+    d.setHours(h, m, 0, 0);
+    return d;
+  }
+
+  /** Resolve the tenant's ACTIVE admins and dispatch the TRIP_START_EXCEPTION alarm. */
+  private async notifyAdminsOfStartException(tenantId: string, tripId: string, reason: string) {
+    const admins = await this.prisma.membership.findMany({
+      where: { tenantId, role: { in: ['ADMIN', 'TRANSPORT_MANAGER'] as never }, status: 'ACTIVE' },
+      select: { personId: true },
+    });
+    const recipientIds = [...new Set(admins.map((a) => a.personId))];
+    if (!recipientIds.length) return;
+    await this.notifications.dispatch({
+      eventType: NotifCategory.TRIP_START_EXCEPTION,
+      tenantId,
+      recipientIds,
+      variables: { tripId, reason, deepLink: '/trips/exceptions' },
+      entityId: tripId,
+    });
   }
 
   async complete(id: string) {
@@ -262,6 +402,7 @@ export class TripsService {
     conductorId?: string;
     date: Date;
     direction: Direction;
+    scheduledStart?: Date;
   }) {
     const { tenantId, routeId, vehicleId, driverId, conductorId, date, direction } = data;
 
@@ -287,6 +428,11 @@ export class TripsService {
       select: { id: true, stopId: true },
     });
 
+    // Planned departure: admin-entered if supplied, else derived from the route's
+    // age-group pickup/drop time (2B trip-start governance window).
+    const scheduledStart =
+      data.scheduledStart ?? (await this.deriveScheduledStart(routeId, tenantId, date, direction));
+
     return this.prisma.$transaction(async (tx) => {
       const trip = await tx.trip.create({
         data: {
@@ -297,6 +443,7 @@ export class TripsService {
           conductorId: conductorId ?? null,
           date,
           direction,
+          scheduledStart,
           status: TripStatus.SCHEDULED,
         },
       });

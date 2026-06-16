@@ -73,6 +73,19 @@ export const NOTIFICATION_EVENT_SPECS: Record<NotifCategory, NotificationEventSp
     title: () => 'Trip started',
     body: () => 'The bus has started its trip.',
   },
+  // Trip-start governance (2B): raised when a driver starts a trip outside the
+  // clean-start rule. Targets tenant admins so they can review/resolve the alarm.
+  [NotifCategory.TRIP_START_EXCEPTION]: {
+    eventType: NotifCategory.TRIP_START_EXCEPTION,
+    channels: [NotifChannel.PUSH],
+    dedupWindowMs: 60_000,
+    priority: NotifPriority.HIGH,
+    templateId: 'trip-start-exception.v1',
+    recipients: 'tenant admins',
+    title: () => 'Trip started off-protocol',
+    body: (vars) =>
+      `A trip started outside the rules${v(vars, 'reason') ? ` — ${v(vars, 'reason')}` : ''}.`,
+  },
   [NotifCategory.TRIP_END]: {
     eventType: NotifCategory.TRIP_END,
     channels: [NotifChannel.PUSH],
