@@ -84,6 +84,7 @@ export {
 export { complaintsApi } from './complaints/complaints.api';
 export type { CreateComplaintDto } from './complaints/complaints.api';
 export { complaintKeys, useMyComplaints, useComplaintById, useCreateComplaint, useAllComplaints, useUpdateComplaintStatus } from './complaints/complaints.hooks';
+export type { ComplaintFilters } from './complaints/complaints.hooks';
 
 // Payments
 export { paymentsApi } from './payments/payments.api';

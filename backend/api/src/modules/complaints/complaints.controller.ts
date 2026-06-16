@@ -43,8 +43,16 @@ export class ComplaintsController {
   }
 
   @Get('all')
-  listAll(@TenantId() tenantId: string, @Query('status') status?: string) {
-    return this.complaintsService.listByTenant(tenantId, status);
+  listAll(
+    @TenantId() tenantId: string,
+    @Query('status') status?: string,
+    @Query('category') category?: string,
+    @Query('routeId') routeId?: string,
+    @Query('driverId') driverId?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+  ) {
+    return this.complaintsService.listByTenant(tenantId, { status, category, routeId, driverId, dateFrom, dateTo });
   }
 
   @Get(':id')

@@ -27,7 +27,16 @@ export const useCreateComplaint = () => {
   });
 };
 
-export const useAllComplaints = (params?: { status?: string }) =>
+export interface ComplaintFilters {
+  status?: string;
+  category?: string;
+  routeId?: string;
+  driverId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export const useAllComplaints = (params?: ComplaintFilters) =>
   useQuery({
     queryKey: ['complaints', 'all', params],
     queryFn: () => complaintsApi.getAllComplaints(params),

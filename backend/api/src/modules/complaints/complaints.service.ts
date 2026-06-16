@@ -26,7 +26,12 @@ export class ComplaintsService {
   findById(id: string) {
     return this.prisma.complaint.findUniqueOrThrow({
       where: { id },
-      include: { events: true, attachments: true, student: true, trip: true },
+      include: {
+        events: { orderBy: { ts: 'asc' } },
+        attachments: true,
+        student: true,
+        trip: { include: { route: true } },
+      },
     });
   }
 
@@ -37,10 +42,33 @@ export class ComplaintsService {
     });
   }
 
-  listByTenant(tenantId: string, status?: string) {
+  listByTenant(
+    tenantId: string,
+    filters?: {
+      status?: string;
+      category?: string;
+      routeId?: string;
+      driverId?: string;
+      dateFrom?: string;
+      dateTo?: string;
+    },
+  ) {
+    const where: any = { tenantId };
+    if (filters?.status) where.status = filters.status;
+    if (filters?.category) where.category = filters.category;
+    if (filters?.routeId) where.trip = { routeId: filters.routeId };
+    if (filters?.driverId) {
+      where.trip = { ...(where.trip ?? {}), driverId: filters.driverId };
+    }
+    if (filters?.dateFrom || filters?.dateTo) {
+      where.createdAt = {
+        ...(filters.dateFrom && { gte: new Date(filters.dateFrom) }),
+        ...(filters.dateTo && { lte: new Date(filters.dateTo) }),
+      };
+    }
     return this.prisma.complaint.findMany({
-      where: { tenantId, ...(status && { status: status as never }) },
-      include: { student: true },
+      where,
+      include: { student: true, trip: { include: { route: true } } },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -66,7 +94,7 @@ export class ComplaintsService {
           eventType: NotifCategory.COMPLAINT_UPDATE,
           tenantId: complaint.tenantId,
           recipientIds: [complaint.raisedBy],
-          variables: { status: toStatus, complaintId: id, deepLink: `/complaints/${id}` },
+          variables: { status: toStatus, complaintId: id, deepLink: `/complaints/${id}`, ...(note && { note }) },
           entityId: id,
         })
         .catch((err) =>

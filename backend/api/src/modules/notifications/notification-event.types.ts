@@ -113,8 +113,11 @@ export const NOTIFICATION_EVENT_SPECS: Record<NotifCategory, NotificationEventSp
     priority: NotifPriority.MEDIUM,
     templateId: 'complaint-update.v1',
     recipients: 'guardian who filed the complaint',
-    title: () => 'Complaint update',
-    body: (vars) => `Your complaint is now ${v(vars, 'status', 'updated')}.`,
+    title: (vars) => v(vars, 'status') === 'RESOLVED' ? 'Complaint resolved' : 'Complaint update',
+    body: (vars) =>
+      v(vars, 'note')
+        ? `Your complaint was resolved: ${v(vars, 'note')}`
+        : `Your complaint is now ${v(vars, 'status', 'updated')}.`,
   },
   [NotifCategory.PAYMENT_DUE]: {
     eventType: NotifCategory.PAYMENT_DUE,

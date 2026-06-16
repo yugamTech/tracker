@@ -25,7 +25,14 @@ export const complaintsApi = {
     return data.data as Complaint;
   },
 
-  getAllComplaints: async (params?: { status?: string; page?: number }) => {
+  getAllComplaints: async (params?: {
+    status?: string;
+    category?: string;
+    routeId?: string;
+    driverId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) => {
     const { data } = await apiClient.get('/complaints/all', { params });
     return data.data as Complaint[];
   },
