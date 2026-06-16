@@ -14,6 +14,8 @@ export type { StatusDotVariant } from './components/StatusDot';
 
 export { OtpInput } from './components/OtpInput';
 export { ScreenContainer } from './components/ScreenContainer';
+export { MockBusMap } from './components/MockBusMap';
+export type { MockBusMapStop } from './components/MockBusMap';
 
 // Theme
 export { colors } from './theme/colors';

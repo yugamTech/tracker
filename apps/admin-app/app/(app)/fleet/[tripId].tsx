@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import {
-  colors, spacing, fontSizes, fontWeights, radius, Card, Badge, LoadingSpinner, EmptyState,
+  colors, spacing, fontSizes, fontWeights, radius, Card, Badge, LoadingSpinner, EmptyState, MockBusMap,
 } from '@saarthi/ui';
 import type { BadgeVariant } from '@saarthi/ui';
 import { useTripById, useRoster } from '@saarthi/api-client';
@@ -75,6 +75,16 @@ export default function TripMonitorScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
     >
+      {/* Mock live map — shown when trip is started/in-progress */}
+      {(status === 'STARTED' || status === 'IN_PROGRESS') && (
+        <MockBusMap
+          stops={((t?.route?.stops ?? []) as any[]).map((rs: any) => ({ id: rs.stop?.id ?? rs.id, name: rs.stop?.name ?? rs.name }))}
+          live={true}
+          routeName={routeName}
+          height={180}
+        />
+      )}
+
       {/* Header */}
       <Card style={styles.section}>
         <View style={styles.headerTop}>

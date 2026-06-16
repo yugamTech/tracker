@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, StatusDot, Card } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, StatusDot, Card, MockBusMap } from '@saarthi/ui';
 import {
   useTripById,
   useLatestPosition,
@@ -84,22 +84,13 @@ export default function TrackScreen() {
         {isLoading && !latest ? (
           <ActivityIndicator color={colors.primary} />
         ) : (
-          <>
-            <Text style={styles.mapIcon}>🚌</Text>
-            <Text style={styles.mapText}>Live Map</Text>
-            {latest ? (
-              <>
-                <Text style={styles.mapSub}>
-                  Bus at {latest.lat.toFixed(4)}, {latest.lng.toFixed(4)}
-                </Text>
-                <Text style={styles.mapSub}>
-                  Speed: {latest.speed != null ? `${Math.round(latest.speed * 3.6)} km/h` : '—'}
-                </Text>
-              </>
-            ) : (
-              <Text style={styles.mapSub}>Waiting for the bus to start moving…</Text>
-            )}
-          </>
+          <MockBusMap
+            stops={routeStops.map((s) => ({ id: s.id, name: s.name }))}
+            currentIdx={Math.max(0, routeStops.findIndex((s) => !departed.has(s.id)))}
+            live={live}
+            routeName={(trip as any)?.route?.name}
+            height={200}
+          />
         )}
       </View>
 
@@ -183,14 +174,9 @@ const styles = StyleSheet.create({
   liveTextIdle: { color: colors.textMuted },
   mapPlaceholder: {
     flex: 1,
-    alignItems: 'center',
+    backgroundColor: '#0F172A',
     justifyContent: 'center',
-    backgroundColor: '#EEF2FF',
-    gap: spacing[2],
   },
-  mapIcon: { fontSize: 56 },
-  mapText: { fontSize: fontSizes.xl, fontWeight: fontWeights.bold, color: colors.primary },
-  mapSub: { fontSize: fontSizes.sm, color: colors.textSecondary },
   sheet: {
     backgroundColor: colors.white,
     borderTopLeftRadius: radius['2xl'],
