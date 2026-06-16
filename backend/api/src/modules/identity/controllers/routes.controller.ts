@@ -36,8 +36,8 @@ export class RoutesController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.routesService.findById(id);
+  findOne(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.routesService.findById(id, tenantId);
   }
 
   @Post()
@@ -48,19 +48,19 @@ export class RoutesController {
 
   @Patch(':id')
   @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
-  update(@Param('id') id: string, @Body() dto: UpdateRouteDto) {
-    return this.routesService.update(id, dto);
+  update(@TenantId() tenantId: string, @Param('id') id: string, @Body() dto: UpdateRouteDto) {
+    return this.routesService.update(id, tenantId, dto);
   }
 
   @Post(':id/stops')
   @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
-  addStop(@Param('id') routeId: string, @Body() dto: AddStopDto) {
-    return this.routesService.addStop({ routeId, ...dto });
+  addStop(@TenantId() tenantId: string, @Param('id') routeId: string, @Body() dto: AddStopDto) {
+    return this.routesService.addStop(tenantId, { routeId, ...dto });
   }
 
   @Delete(':id/stops/:stopId')
   @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
-  removeStop(@Param('id') routeId: string, @Param('stopId') stopId: string) {
-    return this.routesService.removeStop(routeId, stopId);
+  removeStop(@TenantId() tenantId: string, @Param('id') routeId: string, @Param('stopId') stopId: string) {
+    return this.routesService.removeStop(routeId, tenantId, stopId);
   }
 }

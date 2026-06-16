@@ -1,9 +1,12 @@
 import { Controller, Get, Post, Patch, Param, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
+import { Roles } from '../../../common/decorators/roles.decorator';
 import { StopsService } from '../stops.service';
 import { TenantId } from '../../../common/decorators/tenant-id.decorator';
 import { IsString, IsNumber, IsOptional } from 'class-validator';
+import { Role } from '@saarthi/types';
 
 class CreateStopDto {
   @IsString() name!: string;
@@ -21,7 +24,7 @@ class UpdateStopDto {
 
 @ApiTags('stops')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('stops')
 export class StopsController {
   constructor(private readonly stopsService: StopsService) {}
@@ -32,17 +35,19 @@ export class StopsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.stopsService.findById(id);
+  findOne(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.stopsService.findById(id, tenantId);
   }
 
   @Post()
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
   create(@TenantId() tenantId: string, @Body() dto: CreateStopDto) {
     return this.stopsService.create({ tenantId, ...dto });
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateStopDto) {
-    return this.stopsService.update(id, dto);
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  update(@TenantId() tenantId: string, @Param('id') id: string, @Body() dto: UpdateStopDto) {
+    return this.stopsService.update(id, tenantId, dto);
   }
 }

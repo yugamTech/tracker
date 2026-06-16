@@ -34,8 +34,8 @@ export class VehiclesController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.vehiclesService.findById(id);
+  findOne(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.vehiclesService.findById(id, tenantId);
   }
 
   @Post()
@@ -46,7 +46,7 @@ export class VehiclesController {
 
   @Patch(':id')
   @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
-  update(@Param('id') id: string, @Body() dto: UpdateVehicleDto) {
-    return this.vehiclesService.update(id, dto);
+  update(@TenantId() tenantId: string, @Param('id') id: string, @Body() dto: UpdateVehicleDto) {
+    return this.vehiclesService.update(id, tenantId, dto);
   }
 }
