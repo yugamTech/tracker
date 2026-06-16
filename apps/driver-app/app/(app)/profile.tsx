@@ -58,6 +58,7 @@ export default function DriverProfileScreen() {
 
       <View style={styles.menu}>
         {[
+          { label: '🪪 My KYC', onPress: () => router.push('/(app)/kyc' as never) },
           { label: '🔧 Vehicle Check', onPress: () => router.push('/(app)/vehicle-check' as never) },
           { label: '📋 Trip History', onPress: () => Alert.alert('Coming soon', 'Trip history coming in a later phase') },
         ].map((item) => (

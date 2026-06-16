@@ -4,8 +4,15 @@ import {
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
+import { PoliceVerificationStatus } from '@saarthi/types';
 import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, Button } from '@saarthi/ui';
-import { useMemberById, useUpdateMember, useDeactivateMember } from '@saarthi/api-client';
+import {
+  useMemberById,
+  useUpdateMember,
+  useDeactivateMember,
+  useDriverProfile,
+  useUpsertDriverProfile,
+} from '@saarthi/api-client';
 
 /** Roles an admin may assign here (PRD-01 FR-13). Mirrors the backend STAFF_ROLES. */
 const ROLES = [
@@ -13,6 +20,12 @@ const ROLES = [
   { value: 'CONDUCTOR', label: 'Conductor' },
   { value: 'ADMIN', label: 'Admin' },
   { value: 'TRANSPORT_MANAGER', label: 'Transport Manager' },
+] as const;
+
+const PV_STATUSES = [
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'VERIFIED', label: 'Verified' },
+  { value: 'REJECTED', label: 'Rejected' },
 ] as const;
 
 export default function StaffDetailScreen() {
@@ -144,6 +157,9 @@ export default function StaffDetailScreen() {
         />
       </Card>
 
+      {/* Driver KYC — only meaningful for DRIVER memberships (text only, no docs). */}
+      {member.role === 'DRIVER' && <DriverKycSection membershipId={id} />}
+
       {/* Deactivate */}
       {isActive && (
         <Card style={styles.section}>
@@ -161,6 +177,144 @@ export default function StaffDetailScreen() {
         </Card>
       )}
     </ScrollView>
+  );
+}
+
+/**
+ * Driver KYC editor (text only — no document-image upload this milestone). Admin
+ * may set every field incl. the police-verification outcome. Aadhaar is sensitive
+ * personal data (DPDP); it is stored as plain text for staging only.
+ */
+function DriverKycSection({ membershipId }: { membershipId: string }) {
+  const { data: profile, isLoading } = useDriverProfile(membershipId);
+  const upsert = useUpsertDriverProfile();
+
+  const [aadhaar, setAadhaar] = useState('');
+  const [address, setAddress] = useState('');
+  const [license, setLicense] = useState('');
+  const [licenseExpiry, setLicenseExpiry] = useState('');
+  const [pvStatus, setPvStatus] = useState<string>('PENDING');
+  const [pvRef, setPvRef] = useState('');
+
+  useEffect(() => {
+    if (profile) {
+      setAadhaar(profile.aadhaarNumber ?? '');
+      setAddress(profile.address ?? '');
+      setLicense(profile.licenseNumber ?? '');
+      setLicenseExpiry(profile.licenseExpiry ? profile.licenseExpiry.slice(0, 10) : '');
+      setPvStatus(profile.policeVerificationStatus ?? 'PENDING');
+      setPvRef(profile.policeVerificationRef ?? '');
+    }
+  }, [profile]);
+
+  const handleSave = () => {
+    upsert.mutate(
+      {
+        membershipId,
+        dto: {
+          aadhaarNumber: aadhaar.trim() || undefined,
+          address: address.trim() || undefined,
+          licenseNumber: license.trim() || undefined,
+          licenseExpiry: licenseExpiry.trim() || undefined,
+          policeVerificationStatus: pvStatus as PoliceVerificationStatus,
+          policeVerificationRef: pvRef.trim() || undefined,
+        },
+      },
+      {
+        onSuccess: () => Alert.alert('Saved', 'Driver KYC updated'),
+        onError: (e: any) => Alert.alert('Error', e?.response?.data?.error?.message ?? 'Failed to save KYC'),
+      },
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <Card style={styles.section}>
+        <Text style={styles.sectionTitle}>Driver KYC</Text>
+        <ActivityIndicator color={colors.primary} />
+      </Card>
+    );
+  }
+
+  return (
+    <Card style={styles.section}>
+      <Text style={styles.sectionTitle}>Driver KYC</Text>
+      <Text style={styles.hint}>
+        Identity &amp; verification details (text only). Aadhaar is sensitive personal
+        data — stored for staging only.
+      </Text>
+
+      <Text style={styles.label}>Aadhaar Number</Text>
+      <TextInput
+        style={styles.input}
+        value={aadhaar}
+        onChangeText={setAadhaar}
+        placeholder="XXXX XXXX XXXX"
+        placeholderTextColor={colors.gray400}
+        keyboardType="number-pad"
+      />
+
+      <Text style={styles.label}>Address</Text>
+      <TextInput
+        style={[styles.input, styles.multiline]}
+        value={address}
+        onChangeText={setAddress}
+        placeholder="Residential address"
+        placeholderTextColor={colors.gray400}
+        multiline
+      />
+
+      <Text style={styles.label}>Licence Number</Text>
+      <TextInput
+        style={styles.input}
+        value={license}
+        onChangeText={setLicense}
+        placeholder="DL number"
+        placeholderTextColor={colors.gray400}
+        autoCapitalize="characters"
+      />
+
+      <Text style={styles.label}>Licence Expiry (YYYY-MM-DD)</Text>
+      <TextInput
+        style={styles.input}
+        value={licenseExpiry}
+        onChangeText={setLicenseExpiry}
+        placeholder="2027-12-31"
+        placeholderTextColor={colors.gray400}
+      />
+
+      <Text style={styles.label}>Police Verification</Text>
+      <View style={styles.chipRow}>
+        {PV_STATUSES.map((s) => (
+          <TouchableOpacity
+            key={s.value}
+            style={[styles.chip, pvStatus === s.value && styles.chipActive]}
+            onPress={() => setPvStatus(s.value)}
+          >
+            <Text style={[styles.chipText, pvStatus === s.value && styles.chipTextActive]}>
+              {s.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.label}>Police Verification Ref</Text>
+      <TextInput
+        style={styles.input}
+        value={pvRef}
+        onChangeText={setPvRef}
+        placeholder="Reference / case number"
+        placeholderTextColor={colors.gray400}
+      />
+
+      <Button
+        title="Save KYC"
+        onPress={handleSave}
+        loading={upsert.isPending}
+        fullWidth
+        style={styles.saveBtn}
+      />
+    </Card>
   );
 }
 
@@ -183,6 +337,7 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.base, color: colors.textPrimary,
     borderWidth: 1, borderColor: colors.border,
   },
+  multiline: { minHeight: 64, textAlignVertical: 'top' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   chip: {
     paddingHorizontal: spacing[3], paddingVertical: spacing[2],

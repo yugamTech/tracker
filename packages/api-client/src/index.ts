@@ -67,6 +67,17 @@ export { dailyChecksApi } from './daily-checks/daily-checks.api';
 export type { DailyCheck, SubmitDailyCheckDto } from './daily-checks/daily-checks.api';
 export { dailyCheckKeys, useDailyChecks, useSubmitDailyCheck } from './daily-checks/daily-checks.hooks';
 
+// Driver KYC profiles
+export { driverProfilesApi } from './driver-profiles/driver-profiles.api';
+export type { DriverProfile, DriverProfileSelfDto, DriverProfileAdminDto } from './driver-profiles/driver-profiles.api';
+export {
+  driverProfileKeys,
+  useMyDriverProfile,
+  useUpdateMyDriverProfile,
+  useDriverProfile,
+  useUpsertDriverProfile,
+} from './driver-profiles/driver-profiles.hooks';
+
 // Complaints
 export { complaintsApi } from './complaints/complaints.api';
 export type { CreateComplaintDto } from './complaints/complaints.api';
