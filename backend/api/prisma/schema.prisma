@@ -328,16 +328,20 @@ model Trip {
   conductorId String?
   date        DateTime
   direction   Direction
+  // Planned departure time, set at scheduling. Drives the ±1h clean-start window
+  // (2B trip-start governance). Nullable so the migration can backfill existing
+  // rows from `date`; always populated for new trips.
+  scheduledStart DateTime?
   status      TripStatus @default(SCHEDULED)
   startedAt   DateTime?
   completedAt DateTime?
   createdAt   DateTime   @default(now())
 
-  tenant              Tenant               @relation(fields: [tenantId], references: [id])
-  route               Route                @relation(fields: [routeId], references: [id])
-  vehicle             Vehicle?             @relation(fields: [vehicleId], references: [id])
-  driver              Person?              @relation("TripDriver", fields: [driverId], references: [id])
-  conductor           Person?              @relation("TripConductor", fields: [conductorId], references: [id])
+  tenant              Tenant                @relation(fields: [tenantId], references: [id])
+  route               Route                 @relation(fields: [routeId], references: [id])
+  vehicle             Vehicle?              @relation(fields: [vehicleId], references: [id])
+  driver              Person?               @relation("TripDriver", fields: [driverId], references: [id])
+  conductor           Person?               @relation("TripConductor", fields: [conductorId], references: [id])
   riders              TripRider[]
   locationPings       LocationPing[]
   geofenceEvents      GeofenceEvent[]
@@ -347,6 +351,7 @@ model Trip {
   complaints          Complaint[]
   rideRatings         RideRating[]
   structuredMessages  StructuredMessage[]
+  startExceptions     TripStartException[]
 
   @@index([tenantId, date])
   @@index([tenantId, status])
@@ -382,6 +387,29 @@ enum RiderStatus {
   BOARDED
   NOT_BOARDED
   CANCELLED
+}
+
+// Raised when a trip starts outside the clean-start rule (2B): either no DailyCheck
+// existed for the vehicle today, or `now` was outside [scheduledStart ± 1h]. The
+// driver's reason note is mandatory to start in that case. Admins resolve these from
+// the alarm panel (records resolver + timestamp). tenant-scoped for isolation.
+model TripStartException {
+  id             String    @id @default(uuid())
+  tenantId       String
+  tripId         String
+  startedAt      DateTime
+  scheduledStart DateTime
+  deltaMinutes   Int
+  dailyCheckDone Boolean
+  reason         String
+  resolvedById   String?
+  resolvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  trip Trip @relation(fields: [tripId], references: [id])
+
+  @@index([tenantId, resolvedAt])
+  @@index([tripId])
 }
 
 model LocationPing {

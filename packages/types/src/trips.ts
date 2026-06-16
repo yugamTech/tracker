@@ -28,9 +28,27 @@ export interface Trip {
   conductorId?: string;
   date: string;
   direction: Direction;
+  scheduledStart?: string | null;
   status: TripStatus;
   startedAt?: string;
   completedAt?: string;
+  createdAt: string;
+}
+
+// Raised when a trip starts outside the clean-start rule (2B): no DailyCheck for
+// the vehicle today, or `now` outside [scheduledStart ± 1h]. The driver's reason
+// note is mandatory in that case; admins resolve from the alarm panel.
+export interface TripStartException {
+  id: string;
+  tenantId: string;
+  tripId: string;
+  startedAt: string;
+  scheduledStart: string;
+  deltaMinutes: number;
+  dailyCheckDone: boolean;
+  reason: string;
+  resolvedById?: string | null;
+  resolvedAt?: string | null;
   createdAt: string;
 }
 
