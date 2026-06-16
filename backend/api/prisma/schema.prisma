@@ -71,10 +71,42 @@ model Membership {
   person             Person              @relation(fields: [personId], references: [id])
   tenant             Tenant              @relation(fields: [tenantId], references: [id])
   vehicleAssignments VehicleAssignment[]
+  driverProfile      DriverProfile?
 
   @@unique([personId, tenantId, role])
   @@index([tenantId])
   @@index([personId])
+}
+
+// Driver KYC details (text only — PRD driver onboarding). 1:1 with the driver's
+// tenant-scoped Membership so a person who drives at two schools keeps a separate
+// verification record per school (tenant isolation, NFR-05). Document-image
+// uploads are intentionally OUT of scope this milestone (no object storage yet);
+// photoUrl is a plain optional URL for when storage lands later.
+model DriverProfile {
+  id                       String                   @id @default(uuid())
+  tenantId                 String
+  membershipId             String                   @unique
+  // DPDP: encrypt/mask before production — Aadhaar is sensitive personal data.
+  aadhaarNumber            String?
+  address                  String?
+  licenseNumber            String?
+  licenseExpiry            DateTime?
+  policeVerificationStatus PoliceVerificationStatus @default(PENDING)
+  policeVerificationRef    String?
+  photoUrl                 String?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+
+  membership Membership @relation(fields: [membershipId], references: [id])
+
+  @@index([tenantId])
+}
+
+enum PoliceVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
 }
 
 enum Role {
