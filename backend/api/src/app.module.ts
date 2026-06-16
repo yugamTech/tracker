@@ -17,6 +17,7 @@ import { TripsModule } from './modules/trips/trips.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { DailyChecksModule } from './modules/daily-checks/daily-checks.module';
+import { DriverProfilesModule } from './modules/driver-profiles/driver-profiles.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ComplaintsModule } from './modules/complaints/complaints.module';
 import { PaymentsModule } from './modules/payments/payments.module';
@@ -42,6 +43,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     TrackingModule,
     AttendanceModule,
     DailyChecksModule,
+    DriverProfilesModule,
     NotificationsModule,
     ComplaintsModule,
     PaymentsModule,

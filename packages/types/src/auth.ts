@@ -21,6 +21,30 @@ export enum MembershipStatus {
   SUSPENDED = 'SUSPENDED',
 }
 
+export enum PoliceVerificationStatus {
+  PENDING = 'PENDING',
+  VERIFIED = 'VERIFIED',
+  REJECTED = 'REJECTED',
+}
+
+// Driver KYC (text only). Aadhaar is sensitive personal data — DPDP: encrypt/mask
+// before production. Document-image upload is out of scope this milestone; photoUrl
+// is a plain optional URL for when object storage lands later.
+export interface DriverProfile {
+  id: string;
+  tenantId: string;
+  membershipId: string;
+  aadhaarNumber?: string | null;
+  address?: string | null;
+  licenseNumber?: string | null;
+  licenseExpiry?: string | null;
+  policeVerificationStatus: PoliceVerificationStatus;
+  policeVerificationRef?: string | null;
+  photoUrl?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Person {
   id: string;
   phone: string;
