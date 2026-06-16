@@ -41,6 +41,12 @@ export default function TripHistoryScreen() {
           onChangeText={setSearch}
         />
         <TouchableOpacity
+          style={styles.alarmBtn}
+          onPress={() => router.push('/(app)/trips/exceptions' as never)}
+        >
+          <Text style={styles.alarmBtnText}>🚨 Alarms</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           style={styles.addBtn}
           onPress={() => router.push('/(app)/trips/new' as never)}
         >
@@ -126,6 +132,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[4], paddingVertical: spacing[3],
   },
   addBtnText: { color: colors.white, fontWeight: fontWeights.semibold, fontSize: fontSizes.sm },
+  alarmBtn: {
+    backgroundColor: '#FEF2F2', borderRadius: radius.lg, borderWidth: 1, borderColor: '#FECACA',
+    paddingHorizontal: spacing[3], paddingVertical: spacing[3],
+  },
+  alarmBtnText: { color: '#DC2626', fontWeight: fontWeights.semibold, fontSize: fontSizes.sm },
   header: {
     fontSize: fontSizes.sm, fontWeight: fontWeights.semibold,
     color: colors.textSecondary, marginBottom: spacing[2],

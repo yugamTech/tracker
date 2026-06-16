@@ -5,6 +5,7 @@ export const tripKeys = {
   all: ['trips'] as const,
   today: () => [...tripKeys.all, 'today'] as const,
   detail: (id: string) => [...tripKeys.all, id] as const,
+  exceptions: (resolved?: string) => [...tripKeys.all, 'exceptions', resolved ?? 'open'] as const,
 };
 
 export const useTodayTrips = () =>
@@ -31,8 +32,23 @@ export const useCreateTrip = () => {
 export const useStartTrip = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: tripsApi.startTrip,
+    mutationFn: ({ tripId, reason }: { tripId: string; reason?: string }) =>
+      tripsApi.startTrip(tripId, reason),
     onSuccess: () => qc.invalidateQueries({ queryKey: tripKeys.all }),
+  });
+};
+
+export const useTripStartExceptions = (resolved?: 'true' | 'all') =>
+  useQuery({
+    queryKey: tripKeys.exceptions(resolved),
+    queryFn: () => tripsApi.listStartExceptions(resolved),
+  });
+
+export const useResolveStartException = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (exceptionId: string) => tripsApi.resolveStartException(exceptionId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...tripKeys.all, 'exceptions'] }),
   });
 };
 

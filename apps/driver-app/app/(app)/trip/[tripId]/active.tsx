@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, fontFamilies, radius, StatusDot, Button } from '@saarthi/ui';
@@ -31,6 +31,10 @@ export default function ActiveTripScreen() {
   const [elapsed, setElapsed] = useState(0);
   const [pingsSent, setPingsSent] = useState(0);
   const [targetIdx, setTargetIdx] = useState(1);
+  // Trip-start governance: when a clean start is blocked, the server explains why
+  // and the driver must add a reason note to start anyway.
+  const [blockedWhy, setBlockedWhy] = useState<string | null>(null);
+  const [reasonNote, setReasonNote] = useState('');
 
   const stops: { id: string; name: string; lat: number; lng: number }[] =
     (trip as any)?.route?.stops?.map((rs: any) => ({
@@ -92,15 +96,42 @@ export default function ActiveTripScreen() {
     return () => clearInterval(timer);
   }, [broadcasting, membership, stops.length, tripId, sendPing]);
 
+  const errMsg = (e: any): string => e?.response?.data?.error?.message ?? e?.message ?? '';
+  const errCode = (e: any): string => e?.response?.data?.error?.code ?? '';
+
   const onStart = () => {
-    startTrip.mutate(tripId, {
-      onSuccess: () => setBroadcasting(true),
-      onError: (e: any) => {
-        // Already started? Broadcast anyway.
-        if (String(e?.message ?? '').includes('STARTED')) setBroadcasting(true);
-        else Alert.alert('Could not start trip', e?.message ?? 'Try again');
+    startTrip.mutate(
+      { tripId },
+      {
+        onSuccess: () => setBroadcasting(true),
+        onError: (e: any) => {
+          if (errCode(e) === 'TRIP_START_BLOCKED') {
+            // Blocked: show why + open the "start anyway, add reason" path.
+            setBlockedWhy(errMsg(e) || 'This trip cannot start cleanly.');
+          } else if (errMsg(e).includes('STARTED')) {
+            setBroadcasting(true); // already started — broadcast anyway.
+          } else {
+            Alert.alert('Could not start trip', errMsg(e) || 'Try again');
+          }
+        },
       },
-    });
+    );
+  };
+
+  const onStartWithReason = () => {
+    const note = reasonNote.trim();
+    if (!note) return;
+    startTrip.mutate(
+      { tripId, reason: note },
+      {
+        onSuccess: () => {
+          setBlockedWhy(null);
+          setReasonNote('');
+          setBroadcasting(true);
+        },
+        onError: (e: any) => Alert.alert('Could not start trip', errMsg(e) || 'Try again'),
+      },
+    );
   };
 
   const onComplete = () => {
@@ -193,12 +224,56 @@ export default function ActiveTripScreen() {
           loading={completeTrip.isPending}
         />
       </View>
+
+      {/* Off-protocol start: explain why and require a reason note to start anyway. */}
+      <Modal visible={blockedWhy !== null} transparent animationType="fade" onRequestClose={() => setBlockedWhy(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>⚠️ Can't start cleanly</Text>
+            <Text style={styles.modalWhy}>{blockedWhy}</Text>
+            <Text style={styles.modalLabel}>Reason to start anyway *</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={reasonNote}
+              onChangeText={setReasonNote}
+              placeholder="e.g. Daily check done on paper; running late due to traffic"
+              placeholderTextColor={colors.gray400}
+              multiline
+            />
+            <Button
+              title="Start anyway"
+              onPress={onStartWithReason}
+              fullWidth
+              disabled={!reasonNote.trim()}
+              loading={startTrip.isPending}
+            />
+            <Button
+              title="Cancel"
+              variant="outline"
+              onPress={() => { setBlockedWhy(null); setReasonNote(''); }}
+              fullWidth
+              style={{ marginTop: spacing[2] }}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.gray900 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: spacing[5] },
+  modalCard: { backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing[5], gap: spacing[3] },
+  modalTitle: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
+  modalWhy: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 20 },
+  modalLabel: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary },
+  modalInput: {
+    backgroundColor: colors.gray100, borderRadius: radius.lg,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    fontSize: fontSizes.base, color: colors.textPrimary,
+    borderWidth: 1, borderColor: colors.border, minHeight: 72, textAlignVertical: 'top',
+  },
   statusBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     padding: spacing[4], backgroundColor: '#1a1a2e',

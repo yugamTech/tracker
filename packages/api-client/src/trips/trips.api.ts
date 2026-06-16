@@ -1,5 +1,5 @@
 import { apiClient } from '../axios';
-import type { Trip } from '@saarthi/types';
+import type { Trip, TripStartException } from '@saarthi/types';
 
 export interface ScheduleTripDto {
   routeId: string;
@@ -8,7 +8,19 @@ export interface ScheduleTripDto {
   conductorId?: string;
   date: string;
   direction: 'PICKUP' | 'DROP';
+  scheduledStart?: string;
 }
+
+/** A trip-start exception with its trip context, as returned by the alarm panel. */
+export type TripStartExceptionWithTrip = TripStartException & {
+  trip?: {
+    id: string;
+    direction: string;
+    route?: { name: string } | null;
+    vehicle?: { regNumber: string } | null;
+    driver?: { name: string } | null;
+  };
+};
 
 export const tripsApi = {
   getMyTrips: async (params?: { page?: number; limit?: number }) => {
@@ -31,9 +43,21 @@ export const tripsApi = {
     return data.data as Trip[];
   },
 
-  startTrip: async (tripId: string) => {
-    const { data } = await apiClient.post(`/trips/${tripId}/start`);
+  startTrip: async (tripId: string, reason?: string) => {
+    const { data } = await apiClient.post(`/trips/${tripId}/start`, reason ? { reason } : {});
     return data.data as Trip;
+  },
+
+  listStartExceptions: async (resolved?: 'true' | 'all') => {
+    const { data } = await apiClient.get('/trips/exceptions', {
+      params: resolved ? { resolved } : undefined,
+    });
+    return data.data as TripStartExceptionWithTrip[];
+  },
+
+  resolveStartException: async (exceptionId: string) => {
+    const { data } = await apiClient.post(`/trips/exceptions/${exceptionId}/resolve`);
+    return data.data as TripStartException;
   },
 
   completeTrip: async (tripId: string) => {

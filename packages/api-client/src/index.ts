@@ -40,7 +40,7 @@ export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, use
 
 // Trips
 export { tripsApi } from './trips/trips.api';
-export type { ScheduleTripDto } from './trips/trips.api';
+export type { ScheduleTripDto, TripStartExceptionWithTrip } from './trips/trips.api';
 export {
   tripKeys,
   useTodayTrips,
@@ -50,6 +50,8 @@ export {
   useCompleteTrip,
   useAbortTrip,
   useCancelPickup,
+  useTripStartExceptions,
+  useResolveStartException,
 } from './trips/trips.hooks';
 
 // Tracking
