@@ -92,6 +92,24 @@ export {
   useDriverMessages,
 } from './notifications/notifications.hooks';
 
+// Onboarding (bulk Excel import)
+export { onboardingApi } from './onboarding/onboarding.api';
+export type {
+  ImportEntityType,
+  ColumnSpec,
+  EntityTemplate,
+  RowError,
+  ValidationResult,
+  CommitResult,
+  PickedFile,
+} from './onboarding/onboarding.api';
+export {
+  onboardingKeys,
+  useImportTemplates,
+  useValidateImport,
+  useCommitImport,
+} from './onboarding/onboarding.hooks';
+
 // Socket
 export {
   getSocket,

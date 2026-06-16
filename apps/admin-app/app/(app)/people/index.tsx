@@ -36,6 +36,13 @@ export default function PeopleScreen() {
           placeholderTextColor={colors.gray400}
         />
         <Button
+          title="Import"
+          size="sm"
+          variant="secondary"
+          onPress={() => router.push('/(app)/people/import' as never)}
+          style={styles.addBtn}
+        />
+        <Button
           title="+ Add"
           size="sm"
           onPress={() =>
