@@ -24,7 +24,7 @@ export default function DriverPhoneScreen() {
         <View style={styles.header}>
           <View style={styles.logoBox}><Text style={{ fontSize: 36 }}>🚌</Text></View>
           <Text style={styles.title}>Driver App</Text>
-          <Text style={styles.subtitle}>Saarthi — School Transport</Text>
+          <Text style={styles.subtitle}>Yaanam — School Transport</Text>
         </View>
         <View style={styles.form}>
           <Text style={styles.label}>Mobile Number</Text>

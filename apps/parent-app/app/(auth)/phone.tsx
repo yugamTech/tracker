@@ -35,7 +35,7 @@ export default function PhoneScreen() {
           <View style={styles.logoBox}>
             <Text style={styles.logoText}>🚌</Text>
           </View>
-          <Text style={styles.title}>Saarthi</Text>
+          <Text style={styles.title}>Yaanam</Text>
           <Text style={styles.subtitle}>Safe school transport, tracked live</Text>
         </View>
 
@@ -68,7 +68,7 @@ export default function PhoneScreen() {
         />
 
         <Text style={styles.footer}>
-          By continuing, you agree to Saarthi's Terms of Service and Privacy Policy
+          By continuing, you agree to Yaanam's Terms of Service and Privacy Policy
         </Text>
       </View>
     </KeyboardAvoidingView>

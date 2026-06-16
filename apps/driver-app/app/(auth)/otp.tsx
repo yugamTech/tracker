@@ -44,7 +44,7 @@ export default function DriverOtpScreen() {
       if (err?.response?.status === 403) {
         Alert.alert(
           'Not a driver account',
-          "This number isn't registered as a driver or conductor. If you're a parent, please use the Saarthi Parent app, or contact your school admin.",
+          "This number isn't registered as a driver or conductor. If you're a parent, please use the Yaanam Parent app, or contact your school admin.",
         );
       } else {
         Alert.alert('Could not sign in', err?.response?.data?.message ?? 'Invalid or expired OTP');

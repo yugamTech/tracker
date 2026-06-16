@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Saarthi Driver",
+    "name": "Yaanam Driver",
     "slug": "saarthi-driver",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,8 +11,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.saarthi.driver",
       "infoPlist": {
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Saarthi needs your location to track the bus route for parents and school.",
-        "NSLocationAlwaysUsageDescription": "Saarthi needs background location to track the bus even when the app is not in focus.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Yaanam needs your location to track the bus route for parents and school.",
+        "NSLocationAlwaysUsageDescription": "Yaanam needs background location to track the bus even when the app is not in focus.",
         "UIBackgroundModes": ["location", "fetch"]
       }
     },
@@ -32,7 +32,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Saarthi needs background location to track your bus route."
+          "locationAlwaysAndWhenInUsePermission": "Yaanam needs background location to track your bus route."
         }
       ]
     ],
