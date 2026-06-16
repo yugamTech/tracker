@@ -29,6 +29,8 @@ export interface FleetEntry {
   routeName: string;
   direction: string;
   vehicleReg: string | null;
+  driverName: string | null;
+  stops: { id: string; name: string }[];
   latest: LatestPosition | null;
 }
 

@@ -118,11 +118,18 @@ export default function TrackScreen() {
         <Card style={styles.driverCard} shadow="none">
           <View style={styles.driverRow}>
             <View style={styles.driverAvatar}>
-              <Text style={{ fontSize: 20 }}>🚌</Text>
+              <Text style={{ fontSize: 20 }}>🧑‍✈️</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.driverName}>{(trip as any)?.route?.name ?? 'Route'}</Text>
-              <Text style={styles.driverSub}>Bus {(trip as any)?.vehicle?.regNumber ?? '—'}</Text>
+              <Text style={styles.driverName}>
+                {(trip as any)?.driver?.name ?? 'Driver not assigned'}
+              </Text>
+              <Text style={styles.driverSub}>
+                Bus {(trip as any)?.vehicle?.regNumber ?? '—'}  ·  {(trip as any)?.route?.name ?? ''}
+              </Text>
+              {(trip as any)?.driver?.phone && (
+                <Text style={styles.driverPhone}>📞 {(trip as any).driver.phone}</Text>
+              )}
             </View>
             <TouchableOpacity
               style={styles.callBtn}
@@ -211,6 +218,7 @@ const styles = StyleSheet.create({
   },
   driverName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   driverSub: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  driverPhone: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
   callBtn: { alignItems: 'center', gap: 2 },
   callText: { fontSize: fontSizes.xs, color: colors.primary, fontWeight: fontWeights.medium },
   cancelBtn: {

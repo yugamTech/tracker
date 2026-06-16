@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { colors, spacing, fontSizes, fontWeights, StatusDot } from '@saarthi/ui';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
+import { colors, spacing, fontSizes, fontWeights, StatusDot, MockBusMap } from '@saarthi/ui';
 import { useFleet, useFleetSocket } from '@saarthi/api-client';
 
 interface Bus {
   tripId: string;
   routeName: string;
   vehicleReg: string | null;
+  driverName: string | null;
   status: string;
   lat: number | null;
   lng: number | null;
   speed: number | null;
   updatedAt: number | null;
+  stops: { id: string; name: string }[];
+  direction?: string;
 }
 
 export default function FleetMapScreen() {
@@ -28,11 +32,14 @@ export default function FleetMapScreen() {
           tripId: f.tripId,
           routeName: f.routeName,
           vehicleReg: f.vehicleReg,
+          driverName: f.driverName,
           status: f.status,
+          direction: f.direction,
           lat: f.latest?.lat ?? null,
           lng: f.latest?.lng ?? null,
           speed: f.latest?.speed ?? null,
           updatedAt: f.latest ? Date.parse(f.latest.serverTs) : null,
+          stops: f.stops ?? [],
         };
       }
       return next;
@@ -49,7 +56,9 @@ export default function FleetMapScreen() {
             tripId: d.tripId,
             routeName: 'Active trip',
             vehicleReg: null,
+            driverName: null,
             status: 'IN_PROGRESS',
+            stops: [],
           }),
           lat: d.lat,
           lng: d.lng,
@@ -61,7 +70,6 @@ export default function FleetMapScreen() {
     onStatus: (d) => {
       setBuses((prev) => {
         if (!prev[d.tripId]) return prev;
-        // Drop trips that are no longer running.
         if (['COMPLETED', 'CANCELLED', 'ABORTED'].includes(d.status)) {
           const next = { ...prev };
           delete next[d.tripId];
@@ -86,29 +94,51 @@ export default function FleetMapScreen() {
           <View style={styles.empty}>
             <Text style={{ fontSize: 56 }}>🚍</Text>
             <Text style={styles.emptyText}>No active trips right now</Text>
-            <Text style={styles.emptySub}>Start a trip (or run the driver simulator) to see live buses.</Text>
+            <Text style={styles.emptySub}>Start a trip to see live buses here.</Text>
           </View>
         )}
         {list.map((b) => {
           const fresh = b.updatedAt != null && now - b.updatedAt < 30000;
           return (
-            <View key={b.tripId} style={styles.busCard}>
-              <Text style={styles.busIcon}>🚌</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.busNum}>{b.vehicleReg ?? b.routeName}</Text>
-                <Text style={styles.busRoute}>{b.routeName} · {b.status}</Text>
-                <Text style={styles.busCords}>
-                  {b.lat != null ? `${b.lat.toFixed(4)}, ${b.lng!.toFixed(4)}` : 'awaiting GPS…'}
-                  {b.speed != null ? `  ·  ${Math.round(b.speed * 3.6)} km/h` : ''}
-                </Text>
+            <TouchableOpacity
+              key={b.tripId}
+              style={styles.busCard}
+              activeOpacity={0.85}
+              onPress={() => router.push(`/(app)/fleet/${b.tripId}` as never)}
+            >
+              {/* Mock map for this bus */}
+              <MockBusMap
+                stops={b.stops}
+                live={fresh}
+                routeName={b.routeName}
+                height={140}
+              />
+
+              {/* Info strip below the map */}
+              <View style={styles.infoStrip}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.busNum}>{b.vehicleReg ?? b.routeName}</Text>
+                  <Text style={styles.busRoute}>
+                    {b.routeName} · {b.direction ?? b.status}
+                  </Text>
+                  {b.driverName && (
+                    <Text style={styles.driverLine}>🧑‍✈️ {b.driverName}</Text>
+                  )}
+                  <Text style={styles.busCords}>
+                    {b.lat != null
+                      ? `${b.lat.toFixed(4)}, ${b.lng!.toFixed(4)}`
+                      : 'Awaiting GPS…'}
+                    {b.speed != null ? `  ·  ${Math.round(b.speed * 3.6)} km/h` : ''}
+                  </Text>
+                </View>
+                <View style={styles.liveTag}>
+                  <StatusDot variant={fresh ? 'live' : 'offline'} size={8} />
+                  <Text style={[styles.liveTagText, !fresh && styles.liveTagStale]}>
+                    {fresh ? 'LIVE' : 'STALE'}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.liveTag}>
-                <StatusDot variant={fresh ? 'live' : 'offline'} size={8} />
-                <Text style={[styles.liveTagText, !fresh && styles.liveTagStale]}>
-                  {fresh ? 'LIVE' : 'STALE'}
-                </Text>
-              </View>
-            </View>
+            </TouchableOpacity>
           );
         })}
       </ScrollView>
@@ -121,20 +151,29 @@ const styles = StyleSheet.create({
   headerBar: { padding: spacing[4], paddingBottom: spacing[2] },
   title: { fontSize: fontSizes.xl, fontWeight: fontWeights.bold, color: colors.primary },
   sub: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
-  busCards: { padding: spacing[4], paddingTop: spacing[2], gap: spacing[3] },
+  busCards: { padding: spacing[4], paddingTop: spacing[2], gap: spacing[4] },
   empty: { alignItems: 'center', gap: spacing[2], paddingTop: spacing[8] },
   emptyText: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   emptySub: { fontSize: fontSizes.sm, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: spacing[6] },
   busCard: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing[3],
-    backgroundColor: colors.white, padding: spacing[4],
-    borderRadius: 12, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  busIcon: { fontSize: 32 },
+  infoStrip: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing[3],
+    padding: spacing[4],
+    paddingTop: spacing[3],
+  },
   busNum: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  busRoute: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  busCords: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: 2 },
-  liveTag: { alignItems: 'center', gap: 2 },
+  busRoute: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 1 },
+  driverLine: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 1 },
+  busCords: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: 3 },
+  liveTag: { alignItems: 'center', gap: 2, paddingTop: 2 },
   liveTagText: { fontSize: fontSizes.xs, color: colors.success, fontWeight: fontWeights.bold },
   liveTagStale: { color: colors.textMuted },
 });

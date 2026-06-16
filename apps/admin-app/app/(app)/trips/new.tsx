@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, TextInput,
 } from 'react-native';
 import { router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, LoadingSpinner } from '@saarthi/ui';
@@ -9,12 +9,12 @@ import {
 } from '@saarthi/api-client';
 
 /** Dependency-free date presets — the trip is scheduled for one of the next few days. */
-function dayOption(offset: number): { label: string; iso: string } {
+function dayOption(offset: number): { label: string; date: Date } {
   const d = new Date();
   d.setDate(d.getDate() + offset);
-  d.setHours(8, 0, 0, 0); // 8am local — a sane "morning trip" anchor
+  d.setSeconds(0, 0);
   const label = offset === 0 ? 'Today' : offset === 1 ? 'Tomorrow' : d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-  return { label, iso: d.toISOString() };
+  return { label, date: d };
 }
 const DATE_OPTIONS = [dayOption(0), dayOption(1), dayOption(2)];
 
@@ -30,8 +30,19 @@ export default function ScheduleTripScreen() {
   const [vehicleId, setVehicleId] = useState('');
   const [driverId, setDriverId] = useState('');
   const [conductorId, setConductorId] = useState<string | undefined>(undefined);
-  const [dateIso, setDateIso] = useState(DATE_OPTIONS[0].iso);
+  const [selectedDateIdx, setSelectedDateIdx] = useState(0);
+  const [startHour, setStartHour] = useState('08');
+  const [startMin, setStartMin] = useState('00');
   const [direction, setDirection] = useState<'PICKUP' | 'DROP'>('PICKUP');
+
+  // Build the full scheduledStart ISO string from the selected date + HH:MM inputs.
+  const scheduledStartIso = (() => {
+    const d = new Date(DATE_OPTIONS[selectedDateIdx].date);
+    const h = Math.min(23, Math.max(0, parseInt(startHour, 10) || 0));
+    const m = Math.min(59, Math.max(0, parseInt(startMin, 10) || 0));
+    d.setHours(h, m, 0, 0);
+    return d.toISOString();
+  })();
 
   const activeVehicles = vehicles.filter((v) => v.status === 'ACTIVE');
 
@@ -58,7 +69,7 @@ export default function ScheduleTripScreen() {
     if (!driverId) { Alert.alert('Validation', 'Please select a driver'); return; }
 
     createTrip.mutate(
-      { routeId, vehicleId, driverId, conductorId, date: dateIso, direction },
+      { routeId, vehicleId, driverId, conductorId, date: scheduledStartIso, direction, scheduledStart: scheduledStartIso },
       {
         onSuccess: () => { Alert.alert('Scheduled', `Trip created with ${rosterCount} rider${rosterCount !== 1 ? 's' : ''} on the roster`); router.back(); },
         onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to schedule trip'),
@@ -144,15 +155,54 @@ export default function ScheduleTripScreen() {
       <Card style={styles.section}>
         <Text style={styles.sectionTitle}>Date *</Text>
         <View style={styles.chipRow}>
-          {DATE_OPTIONS.map((d) => (
+          {DATE_OPTIONS.map((d, i) => (
             <TouchableOpacity
-              key={d.iso}
-              style={[styles.chip, dateIso === d.iso && styles.chipActive]}
-              onPress={() => setDateIso(d.iso)}
+              key={d.label}
+              style={[styles.chip, selectedDateIdx === i && styles.chipActive]}
+              onPress={() => setSelectedDateIdx(i)}
             >
-              <Text style={[styles.chipText, dateIso === d.iso && styles.chipTextActive]}>{d.label}</Text>
+              <Text style={[styles.chipText, selectedDateIdx === i && styles.chipTextActive]}>{d.label}</Text>
             </TouchableOpacity>
           ))}
+        </View>
+
+        <Text style={[styles.sectionTitle, { marginTop: spacing[3] }]}>Start time *</Text>
+        <View style={styles.timeRow}>
+          <View style={styles.timeInputWrap}>
+            <TextInput
+              style={styles.timeInput}
+              value={startHour}
+              onChangeText={(v) => setStartHour(v.replace(/\D/g, '').slice(0, 2))}
+              keyboardType="number-pad"
+              maxLength={2}
+              placeholder="HH"
+              placeholderTextColor={colors.textMuted}
+            />
+            <Text style={styles.timeLabel}>hour</Text>
+          </View>
+          <Text style={styles.timeSep}>:</Text>
+          <View style={styles.timeInputWrap}>
+            <TextInput
+              style={styles.timeInput}
+              value={startMin}
+              onChangeText={(v) => setStartMin(v.replace(/\D/g, '').slice(0, 2))}
+              keyboardType="number-pad"
+              maxLength={2}
+              placeholder="MM"
+              placeholderTextColor={colors.textMuted}
+            />
+            <Text style={styles.timeLabel}>min</Text>
+          </View>
+          <Text style={styles.timePreview}>
+            → Driver window {(() => {
+              const h = Math.min(23, Math.max(0, parseInt(startHour, 10) || 0));
+              const m = Math.min(59, Math.max(0, parseInt(startMin, 10) || 0));
+              const pad = (n: number) => String(n).padStart(2, '0');
+              const early = new Date(0); early.setHours(h - 1 < 0 ? 23 : h - 1, m);
+              const late  = new Date(0); late.setHours(h + 1 > 23 ? 0 : h + 1, m);
+              return `${pad(early.getHours())}:${pad(early.getMinutes())}–${pad(late.getHours())}:${pad(late.getMinutes())}`;
+            })()}
+          </Text>
         </View>
       </Card>
 
@@ -210,6 +260,17 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
   chipTextActive: { color: colors.white },
+  timeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], flexWrap: 'wrap' },
+  timeInputWrap: { alignItems: 'center', gap: 2 },
+  timeInput: {
+    width: 56, height: 44, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md, textAlign: 'center',
+    fontSize: fontSizes.lg, fontWeight: fontWeights.semibold, color: colors.textPrimary,
+    backgroundColor: colors.white,
+  },
+  timeLabel: { fontSize: fontSizes.xs, color: colors.textMuted },
+  timeSep: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.bold, color: colors.textSecondary, paddingBottom: 14 },
+  timePreview: { fontSize: fontSizes.xs, color: colors.textSecondary, flex: 1 },
   previewCard: { gap: spacing[1], alignItems: 'center', paddingVertical: spacing[4] },
   previewLabel: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
   previewCount: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.extrabold, color: colors.primary },

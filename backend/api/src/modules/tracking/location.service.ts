@@ -271,7 +271,13 @@ export class LocationService {
   async getFleet(tenantId: string) {
     const trips = await this.prisma.trip.findMany({
       where: { tenantId, status: { in: ['STARTED', 'IN_PROGRESS'] } },
-      include: { route: true, vehicle: true },
+      include: {
+        route: {
+          include: { stops: { include: { stop: true }, orderBy: { sequence: 'asc' } } },
+        },
+        vehicle: true,
+        driver: true,
+      },
     });
     return Promise.all(
       trips.map(async (trip) => ({
@@ -280,6 +286,8 @@ export class LocationService {
         routeName: trip.route.name,
         direction: trip.direction,
         vehicleReg: trip.vehicle?.regNumber ?? null,
+        driverName: trip.driver?.name ?? null,
+        stops: trip.route.stops.map((rs) => ({ id: rs.stop.id, name: rs.stop.name })),
         latest: await this.getLatest(trip.id),
       })),
     );
