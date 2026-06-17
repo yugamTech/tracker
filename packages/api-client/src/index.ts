@@ -40,8 +40,8 @@ export type { Route, Stop } from './routes/routes.api';
 export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useStops, useCreateStop, useAddStop } from './routes/routes.hooks';
 
 // Trips
-export { tripsApi } from './trips/trips.api';
-export type { ScheduleTripDto, TripStartExceptionWithTrip, TripFilters, UpdateTripDto } from './trips/trips.api';
+export { tripsApi, pickupCancelInfo, PICKUP_CANCEL_CUTOFF_MINUTES } from './trips/trips.api';
+export type { ScheduleTripDto, TripStartExceptionWithTrip, TripFilters, UpdateTripDto, PickupCancelInfo } from './trips/trips.api';
 export {
   tripKeys,
   useTodayTrips,

@@ -1,6 +1,74 @@
 import { apiClient } from '../axios';
 import type { Trip, TripStartException } from '@saarthi/types';
 
+/**
+ * Minutes before `scheduledStart` after which a parent can no longer skip a
+ * pickup. Mirrors the backend's `DEFAULT_PICKUP_CANCEL_CUTOFF_MIN` (the server
+ * value is env-overridable and is NOT exposed in any trip GET, so the client
+ * computes the cutoff from this default and trusts the server's error message
+ * as the source of truth if a race slips through).
+ */
+export const PICKUP_CANCEL_CUTOFF_MINUTES = 30;
+
+export interface PickupCancelInfo {
+  /** Whether "skip pickup" should be enabled right now. */
+  canCancel: boolean;
+  /** Human-readable reason when `canCancel` is false (already skipped, past cutoff, started…). */
+  reason?: string;
+  /** The moment skipping closes (`scheduledStart − cutoff`), ISO string, or null if unknown. */
+  cutoffAt: string | null;
+  cutoffMinutes: number;
+  /** True once the parent's rider has already been skipped for this trip. */
+  alreadySkipped: boolean;
+}
+
+/**
+ * Whether the parent can still skip their child's pickup, computed client-side
+ * to mirror the backend gates in `TripsService.cancelPickup`: the trip must be
+ * SCHEDULED, the rider must still be EXPECTED, and `now` must be at or before
+ * `scheduledStart − PICKUP_CANCEL_CUTOFF_MINUTES` (scheduledStart falls back to
+ * the trip date, exactly as the server does).
+ */
+export function pickupCancelInfo(
+  trip: { status: string; scheduledStart?: string | null; date?: string } | undefined,
+  rider: { boardStatus: string } | undefined,
+  now: Date = new Date(),
+): PickupCancelInfo {
+  const cutoffMinutes = PICKUP_CANCEL_CUTOFF_MINUTES;
+  const startSource = trip?.scheduledStart ?? trip?.date;
+  const cutoffAt = startSource
+    ? new Date(new Date(startSource).getTime() - cutoffMinutes * 60_000).toISOString()
+    : null;
+  const base = { cutoffAt, cutoffMinutes };
+
+  if (rider?.boardStatus === 'CANCELLED') {
+    return { ...base, canCancel: false, alreadySkipped: true, reason: 'Pickup skipped for today.' };
+  }
+  if (trip && trip.status !== 'SCHEDULED') {
+    const underway = trip.status === 'STARTED' || trip.status === 'IN_PROGRESS';
+    return {
+      ...base,
+      canCancel: false,
+      alreadySkipped: false,
+      reason: underway
+        ? 'The trip has already started.'
+        : `This trip is ${trip.status.toLowerCase()}.`,
+    };
+  }
+  if (rider && rider.boardStatus !== 'EXPECTED') {
+    return { ...base, canCancel: false, alreadySkipped: false, reason: 'Your child is no longer expected on this trip.' };
+  }
+  if (cutoffAt && now.getTime() > new Date(cutoffAt).getTime()) {
+    return {
+      ...base,
+      canCancel: false,
+      alreadySkipped: false,
+      reason: `Pickup can no longer be skipped — the cutoff is ${cutoffMinutes} min before departure.`,
+    };
+  }
+  return { ...base, canCancel: true, alreadySkipped: false };
+}
+
 export interface ScheduleTripDto {
   routeId: string;
   vehicleId: string;

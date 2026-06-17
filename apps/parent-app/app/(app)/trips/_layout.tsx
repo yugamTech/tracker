@@ -13,7 +13,7 @@ export default function TripsLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="[tripId]/index" options={{ title: 'Past Rides' }} />
+      <Stack.Screen name="[tripId]/index" options={{ headerShown: false }} />
       <Stack.Screen name="[tripId]/replay" options={{ title: 'Ride Replay' }} />
     </Stack>
   );

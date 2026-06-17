@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Button } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Button, Skeleton, EmptyState, AppHeader } from '@saarthi/ui';
 import { useComplaintById } from '@saarthi/api-client';
+import { goBackTo } from '../../../lib/nav';
 
 const EVENT_COLORS: Record<string, string> = {
   RECEIVED: colors.gray400,
@@ -24,28 +25,28 @@ const STATUS_TEXT_COLORS: Record<string, string> = {
 export default function ComplaintDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: complaint, isLoading, isError } = useComplaintById(id ?? '');
+  const back = () => goBackTo('complaints/[id]');
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <ActivityIndicator style={{ marginTop: 60 }} color={colors.primary} />
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <AppHeader title="Complaint" onBack={back} />
+        <View style={styles.content}>
+          <Card>
+            <Skeleton width="45%" height={16} />
+            <Skeleton width="100%" height={40} style={{ marginTop: spacing[3] }} />
+            <Skeleton width="60%" height={12} style={{ marginTop: spacing[3] }} />
+          </Card>
+        </View>
       </SafeAreaView>
     );
   }
 
   if (isError || !complaint) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.back}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>Complaint</Text>
-          <View style={{ width: 60 }} />
-        </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: colors.textSecondary }}>Complaint not found.</Text>
-        </View>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <AppHeader title="Complaint" onBack={back} />
+        <EmptyState title="Complaint not found" description="This complaint could not be loaded." />
       </SafeAreaView>
     );
   }
@@ -53,14 +54,8 @@ export default function ComplaintDetailScreen() {
   const events = (complaint as any).events ?? [];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Complaint #{id?.slice(-4) ?? 'Detail'}</Text>
-        <View style={{ width: 60 }} />
-      </View>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <AppHeader title={`Complaint #${id?.slice(-4) ?? ''}`} onBack={back} />
 
       <ScrollView contentContainerStyle={styles.content}>
         <Card>
@@ -118,14 +113,7 @@ export default function ComplaintDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: spacing[5], backgroundColor: colors.white,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  back: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.medium, width: 60 },
-  title: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
+  container: { flex: 1, backgroundColor: colors.backgroundMuted },
   content: { padding: spacing[4], gap: spacing[4] },
   statusRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing[3] },
   category: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
@@ -144,7 +132,7 @@ const styles = StyleSheet.create({
   timelineNote: { fontSize: fontSizes.sm, color: colors.textPrimary },
   timelineTime: { fontSize: fontSizes.xs, color: colors.textMuted },
   ratingCta: {
-    backgroundColor: '#F0F4FF', borderRadius: radius.xl, padding: spacing[5],
+    backgroundColor: colors.primaryBg, borderRadius: radius.xl, padding: spacing[5],
     gap: spacing[3], borderWidth: 1, borderColor: '#C7D2FE',
   },
   ratingCtaText: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary, textAlign: 'center' },

@@ -1,16 +1,15 @@
 import React, { useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
   Card, Badge, Avatar, Skeleton, EmptyState, AnimatedPressable, Button, Divider,
 } from '@saarthi/ui';
+import type { BadgeVariant } from '@saarthi/ui';
 import { useAuthStore } from '../../../store/auth.store';
 import { useChildStore } from '../../../store/child.store';
-import { useMyStudents, useTodayTrips } from '@saarthi/api-client';
-
-const LIVE_STATUSES = ['STARTED', 'IN_PROGRESS', 'SCHEDULED'];
+import { useMyStudents, useTodayTrips, useCancelPickup, pickupCancelInfo } from '@saarthi/api-client';
 
 function greeting() {
   const h = new Date().getHours();
@@ -19,12 +18,20 @@ function greeting() {
   return 'Good evening';
 }
 
+function fmtTime(value?: string | null): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
 export default function HomeScreen() {
   const person = useAuthStore((s) => s.person);
   const activeChildId = useChildStore((s) => s.activeChildId);
   const setActiveChild = useChildStore((s) => s.setActiveChild);
   const { data: students, isLoading, refetch, isRefetching } = useMyStudents();
   const { data: todayTrips } = useTodayTrips();
+  const cancelPickup = useCancelPickup();
 
   const multiple = (students?.length ?? 0) > 1;
   const activeChild =
@@ -41,15 +48,64 @@ export default function HomeScreen() {
     }
   }, [isLoading, students, activeChildId, setActiveChild]);
 
-  const activeTrip =
-    activeChild &&
-    todayTrips?.find(
-      (t) => t.routeId === activeChild.routeId && LIVE_STATUSES.includes(t.status),
-    );
+  // The relevant trip for this child today: a live one wins, else a scheduled one.
+  const childTrips = (todayTrips ?? []).filter((t) => t.routeId === activeChild?.routeId);
+  const liveTrip = childTrips.find((t) => t.status === 'STARTED' || t.status === 'IN_PROGRESS');
+  const scheduledTrip = childTrips.find((t) => t.status === 'SCHEDULED');
+  const activeTrip = liveTrip ?? scheduledTrip ?? childTrips[0];
+  const phase: 'live' | 'scheduled' | 'done' | 'none' = liveTrip
+    ? 'live'
+    : scheduledTrip
+    ? 'scheduled'
+    : activeTrip
+    ? 'done'
+    : 'none';
 
-  const onTrack = () => {
+  const myRider = (activeTrip as any)?.riders?.find((r: any) => r.studentId === activeChild?.id);
+  const skip = pickupCancelInfo(activeTrip, myRider);
+
+  const startsAt =
+    fmtTime((activeTrip as any)?.scheduledStart) ??
+    (activeTrip?.direction === 'DROP' ? activeChild?.ageGroup?.dropTime : activeChild?.ageGroup?.pickupTime) ??
+    null;
+
+  const heroBadge: { label: string; variant: BadgeVariant } =
+    phase === 'live'
+      ? { label: 'Live ●', variant: 'active' }
+      : skip.alreadySkipped
+      ? { label: 'Skipped today', variant: 'cancelled' }
+      : phase === 'scheduled'
+      ? { label: 'Scheduled', variant: 'warning' }
+      : phase === 'done'
+      ? { label: 'Trip ended', variant: 'inactive' }
+      : { label: 'No trip', variant: 'inactive' };
+
+  const primaryTitle =
+    phase === 'live' ? 'Track live →' : phase === 'scheduled' ? 'View pickup →' : phase === 'done' ? 'View summary →' : 'View trips';
+
+  const onPrimary = () => {
     if (activeTrip) router.push(`/(app)/track/${activeTrip.id}` as never);
     else router.push('/(app)/trips' as never);
+  };
+
+  const onSkipPickup = () => {
+    if (!activeTrip || !activeChild || !skip.canCancel) return;
+    Alert.alert('Skip pickup today?', `${activeChild.name} will be skipped for this trip. The driver roster updates immediately.`, [
+      { text: 'Keep pickup', style: 'cancel' },
+      {
+        text: 'Skip today',
+        style: 'destructive',
+        onPress: () =>
+          cancelPickup.mutate(
+            { tripId: activeTrip.id, studentId: activeChild.id, reason: 'Skipped by parent' },
+            {
+              onSuccess: () => Alert.alert('Pickup skipped', 'The driver roster has been updated.'),
+              onError: (e: any) =>
+                Alert.alert('Could not skip pickup', e?.response?.data?.message ?? e?.message ?? 'Please try again.'),
+            },
+          ),
+      },
+    ]);
   };
 
   return (
@@ -116,7 +172,7 @@ export default function HomeScreen() {
         ) : activeChild ? (
           <>
             {/* Active child hero */}
-            <Text style={styles.sectionTitle}>TRACKING</Text>
+            <Text style={styles.sectionTitle}>TODAY</Text>
             <Card style={styles.heroCard} shadow="md">
               <View style={styles.heroTop}>
                 <Avatar name={activeChild.name} size={48} />
@@ -124,16 +180,18 @@ export default function HomeScreen() {
                   <Text style={styles.heroName} numberOfLines={1}>{activeChild.name}</Text>
                   {activeChild.regId ? <Text style={styles.heroSub}>{activeChild.regId}</Text> : null}
                 </View>
-                <Badge
-                  label={activeTrip ? 'Live ●' : 'No trip'}
-                  variant={activeTrip ? 'active' : 'inactive'}
-                  size="sm"
-                />
+                <Badge label={heroBadge.label} variant={heroBadge.variant} size="sm" />
               </View>
 
               <Divider spacingY={4} />
 
               <View style={styles.rows}>
+                {phase === 'scheduled' && startsAt ? (
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabel}>🕐  {activeTrip?.direction === 'DROP' ? 'Drop-off' : 'Pickup'} at</Text>
+                    <Text style={styles.rowValue}>{startsAt}</Text>
+                  </View>
+                ) : null}
                 {activeChild.route?.name ? (
                   <View style={styles.row}>
                     <Text style={styles.rowLabel}>🛣  Route</Text>
@@ -146,22 +204,35 @@ export default function HomeScreen() {
                     <Text style={styles.rowValue} numberOfLines={1}>{activeChild.stop.name}</Text>
                   </View>
                 ) : null}
-                {activeChild.ageGroup?.pickupTime ? (
-                  <View style={styles.row}>
-                    <Text style={styles.rowLabel}>🕐  Pickup</Text>
-                    <Text style={styles.rowValue}>{activeChild.ageGroup.pickupTime}</Text>
-                  </View>
-                ) : null}
               </View>
 
               <Button
-                title={activeTrip ? 'Track live →' : 'View trips'}
-                variant={activeTrip ? 'primary' : 'outline'}
+                title={primaryTitle}
+                variant={phase === 'live' ? 'primary' : 'outline'}
                 size="lg"
                 fullWidth
-                onPress={onTrack}
+                onPress={onPrimary}
                 style={{ marginTop: spacing[4] }}
               />
+
+              {/* Skip pickup — only before a scheduled trip, gated on the cutoff. */}
+              {phase === 'scheduled' && myRider ? (
+                skip.alreadySkipped ? (
+                  <Text style={styles.skippedNote}>✓  Pickup skipped for today</Text>
+                ) : skip.canCancel ? (
+                  <Button
+                    title={cancelPickup.isPending ? 'Skipping…' : 'Skip pickup today'}
+                    variant="ghost"
+                    size="md"
+                    fullWidth
+                    loading={cancelPickup.isPending}
+                    onPress={onSkipPickup}
+                    style={{ marginTop: spacing[1] }}
+                  />
+                ) : (
+                  <Text style={styles.skipClosedNote}>{skip.reason}</Text>
+                )
+              ) : null}
             </Card>
           </>
         ) : null}
@@ -222,6 +293,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
   rowLabel: { fontSize: fontSizes.sm, color: colors.textSecondary },
   rowValue: { flex: 1, textAlign: 'right', fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textPrimary },
+  skippedNote: { marginTop: spacing[3], fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium, textAlign: 'center' },
+  skipClosedNote: { marginTop: spacing[3], fontSize: fontSizes.xs, color: colors.textMuted, textAlign: 'center' },
   emptyWrap: { minHeight: 320 },
   quickActions: { flexDirection: 'row', marginHorizontal: spacing[4], gap: spacing[3] },
   quickAction: {

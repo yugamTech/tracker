@@ -119,6 +119,27 @@ export const useCancelPickup = () => {
   return useMutation({
     mutationFn: ({ tripId, studentId, reason }: { tripId: string; studentId: string; reason?: string }) =>
       tripsApi.cancelPickup(tripId, studentId, reason),
-    onSuccess: () => qc.invalidateQueries({ queryKey: tripKeys.all }),
+    // Optimistically mark the rider CANCELLED on the trip detail so the track
+    // screen reflects the skip instantly; roll back if the request fails.
+    onMutate: async ({ tripId, studentId }) => {
+      await qc.cancelQueries({ queryKey: tripKeys.detail(tripId) });
+      const previous = qc.getQueryData(tripKeys.detail(tripId));
+      qc.setQueryData(tripKeys.detail(tripId), (old: any) =>
+        old
+          ? {
+              ...old,
+              riders: (old.riders ?? []).map((r: any) =>
+                r.studentId === studentId ? { ...r, boardStatus: 'CANCELLED' } : r,
+              ),
+            }
+          : old,
+      );
+      return { previous, tripId };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous !== undefined) qc.setQueryData(tripKeys.detail(ctx.tripId), ctx.previous);
+    },
+    // Refetch so home (today), track (detail) and trips all converge on the server truth.
+    onSettled: () => qc.invalidateQueries({ queryKey: tripKeys.all }),
   });
 };

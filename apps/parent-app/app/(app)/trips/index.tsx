@@ -3,10 +3,10 @@ import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
-  colors, spacing, fontSizes, fontWeights, letterSpacing,
+  colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
   AppHeader, Card, Badge, Skeleton, EmptyState, AnimatedPressable,
 } from '@saarthi/ui';
-import { useTodayTrips } from '@saarthi/api-client';
+import { useTodayTrips, useMyStudents } from '@saarthi/api-client';
 import type { BadgeVariant } from '@saarthi/ui';
 
 function tripStatusVariant(status: string): BadgeVariant {
@@ -34,7 +34,9 @@ function statusLabel(status: string): string {
 
 export default function TripsScreen() {
   const { data: trips, isLoading, isError } = useTodayTrips();
+  const { data: students } = useMyStudents();
   const count = trips?.length ?? 0;
+  const myIds = new Set((students ?? []).map((s) => s.id));
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -69,6 +71,9 @@ export default function TripsScreen() {
           renderItem={({ item }) => {
             const routeName = (item as any)?.route?.name ?? item.routeId;
             const completed = item.status === 'COMPLETED';
+            const skipped = ((item as any)?.riders ?? []).some(
+              (r: any) => myIds.has(r.studentId) && r.boardStatus === 'CANCELLED',
+            );
             return (
               <AnimatedPressable
                 onPress={() => router.push(`/(app)/trips/${item.id}` as never)}
@@ -78,9 +83,12 @@ export default function TripsScreen() {
                   <View style={styles.cardRow}>
                     <View style={styles.cardInfo}>
                       <Text style={styles.route} numberOfLines={1}>{routeName}</Text>
-                      <Text style={styles.direction}>
-                        {item.direction === 'PICKUP' ? 'Pickup' : 'Drop'}
-                      </Text>
+                      <View style={styles.subRow}>
+                        <Text style={styles.direction}>
+                          {item.direction === 'PICKUP' ? 'Pickup' : 'Drop'}
+                        </Text>
+                        {skipped && <Text style={styles.skippedChip}>Pickup skipped</Text>}
+                      </View>
                     </View>
                     <Badge label={statusLabel(item.status)} variant={tripStatusVariant(item.status)} size="sm" />
                   </View>
@@ -110,7 +118,12 @@ const styles = StyleSheet.create({
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[3] },
   cardInfo: { flex: 1 },
   route: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
-  direction: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  subRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginTop: 2 },
+  direction: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  skippedChip: {
+    fontSize: fontSizes.xs, color: colors.gray500, fontWeight: fontWeights.semibold,
+    backgroundColor: colors.gray100, paddingHorizontal: spacing[2], paddingVertical: 1, borderRadius: radius.full, overflow: 'hidden',
+  },
   rateBtn: {
     alignSelf: 'flex-start', marginTop: spacing[3],
     paddingHorizontal: spacing[3], paddingVertical: spacing[2],
