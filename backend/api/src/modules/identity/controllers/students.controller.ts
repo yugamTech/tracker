@@ -64,4 +64,11 @@ export class StudentsController {
   update(@Param('id') id: string, @Body() dto: UpdateStudentDto) {
     return this.studentsService.update(id, dto);
   }
+
+  /** Soft-delete: flips the student to INACTIVE (never a hard delete). Tenant-scoped. */
+  @Post(':id/deactivate')
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  deactivate(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.studentsService.deactivate(id, tenantId);
+  }
 }

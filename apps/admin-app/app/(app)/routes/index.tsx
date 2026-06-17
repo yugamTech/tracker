@@ -1,19 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
-  Card, Badge, Skeleton, EmptyState, AnimatedPressable,
+  Card, Badge, Button, Chip, Skeleton, EmptyState, AnimatedPressable,
 } from '@saarthi/ui';
 import { useRoutes } from '@saarthi/api-client';
 import { AdminScreen, HeaderAction } from '../../../components/AdminScreen';
 import { GridList } from '../../../components/widgets';
 import { useResponsive } from '../../../hooks/useResponsive';
 
+/** Status filter chips — `''` = all (deactivated routes set status INACTIVE). */
+const STATUS_FILTERS = [
+  { value: '', label: 'All' },
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'INACTIVE', label: 'Inactive' },
+] as const;
+
 export default function RoutesScreen() {
   const { data: routes, isLoading } = useRoutes();
   const { gridColumns } = useResponsive();
-  const list = routes ?? [];
+  const [statusFilter, setStatusFilter] = useState('');
+  const list = (routes ?? []).filter((r) => !statusFilter || r.status === statusFilter);
 
   return (
     <AdminScreen
@@ -31,26 +39,41 @@ export default function RoutesScreen() {
           ))}
         </View>
       ) : (
-        <GridList
-          data={list}
-          columns={gridColumns}
-          keyExtractor={(r) => r.id}
-          ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <EmptyState
-                icon={<Text style={{ fontSize: 40 }}>🗺️</Text>}
-                title="No routes configured"
-                description="Create your first route to start scheduling trips."
+        <View style={styles.root}>
+          <View style={styles.filterRow}>
+            {STATUS_FILTERS.map((f) => (
+              <Chip
+                key={f.label}
+                label={f.label}
+                selected={statusFilter === f.value}
+                onPress={() => setStatusFilter(f.value)}
+                size="sm"
               />
-            </View>
-          }
-          renderItem={(item) => (
-            <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/routes/${item.id}` as never)}>
-              <Card shadow="sm" style={styles.card}>
-                <View style={styles.cardTop}>
-                  <Text style={styles.routeName} numberOfLines={1}>{item.name}</Text>
-                  <Badge label={item.status} variant="active" size="sm" />
-                </View>
+            ))}
+          </View>
+          <GridList
+            data={list}
+            columns={gridColumns}
+            keyExtractor={(r) => r.id}
+            ListEmptyComponent={
+              <View style={styles.emptyWrap}>
+                <EmptyState
+                  icon={<Text style={{ fontSize: 40 }}>🗺️</Text>}
+                  title={statusFilter ? 'No routes match' : 'No routes configured'}
+                  description={statusFilter ? 'Try a different status filter.' : 'Create your first route to start scheduling trips.'}
+                  action={statusFilter
+                    ? <Button title="Show all" variant="secondary" onPress={() => setStatusFilter('')} />
+                    : <Button title="Add Route" onPress={() => router.push('/(app)/routes/new' as never)} />}
+                />
+              </View>
+            }
+            renderItem={(item) => (
+              <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/routes/${item.id}` as never)}>
+                <Card shadow="sm" style={styles.card}>
+                  <View style={styles.cardTop}>
+                    <Text style={styles.routeName} numberOfLines={1}>{item.name}</Text>
+                    <Badge label={item.status} variant={item.status === 'ACTIVE' ? 'active' : 'inactive'} size="sm" />
+                  </View>
                 <View style={styles.metrics}>
                   <Metric value={item.stops?.length ?? 0} label="Stops" />
                   <View style={styles.metricDivider} />
@@ -66,7 +89,8 @@ export default function RoutesScreen() {
               </Card>
             </AnimatedPressable>
           )}
-        />
+          />
+        </View>
       )}
     </AdminScreen>
   );
@@ -82,6 +106,8 @@ function Metric({ value, label, small }: { value: string | number; label: string
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
+  filterRow: { flexDirection: 'row', gap: spacing[2], paddingHorizontal: spacing[4], paddingTop: spacing[4] },
   skeletonWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4], padding: spacing[4] },
   skeletonCard: { width: 320, flexGrow: 1 },
   emptyWrap: { flex: 1, minHeight: 320 },

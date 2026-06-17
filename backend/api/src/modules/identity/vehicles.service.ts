@@ -41,4 +41,23 @@ export class VehiclesService {
     if (!vehicle) throw new NotFoundException(`Vehicle ${id} not found`);
     return this.prisma.vehicle.update({ where: { id }, data });
   }
+
+  /**
+   * Deactivate a vehicle — SOFT delete only: flips status to INACTIVE so it drops
+   * off the active fleet and can be filtered out, while its record and assignment
+   * history are preserved. Never a hard delete. Tenant-scoped (NFR-05).
+   */
+  async deactivate(id: string, tenantId: string) {
+    const vehicle = await this.prisma.vehicle.findFirst({ where: { id, tenantId }, select: { id: true } });
+    if (!vehicle) throw new NotFoundException(`Vehicle ${id} not found`);
+    return this.prisma.vehicle.update({
+      where: { id },
+      data: { status: 'INACTIVE' },
+      include: {
+        assignments: {
+          include: { membership: { include: { person: true } } },
+        },
+      },
+    });
+  }
 }

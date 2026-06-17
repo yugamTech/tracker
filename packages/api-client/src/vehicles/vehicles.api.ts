@@ -39,4 +39,9 @@ export const vehiclesApi = {
     const { data } = await apiClient.patch(`/vehicles/${id}`, dto);
     return data.data;
   },
+
+  deactivate: async (id: string): Promise<Vehicle> => {
+    const { data } = await apiClient.post(`/vehicles/${id}/deactivate`);
+    return data.data;
+  },
 };

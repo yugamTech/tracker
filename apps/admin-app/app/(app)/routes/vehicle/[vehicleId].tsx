@@ -3,9 +3,10 @@ import {
   View, Text, TextInput, ScrollView, StyleSheet,
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge } from '@saarthi/ui';
-import { useVehicleById, useCreateVehicle, useUpdateVehicle } from '@saarthi/api-client';
+import { useVehicleById, useCreateVehicle, useUpdateVehicle, useDeactivateVehicle } from '@saarthi/api-client';
+import { goBackTo } from '../../../../lib/nav';
 
 const TYPES = ['BUS', 'MINI_BUS', 'VAN'];
 const STATUSES = ['ACTIVE', 'INACTIVE', 'MAINTENANCE'] as const;
@@ -17,6 +18,7 @@ export default function VehicleDetailScreen() {
   const { data: vehicle, isLoading } = useVehicleById(isNew ? '' : vehicleId);
   const createVehicle = useCreateVehicle();
   const updateVehicle = useUpdateVehicle();
+  const deactivateVehicle = useDeactivateVehicle();
 
   const [regNumber, setRegNumber] = useState('');
   const [capacity, setCapacity] = useState('');
@@ -42,7 +44,7 @@ export default function VehicleDetailScreen() {
       createVehicle.mutate(
         { regNumber: regNumber.trim().toUpperCase(), capacity: cap, type },
         {
-          onSuccess: () => { Alert.alert('Success', 'Vehicle added'); router.back(); },
+          onSuccess: () => { Alert.alert('Success', 'Vehicle added'); goBackTo('routes/vehicle/[vehicleId]'); },
           onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to add vehicle'),
         },
       );
@@ -55,6 +57,26 @@ export default function VehicleDetailScreen() {
         },
       );
     }
+  };
+
+  const handleDeactivate = () => {
+    if (!vehicle) return;
+    Alert.alert(
+      'Deactivate vehicle',
+      `${vehicle.regNumber} will be marked inactive and removed from scheduling. Its record and assignment history are kept. You can reactivate it later.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Deactivate',
+          style: 'destructive',
+          onPress: () =>
+            deactivateVehicle.mutate(vehicleId, {
+              onSuccess: () => { Alert.alert('Done', 'Vehicle deactivated'); goBackTo('routes/vehicle/[vehicleId]'); },
+              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to deactivate'),
+            }),
+        },
+      ],
+    );
   };
 
   const isSaving = createVehicle.isPending || updateVehicle.isPending;
@@ -162,6 +184,23 @@ export default function VehicleDetailScreen() {
           style={styles.saveBtn}
         />
       )}
+
+      {/* Deactivate — soft delete only (never a hard delete). */}
+      {!isNew && vehicle?.status === 'ACTIVE' && (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Danger Zone</Text>
+          <Text style={styles.hint}>
+            Deactivating removes the vehicle from scheduling but preserves its record and assignment history.
+          </Text>
+          <Button
+            title="Deactivate Vehicle"
+            variant="danger"
+            onPress={handleDeactivate}
+            loading={deactivateVehicle.isPending}
+            fullWidth
+          />
+        </Card>
+      )}
     </ScrollView>
   );
 }
@@ -177,6 +216,7 @@ const styles = StyleSheet.create({
   editBtnText: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.primary },
   section: { gap: spacing[3] },
   sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary, marginBottom: spacing[1] },
+  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18 },
   label: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary },
   input: {
     backgroundColor: colors.gray100, borderRadius: radius.lg,

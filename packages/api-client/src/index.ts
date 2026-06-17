@@ -24,6 +24,7 @@ export {
   useCreateMember,
   useUpdateMember,
   useDeactivateMember,
+  useDeactivateStudent,
   useAgeGroups,
   useMyTenant,
 } from './identity/identity.hooks';
@@ -31,23 +32,26 @@ export {
 // Vehicles
 export { vehiclesApi } from './vehicles/vehicles.api';
 export type { Vehicle } from './vehicles/vehicles.api';
-export { vehicleKeys, useVehicles, useVehicleById, useCreateVehicle, useUpdateVehicle } from './vehicles/vehicles.hooks';
+export { vehicleKeys, useVehicles, useVehicleById, useCreateVehicle, useUpdateVehicle, useDeactivateVehicle } from './vehicles/vehicles.hooks';
 
 // Routes & Stops
 export { routesApi, stopsApi } from './routes/routes.api';
 export type { Route, Stop } from './routes/routes.api';
-export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, useStops, useCreateStop, useAddStop } from './routes/routes.hooks';
+export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useStops, useCreateStop, useAddStop } from './routes/routes.hooks';
 
 // Trips
 export { tripsApi } from './trips/trips.api';
-export type { ScheduleTripDto, TripStartExceptionWithTrip } from './trips/trips.api';
+export type { ScheduleTripDto, TripStartExceptionWithTrip, TripFilters, UpdateTripDto } from './trips/trips.api';
 export {
   tripKeys,
   useTodayTrips,
   useTripsByDate,
+  useFilteredTrips,
   useTripDates,
   useTripById,
   useCreateTrip,
+  useUpdateTrip,
+  useCancelTrip,
   useStartTrip,
   useCompleteTrip,
   useAbortTrip,

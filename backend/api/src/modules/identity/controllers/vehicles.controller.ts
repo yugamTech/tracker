@@ -49,4 +49,11 @@ export class VehiclesController {
   update(@TenantId() tenantId: string, @Param('id') id: string, @Body() dto: UpdateVehicleDto) {
     return this.vehiclesService.update(id, tenantId, dto);
   }
+
+  /** Soft-delete: flips the vehicle to INACTIVE (never a hard delete). Tenant-scoped. */
+  @Post(':id/deactivate')
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  deactivate(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.vehiclesService.deactivate(id, tenantId);
+  }
 }

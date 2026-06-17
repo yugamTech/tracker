@@ -31,3 +31,14 @@ export const useUpdateVehicle = () => {
     },
   });
 };
+
+export const useDeactivateVehicle = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => vehiclesApi.deactivate(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: vehicleKeys.vehicle(id) });
+      qc.invalidateQueries({ queryKey: vehicleKeys.all });
+    },
+  });
+};

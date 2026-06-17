@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { tripsApi } from './trips.api';
+import { tripsApi, type TripFilters, type UpdateTripDto } from './trips.api';
 
 export const tripKeys = {
   all: ['trips'] as const,
   today: () => [...tripKeys.all, 'today'] as const,
   byDate: (date: string) => [...tripKeys.all, 'byDate', date] as const,
+  list: (filters: TripFilters) => [...tripKeys.all, 'list', filters] as const,
   dates: (from: string, to: string) => [...tripKeys.all, 'dates', from, to] as const,
   detail: (id: string) => [...tripKeys.all, id] as const,
   exceptions: (resolved?: string) => [...tripKeys.all, 'exceptions', resolved ?? 'open'] as const,
@@ -22,6 +23,13 @@ export const useTripsByDate = (date: string) =>
     queryKey: tripKeys.byDate(date),
     queryFn: () => tripsApi.getTripsByDate(date),
     enabled: !!date,
+  });
+
+/** Trips matching combinable filters (date / status / route / driver). */
+export const useFilteredTrips = (filters: TripFilters) =>
+  useQuery({
+    queryKey: tripKeys.list(filters),
+    queryFn: () => tripsApi.getTrips(filters),
   });
 
 /** Calendar-dot feed for the visible range — the days that have trips. */
@@ -43,6 +51,26 @@ export const useCreateTrip = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: tripsApi.createTrip,
+    onSuccess: () => qc.invalidateQueries({ queryKey: tripKeys.all }),
+  });
+};
+
+export const useUpdateTrip = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tripId, ...dto }: { tripId: string } & UpdateTripDto) =>
+      tripsApi.updateTrip(tripId, dto),
+    onSuccess: (_data, { tripId }) => {
+      qc.invalidateQueries({ queryKey: tripKeys.detail(tripId) });
+      qc.invalidateQueries({ queryKey: tripKeys.all });
+    },
+  });
+};
+
+export const useCancelTrip = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (tripId: string) => tripsApi.cancelTrip(tripId),
     onSuccess: () => qc.invalidateQueries({ queryKey: tripKeys.all }),
   });
 };

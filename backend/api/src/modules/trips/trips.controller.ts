@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, Query, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { IsString, IsOptional, IsEnum, IsDateString } from 'class-validator';
@@ -8,7 +8,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { TripsService } from './trips.service';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
 import { ActiveMembershipDec } from '../../common/decorators/active-membership.decorator';
-import { Role, Direction } from '@saarthi/types';
+import { Role, Direction, TripStatus } from '@saarthi/types';
 import type { ActiveMembership } from '@saarthi/types';
 
 class CancelPickupDto {
@@ -23,6 +23,16 @@ class CreateTripDto {
   @IsOptional() @IsString() conductorId?: string;
   @IsDateString() date!: string;
   @IsEnum(Direction) direction!: Direction;
+  @IsOptional() @IsDateString() scheduledStart?: string;
+}
+
+/** Edit a SCHEDULED trip — every field optional; only the supplied ones change. */
+class UpdateTripDto {
+  @IsOptional() @IsString() routeId?: string;
+  @IsOptional() @IsString() vehicleId?: string;
+  @IsOptional() @IsString() driverId?: string;
+  @IsOptional() @IsString() conductorId?: string;
+  @IsOptional() @IsEnum(Direction) direction?: Direction;
   @IsOptional() @IsDateString() scheduledStart?: string;
 }
 
@@ -47,10 +57,30 @@ export class TripsController {
     private readonly config: ConfigService,
   ) {}
 
-  /** List trips, optionally constrained to a single calendar day (`?date=YYYY-MM-DD`). */
+  /**
+   * List trips, optionally filtered by a single calendar day (`?date=YYYY-MM-DD`),
+   * `?status=`, `?route=`, and `?driver=`. Filters are combinable and always
+   * AND-ed onto the caller's role scope, so they can only ever narrow the result.
+   */
   @Get()
-  list(@ActiveMembershipDec() actor: ActiveMembership, @Query('date') date?: string) {
-    return this.tripsService.list(actor, date ? { date: parseDateOnly(date) } : undefined);
+  list(
+    @ActiveMembershipDec() actor: ActiveMembership,
+    @Query('date') date?: string,
+    @Query('status') status?: string,
+    @Query('route') routeId?: string,
+    @Query('driver') driverId?: string,
+  ) {
+    // Ignore an unknown status rather than passing garbage to Prisma (→ 500).
+    const tripStatus =
+      status && (Object.values(TripStatus) as string[]).includes(status)
+        ? (status as TripStatus)
+        : undefined;
+    return this.tripsService.list(actor, {
+      date: date ? parseDateOnly(date) : undefined,
+      status: tripStatus,
+      routeId: routeId || undefined,
+      driverId: driverId || undefined,
+    });
   }
 
   @Get('today')
@@ -87,6 +117,25 @@ export class TripsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.tripsService.findById(id);
+  }
+
+  /**
+   * Edit a SCHEDULED trip's plan (driver/vehicle/conductor/scheduledStart/
+   * direction/route). Rejected once the trip has left SCHEDULED. Admin only,
+   * tenant-scoped. Rebuilds the roster in the service if the route changes.
+   */
+  @Patch(':id')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  update(@TenantId() tenantId: string, @Param('id') id: string, @Body() dto: UpdateTripDto) {
+    return this.tripsService.editScheduled(id, tenantId, {
+      routeId: dto.routeId,
+      vehicleId: dto.vehicleId,
+      driverId: dto.driverId,
+      conductorId: dto.conductorId,
+      direction: dto.direction,
+      scheduledStart: dto.scheduledStart ? new Date(dto.scheduledStart) : undefined,
+    });
   }
 
   /** Schedule a trip + auto-build its roster (PRD-02 FR-01/FR-02). Admin only. */
@@ -128,9 +177,12 @@ export class TripsController {
     return this.tripsService.complete(id);
   }
 
+  /** Cancel a SCHEDULED trip (before departure). Admin only, tenant-scoped. */
   @Post(':id/cancel')
-  cancel(@Param('id') id: string) {
-    return this.tripsService.cancel(id);
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  cancel(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.tripsService.cancel(id, tenantId);
   }
 
   @Post(':id/abort')

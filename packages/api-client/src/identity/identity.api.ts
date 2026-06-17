@@ -94,6 +94,11 @@ export const identityApi = {
     return data.data;
   },
 
+  deactivateStudent: async (id: string): Promise<Student> => {
+    const { data } = await apiClient.post(`/students/${id}/deactivate`);
+    return data.data;
+  },
+
   listMembers: async (role?: string): Promise<Member[]> => {
     const { data } = await apiClient.get('/members', { params: role ? { role } : undefined });
     return data.data;

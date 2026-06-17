@@ -6,10 +6,11 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge } from '@saarthi/ui';
 import {
-  useRouteById, useCreateRoute, useUpdateRoute,
+  useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute,
   useStops, useCreateStop, useAddStop,
 } from '@saarthi/api-client';
 import type { Stop } from '@saarthi/api-client';
+import { goBackTo } from '../../../lib/nav';
 
 const DIRECTIONS = ['PICKUP', 'DROP'] as const;
 
@@ -21,6 +22,7 @@ export default function RouteDetailScreen() {
   const { data: allStops = [] } = useStops();
   const createRoute = useCreateRoute();
   const updateRoute = useUpdateRoute();
+  const deactivateRoute = useDeactivateRoute();
   const createStop = useCreateStop();
   const addStop = useAddStop();
 
@@ -63,6 +65,26 @@ export default function RouteDetailScreen() {
         },
       );
     }
+  };
+
+  const handleDeactivate = () => {
+    if (!route) return;
+    Alert.alert(
+      'Deactivate route',
+      `${route.name} will be marked inactive and hidden from the active routes list. Its stops, students and trip history are kept. You can reactivate it later.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Deactivate',
+          style: 'destructive',
+          onPress: () =>
+            deactivateRoute.mutate(routeId, {
+              onSuccess: () => { Alert.alert('Done', 'Route deactivated'); goBackTo('routes/[routeId]'); },
+              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to deactivate'),
+            }),
+        },
+      ],
+    );
   };
 
   const handleAddStop = () => {
@@ -108,7 +130,14 @@ export default function RouteDetailScreen() {
         <Card style={styles.header}>
           <View style={styles.headerInfo}>
             <Text style={styles.headerName}>{route.name}</Text>
-            <Badge label={route.direction} variant="active" size="sm" />
+            <View style={styles.badgeRow}>
+              <Badge label={route.direction} variant="default" size="sm" />
+              <Badge
+                label={route.status}
+                variant={route.status === 'ACTIVE' ? 'active' : 'inactive'}
+                size="sm"
+              />
+            </View>
           </View>
           <TouchableOpacity onPress={() => setEditing((e) => !e)} style={styles.editBtn}>
             <Text style={styles.editBtnText}>{editing ? 'Cancel' : 'Edit'}</Text>
@@ -197,6 +226,23 @@ export default function RouteDetailScreen() {
             ))}
         </Card>
       )}
+
+      {/* Deactivate — soft delete only (never a hard delete). */}
+      {!isNew && route?.status === 'ACTIVE' && (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Danger Zone</Text>
+          <Text style={styles.hint}>
+            Deactivating hides the route from scheduling but preserves its stops, students and trip history.
+          </Text>
+          <Button
+            title="Deactivate Route"
+            variant="danger"
+            onPress={handleDeactivate}
+            loading={deactivateRoute.isPending}
+            fullWidth
+          />
+        </Card>
+      )}
     </ScrollView>
   );
 }
@@ -208,10 +254,12 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerInfo: { flex: 1, gap: spacing[1] },
   headerName: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   editBtn: { paddingHorizontal: spacing[3], paddingVertical: spacing[2], borderRadius: radius.lg, borderWidth: 1, borderColor: colors.primary },
   editBtnText: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.primary },
   section: { gap: spacing[3] },
   sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary },
+  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18 },
   label: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary },
   input: {
     backgroundColor: colors.gray100, borderRadius: radius.lg,

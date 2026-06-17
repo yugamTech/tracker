@@ -14,16 +14,25 @@ const ROLE_FILTERS = [
   { value: 'TRANSPORT_MANAGER', label: 'Transport' },
 ] as const;
 
+/** Status filter chips — `''` = all (deactivated staff have a non-ACTIVE membership). */
+const STATUS_FILTERS = [
+  { value: '', label: 'All' },
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'INACTIVE', label: 'Inactive' },
+] as const;
+
 export default function StaffListScreen() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<string>('');
 
   const { data: staff, isLoading, isError } = useMembers(roleFilter);
 
   const filtered = (staff ?? []).filter((m) =>
-    !search ||
-    m.person.name.toLowerCase().includes(search.toLowerCase()) ||
-    m.person.phone.includes(search),
+    (!statusFilter || (statusFilter === 'ACTIVE' ? m.status === 'ACTIVE' : m.status !== 'ACTIVE')) &&
+    (!search ||
+      m.person.name.toLowerCase().includes(search.toLowerCase()) ||
+      m.person.phone.includes(search)),
   );
 
   return (
@@ -61,6 +70,21 @@ export default function StaffListScreen() {
         })}
       </View>
 
+      <View style={styles.statusRow}>
+        {STATUS_FILTERS.map((f) => {
+          const active = statusFilter === f.value;
+          return (
+            <TouchableOpacity
+              key={f.label}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => setStatusFilter(f.value)}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       {isLoading && <LoadingSpinner fullScreen />}
 
       {isError && (
@@ -90,7 +114,10 @@ export default function StaffListScreen() {
                     <Text style={styles.name}>{m.person.name}</Text>
                     <Text style={styles.meta}>{m.person.phone}</Text>
                   </View>
-                  <Badge label={m.role} variant="active" size="sm" />
+                  <View style={styles.badges}>
+                    <Badge label={m.role} variant={m.status === 'ACTIVE' ? 'active' : 'default'} size="sm" />
+                    {m.status !== 'ACTIVE' ? <Badge label="Inactive" variant="inactive" size="sm" /> : null}
+                  </View>
                 </View>
               </Card>
             </TouchableOpacity>
@@ -120,9 +147,15 @@ const styles = StyleSheet.create({
   addBtnText: { color: colors.white, fontWeight: fontWeights.semibold, fontSize: fontSizes.sm },
   filterRow: {
     flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2],
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4], paddingTop: spacing[3],
+    backgroundColor: colors.white,
+  },
+  statusRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2],
+    paddingHorizontal: spacing[4], paddingTop: spacing[2], paddingBottom: spacing[3],
     backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
+  badges: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
   chip: {
     paddingHorizontal: spacing[3], paddingVertical: spacing[2],
     borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,

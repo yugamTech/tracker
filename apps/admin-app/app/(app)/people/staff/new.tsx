@@ -3,9 +3,9 @@ import {
   View, Text, TextInput, ScrollView, StyleSheet,
   TouchableOpacity, Alert,
 } from 'react-native';
-import { router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card } from '@saarthi/ui';
 import { useCreateMember } from '@saarthi/api-client';
+import { goBackTo } from '../../../../lib/nav';
 
 /** Roles an admin may provision here (PRD-01 FR-13). Mirrors the backend STAFF_ROLES. */
 const ROLES = [
@@ -40,7 +40,7 @@ export default function NewStaffScreen() {
         email: email.trim() || undefined,
       },
       {
-        onSuccess: () => { Alert.alert('Success', 'Staff member added'); router.back(); },
+        onSuccess: () => { Alert.alert('Success', 'Staff member added'); goBackTo('people/staff/new'); },
         onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to add staff member'),
       },
     );

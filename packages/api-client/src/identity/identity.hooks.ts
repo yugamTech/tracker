@@ -52,6 +52,17 @@ export const useUpdateStudent = () => {
   });
 };
 
+export const useDeactivateStudent = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => identityApi.deactivateStudent(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: identityKeys.student(id) });
+      qc.invalidateQueries({ queryKey: ['identity', 'students'] });
+    },
+  });
+};
+
 export const useMembers = (role?: string) =>
   useQuery({ queryKey: identityKeys.members(role), queryFn: () => identityApi.listMembers(role) });
 

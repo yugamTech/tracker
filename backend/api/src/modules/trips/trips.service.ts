@@ -59,12 +59,24 @@ export class TripsService {
     return { tenantId: actor.tenantId };
   }
 
-  list(actor: ActiveMembership, filters?: { date?: Date; status?: TripStatus }) {
+  list(
+    actor: ActiveMembership,
+    filters?: { date?: Date; status?: TripStatus; routeId?: string; driverId?: string },
+  ) {
     return this.prisma.trip.findMany({
+      // The role scope and the admin filters are AND-ed so a filter can only ever
+      // narrow within the caller's scope (NFR-05) — e.g. a DRIVER passing
+      // `?driver=` for someone else yields nothing rather than leaking their trips.
       where: {
-        ...this.scopeForActor(actor),
-        ...(filters?.date && { date: dayRange(filters.date) }),
-        ...(filters?.status && { status: filters.status }),
+        AND: [
+          this.scopeForActor(actor),
+          {
+            ...(filters?.date && { date: dayRange(filters.date) }),
+            ...(filters?.status && { status: filters.status }),
+            ...(filters?.routeId && { routeId: filters.routeId }),
+            ...(filters?.driverId && { driverId: filters.driverId }),
+          },
+        ],
       },
       include: {
         route: true,
@@ -317,8 +329,13 @@ export class TripsService {
     return updated;
   }
 
-  /** Cancel a trip that hasn't started yet (e.g. vehicle breakdown before departure). */
-  async cancel(id: string) {
+  /**
+   * Cancel a trip that hasn't started yet (e.g. vehicle breakdown before
+   * departure). Tenant-scoped (NFR-05): a trip id from another school 404s before
+   * any state change. The SCHEDULED→CANCELLED guard lives in `transition`.
+   */
+  async cancel(id: string, tenantId: string) {
+    await this.assertOwned(id, tenantId);
     const updated = await this.transition(id, TripStatus.CANCELLED);
     this.notifyPickupCancelled(id).catch((err) =>
       this.logger.error(`PICKUP_CANCELLED dispatch failed: ${(err as Error).message}`),
@@ -499,6 +516,110 @@ export class TripsService {
 
       return tx.trip.findUniqueOrThrow({
         where: { id: trip.id },
+        include: {
+          route: true,
+          vehicle: true,
+          driver: true,
+          conductor: true,
+          riders: { include: { student: true, stop: true } },
+        },
+      });
+    });
+  }
+
+  /** Verify a trip belongs to this tenant (NFR-05) before any mutation. */
+  private async assertOwned(id: string, tenantId: string) {
+    const trip = await this.prisma.trip.findFirst({ where: { id, tenantId }, select: { id: true } });
+    if (!trip) throw new NotFoundException(`Trip ${id} not found`);
+  }
+
+  /**
+   * Edit a SCHEDULED trip's plan: driver / vehicle / conductor / scheduledStart /
+   * direction / route. Allowed ONLY while the trip is still SCHEDULED — once it
+   * has started, completed, cancelled or aborted it is immutable and this rejects
+   * with a clear message. Tenant-scoped (NFR-05): every referenced entity is
+   * re-verified to belong to the caller's school, mirroring `create`. If the
+   * route changes the roster is rebuilt from the new route's ACTIVE, stop-assigned
+   * students — all within one transaction so a half-edited trip can never exist.
+   */
+  async editScheduled(
+    id: string,
+    tenantId: string,
+    patch: {
+      routeId?: string;
+      vehicleId?: string;
+      driverId?: string;
+      conductorId?: string | null;
+      direction?: Direction;
+      scheduledStart?: Date;
+    },
+  ) {
+    const trip = await this.prisma.trip.findFirst({
+      where: { id, tenantId },
+      select: { id: true, status: true, routeId: true },
+    });
+    if (!trip) throw new NotFoundException(`Trip ${id} not found`);
+    if (trip.status !== TripStatus.SCHEDULED) {
+      throw new BadRequestException(
+        `Only scheduled trips can be edited — this trip is ${trip.status.toLowerCase()}.`,
+      );
+    }
+
+    // Re-verify every referenced entity is in this tenant before any write.
+    if (patch.routeId) {
+      const route = await this.prisma.route.findFirst({
+        where: { id: patch.routeId, tenantId },
+        select: { id: true },
+      });
+      if (!route) throw new BadRequestException('Route not found in this school');
+    }
+    if (patch.vehicleId) {
+      const vehicle = await this.prisma.vehicle.findFirst({
+        where: { id: patch.vehicleId, tenantId },
+        select: { id: true },
+      });
+      if (!vehicle) throw new BadRequestException('Vehicle not found in this school');
+    }
+    if (patch.driverId) await this.assertActiveStaff(patch.driverId, tenantId, Role.DRIVER, 'Driver');
+    if (patch.conductorId) {
+      await this.assertActiveStaff(patch.conductorId, tenantId, Role.CONDUCTOR, 'Conductor');
+    }
+
+    const routeChanged = !!patch.routeId && patch.routeId !== trip.routeId;
+    const newRouteId = patch.routeId ?? trip.routeId;
+
+    const data: Prisma.TripUncheckedUpdateInput = {};
+    if (patch.routeId !== undefined) data.routeId = patch.routeId;
+    if (patch.vehicleId !== undefined) data.vehicleId = patch.vehicleId;
+    if (patch.driverId !== undefined) data.driverId = patch.driverId;
+    if (patch.conductorId !== undefined) data.conductorId = patch.conductorId;
+    if (patch.direction !== undefined) data.direction = patch.direction;
+    if (patch.scheduledStart !== undefined) data.scheduledStart = patch.scheduledStart;
+
+    return this.prisma.$transaction(async (tx) => {
+      if (routeChanged) {
+        // Rebuild the roster for the new route — old riders no longer apply.
+        await tx.tripRider.deleteMany({ where: { tripId: id } });
+        const students = await tx.student.findMany({
+          where: { tenantId, routeId: newRouteId, status: 'ACTIVE', stopId: { not: null } },
+          select: { id: true, stopId: true },
+        });
+        if (students.length) {
+          await tx.tripRider.createMany({
+            data: students.map((s) => ({
+              tripId: id,
+              studentId: s.id,
+              stopId: s.stopId as string,
+              boardStatus: RiderStatus.EXPECTED,
+            })),
+          });
+        }
+      }
+
+      await tx.trip.update({ where: { id }, data });
+
+      return tx.trip.findUniqueOrThrow({
+        where: { id },
         include: {
           route: true,
           vehicle: true,

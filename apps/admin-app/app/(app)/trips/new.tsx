@@ -1,13 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, TextInput,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, LoadingSpinner, Badge } from '@saarthi/ui';
 import {
   useRoutes, useVehicles, useMembers, useStudents, useCreateTrip,
+  useTripById, useUpdateTrip,
 } from '@saarthi/api-client';
 import { MonthCalendar, ymdKey, startOfMonth, addMonths, formatDayLabel } from '../../../components/Calendar';
+import { goBackTo } from '../../../lib/nav';
 
 /** Build a full ISO timestamp from a `YYYY-MM-DD` day key + chosen HH:MM (local). */
 function isoFromKey(key: string, hour: number, minute: number): string {
@@ -24,6 +26,12 @@ export default function ScheduleTripScreen() {
   const { data: conductors = [] } = useMembers('CONDUCTOR');
   const { data: students = [] } = useStudents();
   const createTrip = useCreateTrip();
+  const updateTrip = useUpdateTrip();
+
+  // Edit mode: `/(app)/trips/new?tripId=…` reuses this form to PATCH one trip.
+  const { tripId: editTripId } = useLocalSearchParams<{ tripId?: string }>();
+  const isEdit = !!editTripId;
+  const { data: editingTrip, isLoading: tripLoading } = useTripById(editTripId ?? '');
 
   const [routeId, setRouteId] = useState('');
   const [vehicleId, setVehicleId] = useState('');
@@ -44,6 +52,24 @@ export default function ScheduleTripScreen() {
   const [phase, setPhase] = useState<'idle' | 'submitting' | 'done'>('idle');
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [results, setResults] = useState<DayResult[]>([]);
+
+  // In edit mode, prefill the form from the trip being edited (once it loads).
+  useEffect(() => {
+    if (!editingTrip) return;
+    const t = editingTrip as any;
+    setRouteId(t.routeId ?? '');
+    setVehicleId(t.vehicleId ?? '');
+    setDriverId(t.driverId ?? '');
+    setConductorId(t.conductorId ?? undefined);
+    if (t.direction) setDirection(t.direction);
+    const ss = t.scheduledStart ?? t.date;
+    if (ss) {
+      const d = new Date(ss);
+      setStartHour(String(d.getHours()).padStart(2, '0'));
+      setStartMin(String(d.getMinutes()).padStart(2, '0'));
+    }
+    if (t.date) setSelectedDays(new Set([ymdKey(new Date(t.date))]));
+  }, [editingTrip]);
 
   const toggleDay = (key: string) => {
     setSelectedDays((prev) => {
@@ -68,7 +94,7 @@ export default function ScheduleTripScreen() {
     if (route?.direction) setDirection(route.direction);
   };
 
-  const isLoading = routesLoading || vehiclesLoading || driversLoading;
+  const isLoading = routesLoading || vehiclesLoading || driversLoading || (isEdit && tripLoading);
   const sortedDays = useMemo(() => [...selectedDays].sort(), [selectedDays]);
 
   const startWindow = (() => {
@@ -114,6 +140,24 @@ export default function ScheduleTripScreen() {
     setPhase('done');
   };
 
+  // Edit mode: a single PATCH of the SCHEDULED trip, then back to its detail.
+  const handleUpdate = () => {
+    if (!routeId) { Alert.alert('Validation', 'Please select a route'); return; }
+    if (!vehicleId) { Alert.alert('Validation', 'Please select a vehicle'); return; }
+    if (!driverId) { Alert.alert('Validation', 'Please select a driver'); return; }
+    const h = Math.min(23, Math.max(0, parseInt(startHour, 10) || 0));
+    const m = Math.min(59, Math.max(0, parseInt(startMin, 10) || 0));
+    const dayKey = sortedDays[0] ?? todayKey;
+    const iso = isoFromKey(dayKey, h, m);
+    updateTrip.mutate(
+      { tripId: editTripId as string, routeId, vehicleId, driverId, conductorId, direction, scheduledStart: iso },
+      {
+        onSuccess: () => { Alert.alert('Saved', 'Trip updated'); router.replace(`/(app)/fleet/${editTripId}` as never); },
+        onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to update trip'),
+      },
+    );
+  };
+
   if (isLoading) {
     return <LoadingSpinner fullScreen />;
   }
@@ -156,7 +200,7 @@ export default function ScheduleTripScreen() {
         </Card>
 
         {!running ? (
-          <Button title="Done" onPress={() => router.back()} fullWidth style={styles.saveBtn} />
+          <Button title="Done" onPress={() => goBackTo('trips/new')} fullWidth style={styles.saveBtn} />
         ) : null}
       </ScrollView>
     );
@@ -234,21 +278,32 @@ export default function ScheduleTripScreen() {
       </Card>
 
       <Card style={styles.section}>
-        <View style={styles.dateHeader}>
-          <Text style={styles.sectionTitle}>Dates *</Text>
-          <Text style={styles.dateCount}>
-            {sortedDays.length} day{sortedDays.length === 1 ? '' : 's'} selected
-          </Text>
-        </View>
-        <Text style={styles.hint}>Tap any number of days — one trip is created per day.</Text>
-        <MonthCalendar
-          selected={selectedDays}
-          onSelectDay={toggleDay}
-          minMonth={minMonth}
-          maxMonth={maxMonth}
-          minDay={todayKey}
-          todayKey={todayKey}
-        />
+        {isEdit ? (
+          <>
+            <Text style={styles.sectionTitle}>Date</Text>
+            <Text style={styles.hint}>
+              {sortedDays[0] ? formatDayLabel(sortedDays[0]) : '—'} · a trip's day is fixed — edit its time and assignment below.
+            </Text>
+          </>
+        ) : (
+          <>
+            <View style={styles.dateHeader}>
+              <Text style={styles.sectionTitle}>Dates *</Text>
+              <Text style={styles.dateCount}>
+                {sortedDays.length} day{sortedDays.length === 1 ? '' : 's'} selected
+              </Text>
+            </View>
+            <Text style={styles.hint}>Tap any number of days — one trip is created per day.</Text>
+            <MonthCalendar
+              selected={selectedDays}
+              onSelectDay={toggleDay}
+              minMonth={minMonth}
+              maxMonth={maxMonth}
+              minDay={todayKey}
+              todayKey={todayKey}
+            />
+          </>
+        )}
 
         <Text style={[styles.sectionTitle, { marginTop: spacing[3] }]}>Start time *</Text>
         <View style={styles.timeRow}>
@@ -310,9 +365,9 @@ export default function ScheduleTripScreen() {
       </Card>
 
       <Button
-        title={sortedDays.length > 1 ? `Schedule ${sortedDays.length} Trips` : 'Schedule Trip'}
-        onPress={handleCreate}
-        loading={createTrip.isPending}
+        title={isEdit ? 'Save Changes' : sortedDays.length > 1 ? `Schedule ${sortedDays.length} Trips` : 'Schedule Trip'}
+        onPress={isEdit ? handleUpdate : handleCreate}
+        loading={isEdit ? updateTrip.isPending : createTrip.isPending}
         fullWidth
         style={styles.saveBtn}
       />

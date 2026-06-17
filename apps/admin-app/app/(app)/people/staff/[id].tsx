@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, ScrollView, StyleSheet,
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { PoliceVerificationStatus } from '@saarthi/types';
 import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, Button } from '@saarthi/ui';
 import {
@@ -13,6 +13,7 @@ import {
   useDriverProfile,
   useUpsertDriverProfile,
 } from '@saarthi/api-client';
+import { goBackTo } from '../../../../lib/nav';
 
 /** Roles an admin may assign here (PRD-01 FR-13). Mirrors the backend STAFF_ROLES. */
 const ROLES = [
@@ -80,7 +81,7 @@ export default function StaffDetailScreen() {
           style: 'destructive',
           onPress: () =>
             deactivateMember.mutate(id, {
-              onSuccess: () => { Alert.alert('Done', 'Staff member deactivated'); router.back(); },
+              onSuccess: () => { Alert.alert('Done', 'Staff member deactivated'); goBackTo('people/staff/[id]'); },
               onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to deactivate'),
             }),
         },

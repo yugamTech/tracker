@@ -3,9 +3,9 @@ import {
   View, Text, TextInput, ScrollView, StyleSheet,
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
-import { router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card } from '@saarthi/ui';
 import { useCreateStudent, useAgeGroups, useRoutes, useStops } from '@saarthi/api-client';
+import { goBackTo } from '../../../../lib/nav';
 
 export default function NewStudentScreen() {
   const [name, setName] = useState('');
@@ -50,7 +50,7 @@ export default function NewStudentScreen() {
         parentPhone: phoneDigits || undefined,
       },
       {
-        onSuccess: () => { Alert.alert('Success', 'Student added'); router.back(); },
+        onSuccess: () => { Alert.alert('Success', 'Student added'); goBackTo('people/students/new'); },
         onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to create student'),
       },
     );

@@ -51,6 +51,25 @@ export function formatDayLabel(key: string): string {
   });
 }
 
+/** "Month YYYY" label for a single day key (e.g. "June 2026"). */
+export function formatMonthLabel(key: string): string {
+  const [y, m] = key.split('-').map(Number);
+  return `${MONTHS[(m ?? 1) - 1]} ${y}`;
+}
+
+/** A `YYYY-MM-DD` key shifted by `n` whole days (negative to go back). */
+export function addDaysKey(key: string, n: number): string {
+  const [y, m, d] = key.split('-').map(Number);
+  return ymdKey(new Date(y, m - 1, d + n));
+}
+
+/** The 7 day keys (Sunday→Saturday) of the week containing `key`. */
+export function weekKeys(key: string): string[] {
+  const [y, m, d] = key.split('-').map(Number);
+  const dow = new Date(y, m - 1, d).getDay();
+  return Array.from({ length: 7 }, (_, i) => addDaysKey(key, i - dow));
+}
+
 interface MonthCalendarProps {
   /** Selected day keys. Single-select callers pass a one-element set. */
   selected: Set<string>;
@@ -66,6 +85,8 @@ interface MonthCalendarProps {
   minDay?: string;
   /** Key of "today" — gets a subtle ring even when not selected. */
   todayKey?: string;
+  /** Bound the grid height with fixed, content-sized cells instead of squares. */
+  compact?: boolean;
 }
 
 export function MonthCalendar({
@@ -77,6 +98,7 @@ export function MonthCalendar({
   initialMonth,
   minDay,
   todayKey,
+  compact,
 }: MonthCalendarProps) {
   const [view, setView] = useState(() => startOfMonth(initialMonth ?? minMonth));
 
@@ -117,14 +139,15 @@ export function MonthCalendar({
       {weeks.map((week, wi) => (
         <View key={wi} style={styles.weekRow}>
           {week.map((date, di) => {
-            if (!date) return <View key={di} style={styles.cell} />;
+            const cellStyle = compact ? styles.cellCompact : styles.cell;
+            if (!date) return <View key={di} style={cellStyle} />;
             const key = ymdKey(date);
             const isSelected = selected.has(key);
             const isMarked = marked?.has(key);
             const isToday = todayKey === key;
             const disabled = !!minDay && key < minDay;
             return (
-              <View key={di} style={styles.cell}>
+              <View key={di} style={cellStyle}>
                 <AnimatedPressable
                   scaleTo={disabled ? 1 : 0.9}
                   disabled={disabled}
@@ -204,6 +227,9 @@ const styles = StyleSheet.create({
   },
 
   cell: { flex: 1, aspectRatio: 1, padding: 2 },
+  // Content-sized cell: a fixed, compact height bounds the grid so an expanded
+  // month never balloons into a screen-filling square grid.
+  cellCompact: { flex: 1, height: 40, padding: 2 },
   day: {
     flex: 1, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center',
     gap: 3,

@@ -9,6 +9,8 @@
  * via a SegmentedControl (see `components/SubNav`), staying as hidden routes.
  */
 
+import { router } from 'expo-router';
+
 export interface NavItem {
   /** Stable key + path prefix used for active-state matching. */
   key: string;
@@ -120,4 +122,54 @@ export function activeKeyForPath(pathname: string): string | null {
   return (
     NAV_ITEMS.find((i) => pathname === `/${i.key}` || pathname.startsWith(`/${i.key}/`))?.key ?? null
   );
+}
+
+/**
+ * Explicit parent list for every detail / sub / CRUD screen — keyed by the
+ * expo-router route name (the `name` on its `Drawer.Screen`).
+ *
+ * Back must land on the list a screen logically belongs to, NOT on `router.back()`:
+ * on a Drawer the list and its detail are *siblings*, so the history stack is
+ * whatever the user happened to visit before (very often the Dashboard). Mapping
+ * each screen to its parent here makes "back" deterministic from any entry point.
+ */
+export const PARENT_ROUTE: Record<string, string> = {
+  // Trips & fleet — a trip/fleet detail belongs to the Trips list.
+  'fleet/[tripId]': '/(app)/trips',
+  'fleet/exceptions': '/(app)/fleet',
+  'trips/new': '/(app)/trips',
+  // People — student/staff detail & CRUD all belong to the People list.
+  'people/students/index': '/(app)/people',
+  'people/students/[id]': '/(app)/people',
+  'people/students/new': '/(app)/people',
+  'people/staff/index': '/(app)/people',
+  'people/staff/[id]': '/(app)/people',
+  'people/staff/new': '/(app)/people',
+  'people/import/index': '/(app)/people',
+  'people/import/preview': '/(app)/people/import',
+  'people/import/result': '/(app)/people/import',
+  // Routes & vehicles — both belong to the Routes list.
+  'routes/[routeId]': '/(app)/routes',
+  'routes/vehicle/[vehicleId]': '/(app)/routes',
+  // Complaints
+  'complaints/[id]': '/(app)/complaints',
+  // Settings
+  'settings/notifications': '/(app)/settings',
+};
+
+/**
+ * Navigate back to a screen's EXPLICIT parent list. Pass the expo-router route
+ * name (e.g. `'routes/[routeId]'`). Falls back to history, then the dashboard,
+ * for any screen not in the map. Centralizes the back affordance for NavHeader
+ * and any screen with its own back/done button.
+ */
+export function goBackTo(routeName: string): void {
+  const parent = PARENT_ROUTE[routeName];
+  if (parent) {
+    router.navigate(parent as never);
+  } else if (router.canGoBack()) {
+    router.back();
+  } else {
+    router.navigate('/(app)/dashboard' as never);
+  }
 }

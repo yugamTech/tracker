@@ -40,6 +40,16 @@ export class RoutesService {
     return this.prisma.route.update({ where: { id }, data });
   }
 
+  /**
+   * Deactivate a route — SOFT delete only: flips status to INACTIVE so it drops
+   * off the active routes list and can be filtered out, while its stops/students
+   * and trip history stay intact. Never a hard delete. Tenant-scoped (NFR-05).
+   */
+  async deactivate(id: string, tenantId: string) {
+    await this.assertOwned(id, tenantId);
+    return this.prisma.route.update({ where: { id }, data: { status: 'INACTIVE' } });
+  }
+
   async addStop(tenantId: string, data: { routeId: string; stopId: string; sequence: number }) {
     await this.assertOwned(data.routeId, tenantId);
     // The stop must also belong to this tenant — otherwise an admin could pin

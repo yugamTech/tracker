@@ -114,6 +114,30 @@ export class StudentsService {
     return this.prisma.student.update({ where: { id }, data });
   }
 
+  /**
+   * Deactivate a student — SOFT delete only (FR-15, audit/DPDP): flips status to
+   * INACTIVE so they drop off the active roster and stop being placed on new
+   * trips, while the record (and its guardianships/history) is preserved. Never a
+   * hard delete. Tenant-scoped (NFR-05) — a student id from another school 404s.
+   */
+  async deactivate(id: string, tenantId: string) {
+    const student = await this.prisma.student.findFirst({
+      where: { id, tenantId },
+      select: { id: true },
+    });
+    if (!student) throw new NotFoundException(`Student ${id} not found`);
+    return this.prisma.student.update({
+      where: { id: student.id },
+      data: { status: 'INACTIVE' },
+      include: {
+        ageGroup: true,
+        route: true,
+        stop: true,
+        guardianships: { include: { person: true } },
+      },
+    });
+  }
+
   getByGuardian(personId: string) {
     return this.prisma.student.findMany({
       where: { guardianships: { some: { personId } } },

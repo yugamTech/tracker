@@ -11,6 +11,24 @@ export interface ScheduleTripDto {
   scheduledStart?: string;
 }
 
+/** Combinable, server-side trip-list filters (all optional). */
+export interface TripFilters {
+  date?: string;
+  status?: string;
+  route?: string;
+  driver?: string;
+}
+
+/** Editable fields of a SCHEDULED trip — only the supplied ones change. */
+export interface UpdateTripDto {
+  routeId?: string;
+  vehicleId?: string;
+  driverId?: string;
+  conductorId?: string;
+  direction?: 'PICKUP' | 'DROP';
+  scheduledStart?: string;
+}
+
 /** A trip-start exception with its trip context, as returned by the alarm panel. */
 export type TripStartExceptionWithTrip = TripStartException & {
   trip?: {
@@ -47,6 +65,23 @@ export const tripsApi = {
   getTripsByDate: async (date: string) => {
     const { data } = await apiClient.get('/trips', { params: { date } });
     return data.data as Trip[];
+  },
+
+  /** Trips matching combinable filters (date / status / route / driver). */
+  getTrips: async (filters: TripFilters = {}) => {
+    const params: Record<string, string> = {};
+    if (filters.date) params.date = filters.date;
+    if (filters.status) params.status = filters.status;
+    if (filters.route) params.route = filters.route;
+    if (filters.driver) params.driver = filters.driver;
+    const { data } = await apiClient.get('/trips', { params });
+    return data.data as Trip[];
+  },
+
+  /** Edit a SCHEDULED trip (driver/vehicle/conductor/scheduledStart/direction/route). */
+  updateTrip: async (tripId: string, dto: UpdateTripDto) => {
+    const { data } = await apiClient.patch(`/trips/${tripId}`, dto);
+    return data.data as Trip;
   },
 
   /** Cheap calendar-dot feed: the `YYYY-MM-DD` days in [from, to] that have trips. */

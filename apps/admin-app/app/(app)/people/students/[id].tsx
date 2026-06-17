@@ -3,9 +3,12 @@ import {
   View, Text, TextInput, ScrollView, StyleSheet,
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Avatar, Badge } from '@saarthi/ui';
-import { useStudentById, useUpdateStudent, useAgeGroups, useRoutes, useStops } from '@saarthi/api-client';
+import {
+  useStudentById, useUpdateStudent, useDeactivateStudent, useAgeGroups, useRoutes, useStops,
+} from '@saarthi/api-client';
+import { goBackTo } from '../../../../lib/nav';
 
 export default function StudentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -15,6 +18,7 @@ export default function StudentDetailScreen() {
   const { data: routes = [] } = useRoutes();
   const { data: stops = [] } = useStops();
   const updateStudent = useUpdateStudent();
+  const deactivateStudent = useDeactivateStudent();
 
   const [name, setName] = useState('');
   const [regId, setRegId] = useState('');
@@ -48,6 +52,26 @@ export default function StudentDetailScreen() {
         onSuccess: () => { Alert.alert('Saved', 'Student updated'); setEditing(false); },
         onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Update failed'),
       },
+    );
+  };
+
+  const handleDeactivate = () => {
+    if (!student) return;
+    Alert.alert(
+      'Deactivate student',
+      `${student.name} will be marked inactive and dropped from new trip rosters. The record is kept (not deleted) and can be reactivated later.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Deactivate',
+          style: 'destructive',
+          onPress: () =>
+            deactivateStudent.mutate(id, {
+              onSuccess: () => { Alert.alert('Done', 'Student deactivated'); goBackTo('people/students/[id]'); },
+              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to deactivate'),
+            }),
+        },
+      ],
     );
   };
 
@@ -174,6 +198,23 @@ export default function StudentDetailScreen() {
           style={styles.saveBtn}
         />
       )}
+
+      {/* Deactivate — soft delete only (never a hard delete). */}
+      {student.status === 'ACTIVE' && (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Danger Zone</Text>
+          <Text style={styles.hint}>
+            Deactivating drops the student from new trip rosters but preserves the record (audit / DPDP).
+          </Text>
+          <Button
+            title="Deactivate Student"
+            variant="danger"
+            onPress={handleDeactivate}
+            loading={deactivateStudent.isPending}
+            fullWidth
+          />
+        </Card>
+      )}
     </ScrollView>
   );
 }
@@ -191,6 +232,7 @@ const styles = StyleSheet.create({
   editBtnText: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.primary },
   section: { gap: spacing[3] },
   sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary, marginBottom: spacing[1] },
+  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18 },
   label: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary },
   input: {
     backgroundColor: colors.gray100, borderRadius: radius.lg,

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge } from '@saarthi/ui';
 import { useComplaintById, useUpdateComplaintStatus } from '@saarthi/api-client';
 
@@ -37,17 +37,8 @@ export default function AdminComplaintDetailScreen() {
 
   if (isError || !complaint) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.back}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>Complaint</Text>
-          <View style={{ width: 60 }} />
-        </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: colors.textSecondary }}>Complaint not found.</Text>
-        </View>
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: colors.textSecondary }}>Complaint not found.</Text>
       </View>
     );
   }
@@ -99,14 +90,6 @@ export default function AdminComplaintDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Complaint #{id?.slice(-4) ?? 'Detail'}</Text>
-        <View style={{ width: 60 }} />
-      </View>
-
       <ScrollView contentContainerStyle={styles.content}>
         {/* Info card */}
         <Card>

@@ -1,14 +1,15 @@
 import React from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking, RefreshControl,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking, RefreshControl, Alert,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import {
-  colors, spacing, fontSizes, fontWeights, radius, Card, Badge, LoadingSpinner, EmptyState, MockBusMap,
+  colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button, LoadingSpinner, EmptyState, MockBusMap,
 } from '@saarthi/ui';
 import type { BadgeVariant } from '@saarthi/ui';
-import { useTripById, useRoster } from '@saarthi/api-client';
+import { useTripById, useRoster, useCancelTrip } from '@saarthi/api-client';
 import type { RosterGuardian } from '@saarthi/api-client';
+import { goBackTo } from '../../../lib/nav';
 
 const STATUS_COLORS: Record<string, string> = {
   COMPLETED: colors.success,
@@ -52,6 +53,26 @@ export default function TripMonitorScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const { data: trip } = useTripById(tripId);
   const { data: roster, isLoading, isError, refetch, isRefetching } = useRoster(tripId);
+  const cancelTrip = useCancelTrip();
+
+  const handleCancel = () => {
+    Alert.alert(
+      'Cancel trip',
+      'This cancels the scheduled trip and notifies the driver, conductor and admins. This cannot be undone.',
+      [
+        { text: 'Keep trip', style: 'cancel' },
+        {
+          text: 'Cancel trip',
+          style: 'destructive',
+          onPress: () =>
+            cancelTrip.mutate(tripId, {
+              onSuccess: () => { Alert.alert('Cancelled', 'The trip has been cancelled.'); goBackTo('fleet/[tripId]'); },
+              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to cancel trip'),
+            }),
+        },
+      ],
+    );
+  };
 
   if (isLoading) return <LoadingSpinner fullScreen />;
   if (isError || !roster) {
@@ -96,6 +117,32 @@ export default function TripMonitorScreen() {
         <Text style={styles.headerMeta}>🧑‍✈️ {driverName}{conductorName ? `   ·   🧑‍🔧 ${conductorName}` : ''}</Text>
         <Text style={styles.headerMeta}>🚌 {vehicleReg}</Text>
       </Card>
+
+      {/* Edit / cancel — only while the trip is still SCHEDULED; once started it's read-only. */}
+      {status === 'SCHEDULED' && (
+        <Card style={styles.actionCard}>
+          <Text style={styles.actionHint}>This trip hasn't started yet — you can change its plan or cancel it.</Text>
+          <View style={styles.actionRow}>
+            <View style={styles.actionBtn}>
+              <Button
+                title="Edit trip"
+                variant="secondary"
+                onPress={() => router.push(`/(app)/trips/new?tripId=${tripId}` as never)}
+                fullWidth
+              />
+            </View>
+            <View style={styles.actionBtn}>
+              <Button
+                title="Cancel trip"
+                variant="danger"
+                onPress={handleCancel}
+                loading={cancelTrip.isPending}
+                fullWidth
+              />
+            </View>
+          </View>
+        </Card>
+      )}
 
       {/* Summary */}
       <Card style={styles.summaryCard}>
@@ -161,6 +208,10 @@ const styles = StyleSheet.create({
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   routeName: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary, flex: 1 },
   status: { fontSize: fontSizes.xs, fontWeight: fontWeights.bold },
+  actionCard: { gap: spacing[3] },
+  actionHint: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  actionRow: { flexDirection: 'row', gap: spacing[3] },
+  actionBtn: { flex: 1 },
   headerMeta: { fontSize: fontSizes.sm, color: colors.textSecondary },
   summaryCard: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: spacing[4] },
   stat: { alignItems: 'center', gap: spacing[1] },

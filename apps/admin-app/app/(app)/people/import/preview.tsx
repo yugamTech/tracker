@@ -7,6 +7,7 @@ import { colors, spacing, fontSizes, fontWeights, radius, Button, Card } from '@
 import { useCommitImport } from '@saarthi/api-client';
 import { useImportStore } from '../../../../store/import.store';
 import { downloadErrorReport } from '../../../../lib/import-files';
+import { goBackTo } from '../../../../lib/nav';
 
 export default function ImportPreviewScreen() {
   const { type, file, validation } = useImportStore();
@@ -86,7 +87,7 @@ export default function ImportPreviewScreen() {
           disabled={validation.willCreate + validation.willUpdate === 0}
           fullWidth
         />
-        <Button title="Back" variant="ghost" onPress={() => router.back()} fullWidth />
+        <Button title="Back" variant="ghost" onPress={() => goBackTo('people/import/preview')} fullWidth />
       </View>
     </View>
   );

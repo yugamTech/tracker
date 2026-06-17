@@ -52,6 +52,13 @@ export class RoutesController {
     return this.routesService.update(id, tenantId, dto);
   }
 
+  /** Soft-delete: flips the route to INACTIVE (never a hard delete). Tenant-scoped. */
+  @Post(':id/deactivate')
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  deactivate(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.routesService.deactivate(id, tenantId);
+  }
+
   @Post(':id/stops')
   @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
   addStop(@TenantId() tenantId: string, @Param('id') routeId: string, @Body() dto: AddStopDto) {

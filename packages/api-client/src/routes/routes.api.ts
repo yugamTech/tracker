@@ -40,6 +40,11 @@ export const routesApi = {
     return data.data;
   },
 
+  deactivate: async (id: string): Promise<Route> => {
+    const { data } = await apiClient.post(`/routes/${id}/deactivate`);
+    return data.data;
+  },
+
   addStop: async (routeId: string, dto: { stopId: string; sequence: number }) => {
     const { data } = await apiClient.post(`/routes/${routeId}/stops`, dto);
     return data.data;

@@ -5,15 +5,24 @@ import { router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, LoadingSpinner, EmptyState } from '@saarthi/ui';
 import { useStudents } from '@saarthi/api-client';
 
+/** Status filter chips — `''` = all (deactivated students set status INACTIVE). */
+const STATUS_FILTERS = [
+  { value: '', label: 'All' },
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'INACTIVE', label: 'Inactive' },
+] as const;
+
 export default function StudentsScreen() {
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const { data: students, isLoading, isError } = useStudents();
 
   const filtered = (students ?? []).filter((s) =>
-    !search ||
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    (s.regId ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    (s.route?.name ?? '').toLowerCase().includes(search.toLowerCase()),
+    (!statusFilter || s.status === statusFilter) &&
+    (!search ||
+      s.name.toLowerCase().includes(search.toLowerCase()) ||
+      (s.regId ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (s.route?.name ?? '').toLowerCase().includes(search.toLowerCase())),
   );
 
   return (
@@ -34,6 +43,21 @@ export default function StudentsScreen() {
         >
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.filterRow}>
+        {STATUS_FILTERS.map((f) => {
+          const active = statusFilter === f.value;
+          return (
+            <TouchableOpacity
+              key={f.label}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => setStatusFilter(f.value)}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {isLoading && <LoadingSpinner fullScreen />}
@@ -101,6 +125,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[4], paddingVertical: spacing[3],
   },
   addBtnText: { color: colors.white, fontWeight: fontWeights.semibold, fontSize: fontSizes.sm },
+  filterRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2],
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  chip: {
+    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
+    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.white,
+  },
+  chipActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
+  chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
+  chipTextActive: { color: colors.white },
   list: { padding: spacing[4], gap: spacing[3] },
   card: {},
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
