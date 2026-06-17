@@ -1,7 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { NotifCategory } from '@saarthi/types';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+
+/** `YYYY-MM-DD` → local-time start of that calendar day (00:00:00.000). */
+function startOfLocalDay(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0);
+}
+
+/** `YYYY-MM-DD` → local-time end of that calendar day (23:59:59.999). */
+function endOfLocalDay(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1, 23, 59, 59, 999);
+}
 
 @Injectable()
 export class ComplaintsService {
@@ -23,14 +35,18 @@ export class ComplaintsService {
     return this.prisma.complaint.create({ data });
   }
 
-  findById(id: string) {
-    return this.prisma.complaint.findUniqueOrThrow({
-      where: { id },
+  findById(id: string, tenantId: string) {
+    // Tenant-scoped read: a complaint id from another tenant must 404, never leak
+    // its trip/driver/roster context. `findFirstOrThrow` lets us AND `tenantId`
+    // onto the lookup (a `findUnique` where can't take non-unique fields).
+    return this.prisma.complaint.findFirstOrThrow({
+      where: { id, tenantId },
       include: {
         events: { orderBy: { ts: 'asc' } },
         attachments: true,
         student: true,
-        trip: { include: { route: true } },
+        // `driver` powers the admin "who ran this trip" line + Open-trip jump.
+        trip: { include: { route: true, driver: true } },
       },
     });
   }
@@ -61,10 +77,14 @@ export class ComplaintsService {
       where.trip = { ...(where.trip ?? {}), driverId: filters.driverId };
     }
     if (filters?.dateFrom || filters?.dateTo) {
-      where.createdAt = {
-        ...(filters.dateFrom && { gte: new Date(filters.dateFrom) }),
-        ...(filters.dateTo && { lte: new Date(filters.dateTo) }),
-      };
+      // Parse `YYYY-MM-DD` as a whole local calendar day: `from` from its start,
+      // `to` through its end, so a single-day range still matches that day's rows.
+      const gte = filters.dateFrom ? startOfLocalDay(filters.dateFrom) : undefined;
+      const lte = filters.dateTo ? endOfLocalDay(filters.dateTo) : undefined;
+      if (gte && lte && gte > lte) {
+        throw new BadRequestException('dateFrom must not be after dateTo');
+      }
+      where.createdAt = { ...(gte && { gte }), ...(lte && { lte }) };
     }
     return this.prisma.complaint.findMany({
       where,

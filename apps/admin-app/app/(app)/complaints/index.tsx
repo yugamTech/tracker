@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
-  Card, Badge, Chip, Skeleton, EmptyState, AnimatedPressable,
+  Card, Badge, Chip, Skeleton, EmptyState, AnimatedPressable, Sheet, Button,
 } from '@saarthi/ui';
 import type { BadgeVariant } from '@saarthi/ui';
 import { useAllComplaints, useRoutes, useMembers } from '@saarthi/api-client';
@@ -11,6 +11,7 @@ import type { ComplaintFilters } from '@saarthi/api-client';
 import { AdminScreen, HeaderAction } from '../../../components/AdminScreen';
 import { SubNav } from '../../../components/SubNav';
 import { GridList } from '../../../components/widgets';
+import { MonthCalendar, ymdKey, addDaysKey, formatDayLabel } from '../../../components/Calendar';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { SUBNAV } from '../../../lib/nav';
 
@@ -91,12 +92,12 @@ export default function AdminComplaintsScreen() {
                 onChange={setDriverId}
               />
 
-              <Text style={styles.filterLabel}>DATE RANGE (YYYY-MM-DD)</Text>
-              <View style={styles.dateRow}>
-                <TextInput style={styles.dateInput} value={dateFrom} onChangeText={setDateFrom} placeholder="From" placeholderTextColor={colors.textMuted} />
-                <Text style={{ color: colors.textMuted }}>–</Text>
-                <TextInput style={styles.dateInput} value={dateTo} onChangeText={setDateTo} placeholder="To" placeholderTextColor={colors.textMuted} />
-              </View>
+              <Text style={styles.filterLabel}>DATE RANGE</Text>
+              <DateRangeFilter
+                from={dateFrom}
+                to={dateTo}
+                onChange={(f, t) => { setDateFrom(f); setDateTo(t); }}
+              />
             </Card>
           </View>
         ) : null}
@@ -185,6 +186,85 @@ function ChipFilter({
   );
 }
 
+/**
+ * Date-range filter backed by the shared MonthCalendar — only real calendar days
+ * can be picked, so the queue can never be filtered by a malformed string. Tap to
+ * set the start, tap again to set the end (an earlier second tap re-anchors the
+ * start); "Clear" resets to no range. Emits `YYYY-MM-DD` keys (or '') upward.
+ */
+function DateRangeFilter({
+  from, to, onChange,
+}: {
+  from: string;
+  to: string;
+  onChange: (from: string, to: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const todayKey = ymdKey(new Date());
+
+  // Highlight every day in [from, to] (inclusive). String compare is safe on
+  // zero-padded YYYY-MM-DD keys, so no Date math is needed.
+  const selected = new Set<string>();
+  if (from) {
+    if (to) {
+      let k = from;
+      while (k <= to) { selected.add(k); k = addDaysKey(k, 1); }
+    } else {
+      selected.add(from);
+    }
+  }
+
+  const handleSelectDay = (key: string) => {
+    // No start, or a complete range already → begin a fresh range.
+    if (!from || (from && to)) { onChange(key, ''); return; }
+    // Start set, end open: extend forward, or re-anchor if the tap is earlier.
+    if (key >= from) onChange(from, key);
+    else onChange(key, '');
+  };
+
+  const label = from
+    ? to && to !== from
+      ? `${formatDayLabel(from)} → ${formatDayLabel(to)}`
+      : formatDayLabel(from)
+    : 'Any dates';
+
+  return (
+    <>
+      <AnimatedPressable scaleTo={0.98} onPress={() => setOpen(true)} style={styles.dateField}>
+        <Text style={[styles.dateFieldText, !from && styles.dateFieldPlaceholder]} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={styles.dateFieldIcon}>📅</Text>
+      </AnimatedPressable>
+
+      <Sheet visible={open} onClose={() => setOpen(false)} title="Filter by date">
+        <MonthCalendar
+          selected={selected}
+          onSelectDay={handleSelectDay}
+          todayKey={todayKey}
+        />
+        <Text style={styles.dateHint}>
+          {from && !to ? 'Tap another day to set the end of the range.' : 'Tap a day to start a range.'}
+        </Text>
+        <View style={styles.dateActions}>
+          <View style={styles.dateActionBtn}>
+            <Button
+              title="Clear"
+              variant="secondary"
+              onPress={() => { onChange('', ''); }}
+              disabled={!from && !to}
+              fullWidth
+            />
+          </View>
+          <View style={styles.dateActionBtn}>
+            <Button title="Done" onPress={() => setOpen(false)} fullWidth />
+          </View>
+        </View>
+      </Sheet>
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   filterWrap: { padding: spacing[4], paddingBottom: 0 },
@@ -195,12 +275,18 @@ const styles = StyleSheet.create({
   filterSection: { gap: spacing[1] },
   filterLabel: { fontSize: fontSizes.xs, fontWeight: fontWeights.semibold, color: colors.textMuted, letterSpacing: letterSpacing.wide, marginTop: spacing[2] },
   chipRow: { gap: spacing[2], paddingVertical: spacing[1] },
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[1] },
-  dateInput: {
-    flex: 1, backgroundColor: colors.backgroundMuted, borderRadius: radius.md,
-    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
-    fontSize: fontSizes.sm, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border,
+  dateField: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2],
+    marginTop: spacing[1], backgroundColor: colors.backgroundMuted, borderRadius: radius.md,
+    paddingHorizontal: spacing[3], paddingVertical: spacing[3],
+    borderWidth: 1, borderColor: colors.border,
   },
+  dateFieldText: { flex: 1, fontSize: fontSizes.sm, color: colors.textPrimary, fontWeight: fontWeights.medium },
+  dateFieldPlaceholder: { color: colors.textMuted, fontWeight: fontWeights.normal },
+  dateFieldIcon: { fontSize: fontSizes.base },
+  dateHint: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: spacing[2], textAlign: 'center' },
+  dateActions: { flexDirection: 'row', gap: spacing[3], marginTop: spacing[3] },
+  dateActionBtn: { flex: 1 },
 
   skeletonWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4], padding: spacing[4] },
   skeletonCard: { width: 300, flexGrow: 1 },

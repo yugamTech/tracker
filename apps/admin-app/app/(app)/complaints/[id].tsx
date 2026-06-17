@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge } from '@saarthi/ui';
 import { useComplaintById, useUpdateComplaintStatus } from '@saarthi/api-client';
 
@@ -119,8 +119,16 @@ export default function AdminComplaintDetailScreen() {
                   {'  ·  '}
                   <Text style={styles.tripDir}>{trip.direction === 'PICKUP' ? '⬆ Pickup' : '⬇ Drop'}</Text>
                 </Text>
+                <Text style={styles.tripMeta}>🧑‍✈️ {trip.driver?.name ?? 'Driver not assigned'}</Text>
               </View>
             </View>
+            <TouchableOpacity
+              style={styles.openTripBtn}
+              onPress={() => router.push(`/(app)/fleet/${trip.id}` as never)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.openTripText}>Open trip →</Text>
+            </TouchableOpacity>
           </Card>
         )}
 
@@ -225,6 +233,12 @@ const styles = StyleSheet.create({
   tripRoute: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   tripMeta: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
   tripDir: { color: colors.primary, fontWeight: fontWeights.medium },
+  openTripBtn: {
+    marginTop: spacing[3], alignSelf: 'flex-start',
+    paddingHorizontal: spacing[4], paddingVertical: spacing[2],
+    borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: '#EEF2FF',
+  },
+  openTripText: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.semibold },
   statusButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   statusBtn: {
     paddingHorizontal: spacing[4], paddingVertical: spacing[2],

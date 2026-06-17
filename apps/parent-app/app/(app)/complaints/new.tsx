@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button } from '@saarthi/ui';
-import { useCreateComplaint } from '@saarthi/api-client';
+import { useCreateComplaint, useFilteredTrips } from '@saarthi/api-client';
 
 const CATEGORIES = [
   { id: 'TIMING', label: 'Timing', icon: '⏰' },
@@ -14,15 +14,24 @@ const CATEGORIES = [
   { id: 'OTHER', label: 'Other', icon: '💬' },
 ];
 
+/** Recent trips a parent can attach a complaint to. Newest-first, capped so the
+ *  picker stays a short scroll; COMPLETED trips are included on purpose. */
+const RECENT_TRIP_LIMIT = 15;
+
 export default function NewComplaintScreen() {
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
+  const [tripId, setTripId] = useState<string | null>(null);
   const { mutate: createComplaint, isPending } = useCreateComplaint();
+  // The parent's own scoped trips (all statuses, newest-first) — lets them point
+  // the complaint at a specific ride, including ones that already COMPLETED.
+  const { data: trips = [], isLoading: tripsLoading } = useFilteredTrips({});
+  const recentTrips = (trips as any[]).slice(0, RECENT_TRIP_LIMIT);
 
   const handleSubmit = () => {
     if (!category) { Alert.alert('Select a category'); return; }
     createComplaint(
-      { category: category as never, description: description || undefined },
+      { category: category as never, description: description || undefined, tripId: tripId ?? undefined },
       {
         onSuccess: () => {
           Alert.alert('Complaint Raised', "We'll review and get back to you within 24 hours.", [
@@ -62,6 +71,40 @@ export default function NewComplaintScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        <Text style={styles.label}>Which trip? (optional)</Text>
+        {tripsLoading ? (
+          <Text style={styles.tripHint}>Loading your recent trips…</Text>
+        ) : recentTrips.length === 0 ? (
+          <Text style={styles.tripHint}>No recent trips to attach. You can still file a general complaint.</Text>
+        ) : (
+          <View style={styles.tripList}>
+            {recentTrips.map((t) => {
+              const selected = tripId === t.id;
+              const routeName = t.route?.name ?? 'Trip';
+              const when = new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+              const dir = t.direction === 'PICKUP' ? 'Pickup' : 'Drop';
+              return (
+                <TouchableOpacity
+                  key={t.id}
+                  style={[styles.tripRow, selected && styles.tripRowActive]}
+                  onPress={() => setTripId(selected ? null : t.id)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.tripInfo}>
+                    <Text style={[styles.tripRoute, selected && styles.tripRouteActive]} numberOfLines={1}>
+                      {routeName}
+                    </Text>
+                    <Text style={styles.tripMeta}>{when} · {dir}{t.status === 'COMPLETED' ? ' · Completed' : ''}</Text>
+                  </View>
+                  <View style={[styles.radio, selected && styles.radioActive]}>
+                    {selected ? <Text style={styles.radioDot}>✓</Text> : null}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         <Text style={styles.label}>Description (optional)</Text>
         <TextInput
@@ -104,4 +147,22 @@ const styles = StyleSheet.create({
     padding: spacing[4], fontSize: fontSizes.base, color: colors.textPrimary,
     minHeight: 100, backgroundColor: colors.gray50,
   },
+  tripHint: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  tripList: { gap: spacing[2] },
+  tripRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing[3],
+    padding: spacing[3], borderRadius: radius.lg,
+    borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.white,
+  },
+  tripRowActive: { borderColor: colors.primary, backgroundColor: '#EEF2FF' },
+  tripInfo: { flex: 1 },
+  tripRoute: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.textPrimary },
+  tripRouteActive: { color: colors.primary },
+  tripMeta: { fontSize: fontSizes.xs, color: colors.textSecondary, marginTop: 2 },
+  radio: {
+    width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  radioActive: { borderColor: colors.primary, backgroundColor: colors.primary },
+  radioDot: { color: colors.white, fontSize: 12, fontWeight: fontWeights.bold },
 });

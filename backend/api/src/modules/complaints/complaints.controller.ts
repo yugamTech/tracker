@@ -1,10 +1,13 @@
 import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { ComplaintsService } from './complaints.service';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
 import { ActiveMembershipDec } from '../../common/decorators/active-membership.decorator';
 import { IsString, IsOptional } from 'class-validator';
+import { Role } from '@saarthi/types';
 import type { ActiveMembership } from '@saarthi/types';
 
 class CreateComplaintDto {
@@ -43,6 +46,8 @@ export class ComplaintsController {
   }
 
   @Get('all')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
   listAll(
     @TenantId() tenantId: string,
     @Query('status') status?: string,
@@ -56,8 +61,8 @@ export class ComplaintsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.complaintsService.findById(id);
+  findOne(@Param('id') id: string, @TenantId() tenantId: string) {
+    return this.complaintsService.findById(id, tenantId);
   }
 
   @Patch(':id/status')
