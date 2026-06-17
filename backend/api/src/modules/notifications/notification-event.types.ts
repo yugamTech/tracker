@@ -96,6 +96,41 @@ export const NOTIFICATION_EVENT_SPECS: Record<NotifCategory, NotificationEventSp
     title: () => 'Trip completed',
     body: () => 'The bus has completed its trip.',
   },
+  // Arrival alarms (PRD-03 §4.1). The dedup window is generous (1h) so a single
+  // approach to a stop fires each stage once — entityId carries (trip, stop), so
+  // a different stop or a different trip is a different dedup key.
+  [NotifCategory.ARRIVAL_5MIN]: {
+    eventType: NotifCategory.ARRIVAL_5MIN,
+    channels: [NotifChannel.PUSH, NotifChannel.SMS],
+    dedupWindowMs: 3_600_000,
+    priority: NotifPriority.HIGH,
+    templateId: 'arrival-5min.v1',
+    recipients: 'guardians of riders whose stop this is',
+    title: () => 'Bus is ~5 min away',
+    body: (vars) => `The bus is about 5 minutes from ${v(vars, 'stopName', 'your stop')}.`,
+  },
+  [NotifCategory.ARRIVAL_1MIN]: {
+    eventType: NotifCategory.ARRIVAL_1MIN,
+    channels: [NotifChannel.PUSH],
+    dedupWindowMs: 3_600_000,
+    priority: NotifPriority.HIGH,
+    templateId: 'arrival-1min.v1',
+    recipients: 'guardians of riders whose stop this is',
+    title: () => 'Bus is ~1 min away',
+    body: (vars) =>
+      `The bus is about a minute from ${v(vars, 'stopName', 'your stop')}. Please be ready.`,
+  },
+  // Arrived is safety-critical (overrides channel-off prefs / quiet hours per FR-13).
+  [NotifCategory.ARRIVED]: {
+    eventType: NotifCategory.ARRIVED,
+    channels: [NotifChannel.PUSH, NotifChannel.SMS],
+    dedupWindowMs: 3_600_000,
+    priority: NotifPriority.SAFETY_CRITICAL,
+    templateId: 'arrived.v1',
+    recipients: 'guardians of riders whose stop this is',
+    title: () => 'Bus has arrived',
+    body: (vars) => `The bus has arrived at ${v(vars, 'stopName', 'your stop')}.`,
+  },
   [NotifCategory.PICKUP_CANCELLED]: {
     eventType: NotifCategory.PICKUP_CANCELLED,
     channels: [NotifChannel.PUSH],

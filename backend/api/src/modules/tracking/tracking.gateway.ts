@@ -17,7 +17,7 @@ import { GeofenceService } from './geofence.service';
 import { EtaService } from './eta.service';
 import { SpeedService } from './speed.service';
 import type { LocationPingDto } from './dto/location-ping.dto';
-import { NotifCategory } from '@saarthi/types';
+import { NotifCategory, RiderStatus } from '@saarthi/types';
 import type { JwtPayload } from '@saarthi/types';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -159,6 +159,32 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
         distanceMeters: eta.distanceMeters,
         etaTs: eta.etaTs,
       });
+      // Arrival alarms (PRD-03 §4.1). The next stop's ETA crossing ≤5 / ≤1 min
+      // pushes a per-rider "~5 min" / "~1 min" alert. Dedup in the engine makes
+      // each fire at most once per rider/stop/trip, so it's safe to (re)fire on
+      // every qualifying ping. The AT_STOP "arrived" alert is wired in runGeofence.
+      if (eta.etaMinutes <= 5) {
+        this.dispatchArrival(
+          eta.tripId,
+          eta.stopId,
+          eta.stopName,
+          result.latest.tenantId,
+          NotifCategory.ARRIVAL_5MIN,
+        ).catch((err) =>
+          this.logger.error(`ARRIVAL_5MIN dispatch failed: ${(err as Error).message}`),
+        );
+      }
+      if (eta.etaMinutes <= 1) {
+        this.dispatchArrival(
+          eta.tripId,
+          eta.stopId,
+          eta.stopName,
+          result.latest.tenantId,
+          NotifCategory.ARRIVAL_1MIN,
+        ).catch((err) =>
+          this.logger.error(`ARRIVAL_1MIN dispatch failed: ${(err as Error).message}`),
+        );
+      }
     }
   }
 
@@ -172,6 +198,19 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
         event: t.event,
         ts: t.ts,
       });
+      // Arrival alarm (PRD-03 §4.1, safety-critical): the bus has reached the
+      // stop — tell the guardians of riders expected there. Fire-and-forget.
+      if (t.event === 'AT_STOP') {
+        this.dispatchArrival(
+          t.tripId,
+          t.stopId,
+          t.stopName,
+          pos.tenantId,
+          NotifCategory.ARRIVED,
+        ).catch((err) =>
+          this.logger.error(`ARRIVED dispatch failed: ${(err as Error).message}`),
+        );
+      }
       // Surface geofence-driven not-boarded exceptions on the attendance feed.
       for (const r of t.notBoarded ?? []) {
         this.emitAttendance(t.tripId, {
@@ -230,6 +269,48 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
       recipientIds,
       variables: { studentName, stopName: stopName ?? '', tripId, deepLink: `/track/${tripId}` },
       entityId: `notboarded:${tripId}:${studentId}`,
+    });
+  }
+
+  /**
+   * Per-rider arrival alarm (PRD-03 §4.1): resolve the guardians of every rider
+   * whose boarding stop is `stopId` and dispatch the given arrival event. The
+   * engine dedups per (eventType, trip, stop, guardian) so each guardian gets at
+   * most one ~5-min / ~1-min / arrived ping per stop per trip. Riders who already
+   * cancelled or missed the bus are excluded so parents aren't pinged needlessly.
+   * Tenant isolation comes from the dispatch tenantId + the trip-scoped rider set.
+   */
+  private async dispatchArrival(
+    tripId: string,
+    stopId: string,
+    stopName: string,
+    tenantId: string,
+    eventType: NotifCategory,
+  ) {
+    const riders = await this.prisma.tripRider.findMany({
+      where: {
+        tripId,
+        stopId,
+        boardStatus: { notIn: [RiderStatus.CANCELLED, RiderStatus.NOT_BOARDED] as never },
+      },
+      select: { studentId: true },
+    });
+    if (!riders.length) return;
+
+    const guardians = await this.prisma.guardianship.findMany({
+      where: { studentId: { in: riders.map((r) => r.studentId) } },
+      select: { personId: true },
+    });
+    const recipientIds = [...new Set(guardians.map((g) => g.personId))];
+    if (!recipientIds.length) return;
+
+    await this.notifications.dispatch({
+      eventType,
+      tenantId,
+      recipientIds,
+      variables: { stopName: stopName ?? '', tripId, deepLink: `/track/${tripId}` },
+      // (trip, stop) keys the dedup; eventType is already part of the engine's key.
+      entityId: `${tripId}:${stopId}`,
     });
   }
 

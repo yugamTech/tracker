@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { TripStatus, RiderStatus, NotifCategory, Role, Direction } from '@saarthi/types';
@@ -30,11 +31,15 @@ function dayRange(at: Date): { gte: Date; lte: Date } {
 export class TripsService {
   private readonly logger = new Logger(TripsService.name);
 
+  /** Default minutes-before-scheduled-start cutoff for parent pickup cancellation (FR-21). */
+  private static readonly DEFAULT_PICKUP_CANCEL_CUTOFF_MIN = 30;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: TrackingGateway,
     private readonly location: LocationService,
     private readonly notifications: NotificationsService,
+    private readonly config: ConfigService,
   ) {}
 
   /**
@@ -379,8 +384,17 @@ export class TripsService {
     });
   }
 
-  /** Resolve the trip's driver/conductor + tenant admins and dispatch PICKUP_CANCELLED. */
-  private async notifyPickupCancelled(tripId: string) {
+  /**
+   * Resolve the trip's driver/conductor + tenant admins and dispatch
+   * PICKUP_CANCELLED. With no `student` this is a whole-trip cancel/abort
+   * (dedup keyed by tripId); with a `student` it's a single-rider cancellation
+   * (FR-22) — dedup keyed per student so two riders cancelled on the same trip
+   * both notify, and the student's name rides along in the message.
+   */
+  private async notifyPickupCancelled(
+    tripId: string,
+    student?: { studentId: string; studentName: string },
+  ) {
     const trip = await this.prisma.trip.findUnique({
       where: { id: tripId },
       select: { tenantId: true, vehicleId: true },
@@ -404,18 +418,38 @@ export class TripsService {
       eventType: NotifCategory.PICKUP_CANCELLED,
       tenantId: trip.tenantId,
       recipientIds: [...recipientIds],
-      variables: { tripId, deepLink: `/track/${tripId}` },
-      entityId: tripId,
+      variables: {
+        tripId,
+        ...(student ? { studentName: student.studentName } : {}),
+        deepLink: `/track/${tripId}`,
+      },
+      entityId: student ? `pickup:${tripId}:${student.studentId}` : tripId,
     });
   }
 
+  /** Configured minutes-before-scheduled-start cutoff for cancelling a pickup (FR-21). */
+  private pickupCancelCutoffMinutes(): number {
+    const raw = this.config.get<string>('PICKUP_CANCEL_CUTOFF_MINUTES');
+    const n = raw != null ? Number(raw) : NaN;
+    return Number.isFinite(n) && n >= 0 ? n : TripsService.DEFAULT_PICKUP_CANCEL_CUTOFF_MIN;
+  }
+
   /**
-   * Parent cancels a single child's pickup for this trip. Records a
-   * PickupCancellation and flips that rider to CANCELLED so the driver roster
-   * and not-boarded automation skip them.
+   * Parent cancels a single child's pickup for this trip (PRD-02 FR-21/FR-22).
+   *
+   * Allowed only while the trip is still SCHEDULED and `now` is before the cutoff
+   * (a configurable number of minutes before scheduledStart, default 30): once the
+   * trip has STARTED/IN_PROGRESS, or the cutoff has passed, this rejects with a
+   * clear message. On success it records a PickupCancellation, flips the rider to
+   * CANCELLED so the driver roster and not-boarded automation skip them (FR-22),
+   * and notifies the driver/conductor + admin (fire-and-forget). The cutoff info
+   * is returned either way so the client can show/hide the action.
    */
   async cancelPickup(tripId: string, studentId: string, cancelledBy: string, reason?: string) {
-    const rider = await this.prisma.tripRider.findFirst({ where: { tripId, studentId } });
+    const rider = await this.prisma.tripRider.findFirst({
+      where: { tripId, studentId },
+      include: { student: { select: { name: true } } },
+    });
     if (!rider) throw new NotFoundException(`Student ${studentId} is not a rider on trip ${tripId}`);
     if (rider.boardStatus === RiderStatus.BOARDED) {
       throw new BadRequestException('Cannot cancel pickup — student already boarded');
@@ -423,8 +457,39 @@ export class TripsService {
 
     const trip = await this.prisma.trip.findUniqueOrThrow({
       where: { id: tripId },
-      select: { tenantId: true },
+      select: { tenantId: true, status: true, scheduledStart: true, date: true },
     });
+
+    const cutoffMinutes = this.pickupCancelCutoffMinutes();
+    const scheduledStart = trip.scheduledStart ?? trip.date;
+    const cutoffAt = new Date(scheduledStart.getTime() - cutoffMinutes * 60_000);
+    const now = new Date();
+    const cutoff = {
+      cutoffMinutes,
+      cutoffAt: cutoffAt.toISOString(),
+      scheduledStart: scheduledStart.toISOString(),
+    };
+
+    // Gate 1 — the trip must still be SCHEDULED (not started / underway / finished).
+    if (trip.status !== TripStatus.SCHEDULED) {
+      const underway = trip.status === TripStatus.STARTED || trip.status === TripStatus.IN_PROGRESS;
+      throw new BadRequestException({
+        error: 'PICKUP_CANCEL_CLOSED',
+        message: underway
+          ? 'Cannot cancel pickup — the trip is already under way.'
+          : `Cannot cancel pickup — the trip is ${trip.status.toLowerCase()}.`,
+        cutoff,
+      });
+    }
+
+    // Gate 2 — `now` must be before the cutoff.
+    if (now.getTime() > cutoffAt.getTime()) {
+      throw new BadRequestException({
+        error: 'PICKUP_CANCEL_CLOSED',
+        message: `Cannot cancel pickup — the cutoff is ${cutoffMinutes} min before departure, which has passed.`,
+        cutoff,
+      });
+    }
 
     const [cancellation] = await this.prisma.$transaction([
       this.prisma.pickupCancellation.create({
@@ -435,7 +500,16 @@ export class TripsService {
         data: { boardStatus: RiderStatus.CANCELLED },
       }),
     ]);
-    return cancellation;
+
+    // FR-22: notify driver/conductor + admin that this rider won't be boarding.
+    this.notifyPickupCancelled(tripId, {
+      studentId,
+      studentName: rider.student.name,
+    }).catch((err) =>
+      this.logger.error(`PICKUP_CANCELLED dispatch failed: ${(err as Error).message}`),
+    );
+
+    return { cancellation, cutoff: { ...cutoff, canCancel: true } };
   }
 
   /**

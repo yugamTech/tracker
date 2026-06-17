@@ -15,6 +15,11 @@ export enum NotifCategory {
   TRIP_START = 'TRIP_START',
   TRIP_START_EXCEPTION = 'TRIP_START_EXCEPTION',
   TRIP_END = 'TRIP_END',
+  // Per-rider arrival alarms (PRD-03 §4.1): the bus is ~5 min / ~1 min from a
+  // rider's stop, or has arrived at it.
+  ARRIVAL_5MIN = 'ARRIVAL_5MIN',
+  ARRIVAL_1MIN = 'ARRIVAL_1MIN',
+  ARRIVED = 'ARRIVED',
   BOARDING = 'BOARDING',
   ALIGHTING = 'ALIGHTING',
   PICKUP_CANCELLED = 'PICKUP_CANCELLED',

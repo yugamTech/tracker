@@ -139,7 +139,9 @@ export class LocationService {
       `speed:${tripId}:alerted`,
     ];
     if (meta?.vehicleId) keys.push(`vehicle:${meta.vehicleId}:latest`);
-    for (const pattern of [`geofence:${tripId}:*`, `eta:${tripId}:*`]) {
+    // `notif:dedup:*${tripId}*` clears arrival/not-boarded/pickup-cancel dedup
+    // guards so a demo replay of this trip re-fires its notifications fresh.
+    for (const pattern of [`geofence:${tripId}:*`, `eta:${tripId}:*`, `notif:dedup:*${tripId}*`]) {
       const matched = await this.redis.keys(pattern);
       keys.push(...matched);
     }
