@@ -44,6 +44,8 @@ export type { ScheduleTripDto, TripStartExceptionWithTrip } from './trips/trips.
 export {
   tripKeys,
   useTodayTrips,
+  useTripsByDate,
+  useTripDates,
   useTripById,
   useCreateTrip,
   useStartTrip,

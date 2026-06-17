@@ -43,6 +43,18 @@ export const tripsApi = {
     return data.data as Trip[];
   },
 
+  /** Trips on a single calendar day (`YYYY-MM-DD`), morning→evening. */
+  getTripsByDate: async (date: string) => {
+    const { data } = await apiClient.get('/trips', { params: { date } });
+    return data.data as Trip[];
+  },
+
+  /** Cheap calendar-dot feed: the `YYYY-MM-DD` days in [from, to] that have trips. */
+  getTripDates: async (from: string, to: string) => {
+    const { data } = await apiClient.get('/trips/dates', { params: { from, to } });
+    return data.data as string[];
+  },
+
   startTrip: async (tripId: string, reason?: string) => {
     const { data } = await apiClient.post(`/trips/${tripId}/start`, reason ? { reason } : {});
     return data.data as Trip;

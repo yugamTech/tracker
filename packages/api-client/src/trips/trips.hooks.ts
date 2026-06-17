@@ -4,6 +4,8 @@ import { tripsApi } from './trips.api';
 export const tripKeys = {
   all: ['trips'] as const,
   today: () => [...tripKeys.all, 'today'] as const,
+  byDate: (date: string) => [...tripKeys.all, 'byDate', date] as const,
+  dates: (from: string, to: string) => [...tripKeys.all, 'dates', from, to] as const,
   detail: (id: string) => [...tripKeys.all, id] as const,
   exceptions: (resolved?: string) => [...tripKeys.all, 'exceptions', resolved ?? 'open'] as const,
 };
@@ -12,6 +14,22 @@ export const useTodayTrips = () =>
   useQuery({
     queryKey: tripKeys.today(),
     queryFn: tripsApi.getTodayTrips,
+  });
+
+/** Trips on a single calendar day (`YYYY-MM-DD`). */
+export const useTripsByDate = (date: string) =>
+  useQuery({
+    queryKey: tripKeys.byDate(date),
+    queryFn: () => tripsApi.getTripsByDate(date),
+    enabled: !!date,
+  });
+
+/** Calendar-dot feed for the visible range — the days that have trips. */
+export const useTripDates = (from: string, to: string) =>
+  useQuery({
+    queryKey: tripKeys.dates(from, to),
+    queryFn: () => tripsApi.getTripDates(from, to),
+    enabled: !!from && !!to,
   });
 
 export const useTripById = (tripId: string) =>

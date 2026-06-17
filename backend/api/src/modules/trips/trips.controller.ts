@@ -31,6 +31,12 @@ class StartTripDto {
   @IsOptional() @IsString() reason?: string;
 }
 
+/** Parse a `YYYY-MM-DD` calendar-day string into a local-time midnight Date. */
+function parseDateOnly(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
+
 @ApiTags('trips')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
@@ -41,14 +47,30 @@ export class TripsController {
     private readonly config: ConfigService,
   ) {}
 
+  /** List trips, optionally constrained to a single calendar day (`?date=YYYY-MM-DD`). */
   @Get()
-  list(@ActiveMembershipDec() actor: ActiveMembership) {
-    return this.tripsService.list(actor);
+  list(@ActiveMembershipDec() actor: ActiveMembership, @Query('date') date?: string) {
+    return this.tripsService.list(actor, date ? { date: parseDateOnly(date) } : undefined);
   }
 
   @Get('today')
   today(@ActiveMembershipDec() actor: ActiveMembership) {
     return this.tripsService.getTodayTrips(actor);
+  }
+
+  /** Calendar-dot feed: the ISO `YYYY-MM-DD` days (scoped to the actor) that have
+   *  at least one trip within [from, to]. Cheap — returns dates only, no payloads.
+   *  Declared before the `:id` route so "dates" isn't captured as a trip id. */
+  @Get('dates')
+  dates(
+    @ActiveMembershipDec() actor: ActiveMembership,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.tripsService.tripDates(actor, {
+      from: from ? parseDateOnly(from) : undefined,
+      to: to ? parseDateOnly(to) : undefined,
+    });
   }
 
   /** List trip-start exceptions for the admin alarm panel (default: open only).

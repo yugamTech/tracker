@@ -63,7 +63,7 @@ export class TripsService {
     return this.prisma.trip.findMany({
       where: {
         ...this.scopeForActor(actor),
-        ...(filters?.date && { date: { gte: filters.date } }),
+        ...(filters?.date && { date: dayRange(filters.date) }),
         ...(filters?.status && { status: filters.status }),
       },
       include: {
@@ -73,8 +73,46 @@ export class TripsService {
         conductor: true,
         riders: { include: { student: true, stop: true } },
       },
-      orderBy: { date: 'desc' },
+      // A single day reads as a morning→evening schedule; the unfiltered list
+      // keeps newest-first.
+      orderBy: { date: filters?.date ? 'asc' : 'desc' },
     });
+  }
+
+  /**
+   * Calendar-dot feed (PRD-02): the distinct local calendar days within [from, to]
+   * that carry at least one trip in the actor's scope. Selects `date` only — no
+   * riders/route payloads — so a two-month calendar paints cheaply.
+   */
+  async tripDates(
+    actor: ActiveMembership,
+    range: { from?: Date; to?: Date } = {},
+  ): Promise<string[]> {
+    const dateFilter: Prisma.DateTimeFilter = {};
+    if (range.from) {
+      const gte = new Date(range.from);
+      gte.setHours(0, 0, 0, 0);
+      dateFilter.gte = gte;
+    }
+    if (range.to) {
+      const lte = new Date(range.to);
+      lte.setHours(23, 59, 59, 999);
+      dateFilter.lte = lte;
+    }
+    const trips = await this.prisma.trip.findMany({
+      where: {
+        ...this.scopeForActor(actor),
+        ...(range.from || range.to ? { date: dateFilter } : {}),
+      },
+      select: { date: true },
+    });
+    const days = new Set<string>();
+    for (const t of trips) {
+      const d = t.date;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      days.add(key);
+    }
+    return [...days].sort();
   }
 
   findById(id: string) {

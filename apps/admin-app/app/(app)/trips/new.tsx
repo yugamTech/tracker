@@ -3,20 +3,19 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, TextInput,
 } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, LoadingSpinner } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, LoadingSpinner, Badge } from '@saarthi/ui';
 import {
   useRoutes, useVehicles, useMembers, useStudents, useCreateTrip,
 } from '@saarthi/api-client';
+import { MonthCalendar, ymdKey, startOfMonth, addMonths, formatDayLabel } from '../../../components/Calendar';
 
-/** Dependency-free date presets — the trip is scheduled for one of the next few days. */
-function dayOption(offset: number): { label: string; date: Date } {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  d.setSeconds(0, 0);
-  const label = offset === 0 ? 'Today' : offset === 1 ? 'Tomorrow' : d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-  return { label, date: d };
+/** Build a full ISO timestamp from a `YYYY-MM-DD` day key + chosen HH:MM (local). */
+function isoFromKey(key: string, hour: number, minute: number): string {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d, hour, minute, 0, 0).toISOString();
 }
-const DATE_OPTIONS = [dayOption(0), dayOption(1), dayOption(2)];
+
+type DayResult = { key: string; ok: boolean; message?: string };
 
 export default function ScheduleTripScreen() {
   const { data: routes = [], isLoading: routesLoading } = useRoutes();
@@ -30,24 +29,32 @@ export default function ScheduleTripScreen() {
   const [vehicleId, setVehicleId] = useState('');
   const [driverId, setDriverId] = useState('');
   const [conductorId, setConductorId] = useState<string | undefined>(undefined);
-  const [selectedDateIdx, setSelectedDateIdx] = useState(0);
   const [startHour, setStartHour] = useState('08');
   const [startMin, setStartMin] = useState('00');
   const [direction, setDirection] = useState<'PICKUP' | 'DROP'>('PICKUP');
 
-  // Build the full scheduledStart ISO string from the selected date + HH:MM inputs.
-  const scheduledStartIso = (() => {
-    const d = new Date(DATE_OPTIONS[selectedDateIdx].date);
-    const h = Math.min(23, Math.max(0, parseInt(startHour, 10) || 0));
-    const m = Math.min(59, Math.max(0, parseInt(startMin, 10) || 0));
-    d.setHours(h, m, 0, 0);
-    return d.toISOString();
-  })();
+  // Multi-select day picker — one trip is created per selected date.
+  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
+  const todayKey = ymdKey(today);
+  const [selectedDays, setSelectedDays] = useState<Set<string>>(() => new Set([todayKey]));
+  const minMonth = useMemo(() => startOfMonth(today), [today]);
+  const maxMonth = useMemo(() => addMonths(today, 1), [today]);
+
+  // Submission progress + per-day outcome summary.
+  const [phase, setPhase] = useState<'idle' | 'submitting' | 'done'>('idle');
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [results, setResults] = useState<DayResult[]>([]);
+
+  const toggleDay = (key: string) => {
+    setSelectedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   const activeVehicles = vehicles.filter((v) => v.status === 'ACTIVE');
 
-  // Roster preview — mirrors the backend exactly: ACTIVE students on the chosen
-  // route that have a boarding stop.
   const rosterCount = useMemo(
     () => (routeId
       ? students.filter((s) => s.routeId === routeId && s.status === 'ACTIVE' && !!s.stopId).length
@@ -62,23 +69,97 @@ export default function ScheduleTripScreen() {
   };
 
   const isLoading = routesLoading || vehiclesLoading || driversLoading;
+  const sortedDays = useMemo(() => [...selectedDays].sort(), [selectedDays]);
 
-  const handleCreate = () => {
+  const startWindow = (() => {
+    const h = Math.min(23, Math.max(0, parseInt(startHour, 10) || 0));
+    const m = Math.min(59, Math.max(0, parseInt(startMin, 10) || 0));
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const early = new Date(0); early.setHours(h - 1 < 0 ? 23 : h - 1, m);
+    const late = new Date(0); late.setHours(h + 1 > 23 ? 0 : h + 1, m);
+    return `${pad(early.getHours())}:${pad(early.getMinutes())}–${pad(late.getHours())}:${pad(late.getMinutes())}`;
+  })();
+
+  const handleCreate = async () => {
     if (!routeId) { Alert.alert('Validation', 'Please select a route'); return; }
     if (!vehicleId) { Alert.alert('Validation', 'Please select a vehicle'); return; }
     if (!driverId) { Alert.alert('Validation', 'Please select a driver'); return; }
+    if (sortedDays.length === 0) { Alert.alert('Validation', 'Please select at least one date'); return; }
 
-    createTrip.mutate(
-      { routeId, vehicleId, driverId, conductorId, date: scheduledStartIso, direction, scheduledStart: scheduledStartIso },
-      {
-        onSuccess: () => { Alert.alert('Scheduled', `Trip created with ${rosterCount} rider${rosterCount !== 1 ? 's' : ''} on the roster`); router.back(); },
-        onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to schedule trip'),
-      },
-    );
+    const h = Math.min(23, Math.max(0, parseInt(startHour, 10) || 0));
+    const m = Math.min(59, Math.max(0, parseInt(startMin, 10) || 0));
+
+    setPhase('submitting');
+    setProgress({ done: 0, total: sortedDays.length });
+    const tally: DayResult[] = [];
+
+    // Sequential POSTs — one trip per selected day, so a partial failure leaves
+    // a clear per-day record instead of an all-or-nothing error.
+    for (const key of sortedDays) {
+      const iso = isoFromKey(key, h, m);
+      try {
+        await createTrip.mutateAsync({
+          routeId, vehicleId, driverId, conductorId,
+          date: iso, direction, scheduledStart: iso,
+        });
+        tally.push({ key, ok: true });
+      } catch (e: any) {
+        tally.push({ key, ok: false, message: e?.response?.data?.message ?? 'Failed' });
+      }
+      setProgress((p) => ({ ...p, done: p.done + 1 }));
+      setResults([...tally]);
+    }
+
+    setResults(tally);
+    setPhase('done');
   };
 
   if (isLoading) {
     return <LoadingSpinner fullScreen />;
+  }
+
+  // ── Submission overlay: progress while running, summary when done. ──
+  if (phase !== 'idle') {
+    const ok = results.filter((r) => r.ok).length;
+    const failed = results.filter((r) => !r.ok).length;
+    const running = phase === 'submitting';
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {running ? 'Scheduling trips…' : 'Schedule complete'}
+          </Text>
+          <Text style={styles.progressText}>
+            {running
+              ? `${progress.done} of ${progress.total} processed`
+              : `${ok} scheduled${failed ? ` · ${failed} failed` : ''}`}
+          </Text>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` },
+              ]}
+            />
+          </View>
+
+          <View style={styles.resultsList}>
+            {results.map((r) => (
+              <View key={r.key} style={styles.resultRow}>
+                <Text style={styles.resultDay}>{formatDayLabel(r.key)}</Text>
+                {r.ok
+                  ? <Badge label="Scheduled" variant="success" size="sm" />
+                  : <Badge label={r.message ?? 'Failed'} variant="error" size="sm" />}
+              </View>
+            ))}
+          </View>
+        </Card>
+
+        {!running ? (
+          <Button title="Done" onPress={() => router.back()} fullWidth style={styles.saveBtn} />
+        ) : null}
+      </ScrollView>
+    );
   }
 
   return (
@@ -153,18 +234,21 @@ export default function ScheduleTripScreen() {
       </Card>
 
       <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Date *</Text>
-        <View style={styles.chipRow}>
-          {DATE_OPTIONS.map((d, i) => (
-            <TouchableOpacity
-              key={d.label}
-              style={[styles.chip, selectedDateIdx === i && styles.chipActive]}
-              onPress={() => setSelectedDateIdx(i)}
-            >
-              <Text style={[styles.chipText, selectedDateIdx === i && styles.chipTextActive]}>{d.label}</Text>
-            </TouchableOpacity>
-          ))}
+        <View style={styles.dateHeader}>
+          <Text style={styles.sectionTitle}>Dates *</Text>
+          <Text style={styles.dateCount}>
+            {sortedDays.length} day{sortedDays.length === 1 ? '' : 's'} selected
+          </Text>
         </View>
+        <Text style={styles.hint}>Tap any number of days — one trip is created per day.</Text>
+        <MonthCalendar
+          selected={selectedDays}
+          onSelectDay={toggleDay}
+          minMonth={minMonth}
+          maxMonth={maxMonth}
+          minDay={todayKey}
+          todayKey={todayKey}
+        />
 
         <Text style={[styles.sectionTitle, { marginTop: spacing[3] }]}>Start time *</Text>
         <View style={styles.timeRow}>
@@ -193,16 +277,7 @@ export default function ScheduleTripScreen() {
             />
             <Text style={styles.timeLabel}>min</Text>
           </View>
-          <Text style={styles.timePreview}>
-            → Driver window {(() => {
-              const h = Math.min(23, Math.max(0, parseInt(startHour, 10) || 0));
-              const m = Math.min(59, Math.max(0, parseInt(startMin, 10) || 0));
-              const pad = (n: number) => String(n).padStart(2, '0');
-              const early = new Date(0); early.setHours(h - 1 < 0 ? 23 : h - 1, m);
-              const late  = new Date(0); late.setHours(h + 1 > 23 ? 0 : h + 1, m);
-              return `${pad(early.getHours())}:${pad(early.getMinutes())}–${pad(late.getHours())}:${pad(late.getMinutes())}`;
-            })()}
-          </Text>
+          <Text style={styles.timePreview}>→ Driver window {startWindow}</Text>
         </View>
       </Card>
 
@@ -229,13 +304,13 @@ export default function ScheduleTripScreen() {
         </Text>
         <Text style={styles.previewHint}>
           {routeId
-            ? 'Active students on this route with a boarding stop will be added as EXPECTED.'
+            ? `Active students on this route with a boarding stop will be added as EXPECTED on each of the ${sortedDays.length} day${sortedDays.length === 1 ? '' : 's'}.`
             : 'Select a route to preview the roster.'}
         </Text>
       </Card>
 
       <Button
-        title="Schedule Trip"
+        title={sortedDays.length > 1 ? `Schedule ${sortedDays.length} Trips` : 'Schedule Trip'}
         onPress={handleCreate}
         loading={createTrip.isPending}
         fullWidth
@@ -251,6 +326,7 @@ const styles = StyleSheet.create({
   section: { gap: spacing[3] },
   sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary },
   empty: { fontSize: fontSizes.sm, color: colors.textMuted },
+  hint: { fontSize: fontSizes.xs, color: colors.textMuted },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   chip: {
     paddingHorizontal: spacing[3], paddingVertical: spacing[2],
@@ -260,6 +336,10 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
   chipTextActive: { color: colors.white },
+
+  dateHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing[2] },
+  dateCount: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.primary },
+
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], flexWrap: 'wrap' },
   timeInputWrap: { alignItems: 'center', gap: 2 },
   timeInput: {
@@ -271,9 +351,18 @@ const styles = StyleSheet.create({
   timeLabel: { fontSize: fontSizes.xs, color: colors.textMuted },
   timeSep: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.bold, color: colors.textSecondary, paddingBottom: 14 },
   timePreview: { fontSize: fontSizes.xs, color: colors.textSecondary, flex: 1 },
+
   previewCard: { gap: spacing[1], alignItems: 'center', paddingVertical: spacing[4] },
   previewLabel: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
   previewCount: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.extrabold, color: colors.primary },
   previewHint: { fontSize: fontSizes.xs, color: colors.textMuted, textAlign: 'center', lineHeight: 16 },
   saveBtn: { marginTop: spacing[2] },
+
+  // Submission progress + summary
+  progressText: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  progressTrack: { height: 8, borderRadius: radius.full, backgroundColor: colors.gray100, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: radius.full, backgroundColor: colors.primary },
+  resultsList: { gap: spacing[2], marginTop: spacing[2] },
+  resultRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] },
+  resultDay: { fontSize: fontSizes.sm, color: colors.textPrimary, flex: 1 },
 });
