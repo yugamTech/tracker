@@ -156,6 +156,8 @@ export default function TripScheduleScreen() {
 
   // Calendar collapsed by default on phone; the desktop split has a column for it.
   const [calOpen, setCalOpen] = useState(false);
+  // The month the expanded calendar is showing — drives the trip-dot fetch range.
+  const [visibleMonthKey, setVisibleMonthKey] = useState(() => ymdKey(startOfMonth(today)));
 
   // Combinable filters (status / route / driver) layered on the date selection.
   const [showFilters, setShowFilters] = useState(false);
@@ -163,11 +165,21 @@ export default function TripScheduleScreen() {
   const [routeId, setRouteId] = useState('');
   const [driverId, setDriverId] = useState('');
 
-  // Calendar spans the current month + the next one (the schedulable window).
-  const minMonth = useMemo(() => startOfMonth(today), [today]);
-  const maxMonth = useMemo(() => addMonths(today, 1), [today]);
-  const rangeFrom = ymdKey(minMonth);
-  const rangeTo = ymdKey(endOfMonth(maxMonth));
+  // Viewing is unbounded — any past or future date is browsable. The week strip
+  // navigates within a wide window; the month grid roams via its own picker.
+  const viewMinKey = useMemo(() => ymdKey(addMonths(today, -12 * 5)), [today]);
+  const viewMaxKey = useMemo(() => ymdKey(addMonths(today, 12 * 5)), [today]);
+
+  // Trip dots are fetched for the month currently in view (expanded grid) or the
+  // selected day's month (collapsed strip), padded a week each side for spill-over
+  // rows — so dots follow navigation without fetching years of dates at once.
+  const dotAnchor = useMemo(() => {
+    const src = isDesktop || calOpen ? visibleMonthKey : selectedKey;
+    const [y, m, d] = src.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }, [isDesktop, calOpen, visibleMonthKey, selectedKey]);
+  const rangeFrom = useMemo(() => addDaysKey(ymdKey(startOfMonth(dotAnchor)), -7), [dotAnchor]);
+  const rangeTo = useMemo(() => addDaysKey(ymdKey(endOfMonth(dotAnchor)), 7), [dotAnchor]);
 
   const { data: markedDates } = useTripDates(rangeFrom, rangeTo);
   const marked = useMemo(() => new Set(markedDates ?? []), [markedDates]);
@@ -222,26 +234,29 @@ export default function TripScheduleScreen() {
     </Card>
   ) : null;
 
+  const calendarExpanded = isDesktop || calOpen;
   const calendar = (
     <Card shadow="sm" style={styles.calCard}>
-      <View style={styles.calHead}>
-        <Text style={styles.calMonth}>{formatMonthLabel(selectedKey)}</Text>
-        {!isDesktop ? (
+      {/* On phone, a header carries the collapse toggle (plus the month label when
+          collapsed — the week strip has none). Expanded, the month grid supplies
+          its own tappable month/year header, so the left slot stays empty. */}
+      {!isDesktop ? (
+        <View style={styles.calHead}>
+          {calOpen ? <View /> : <Text style={styles.calMonth}>{formatMonthLabel(selectedKey)}</Text>}
           <AnimatedPressable scaleTo={0.94} onPress={() => setCalOpen((o) => !o)} accessibilityRole="button">
-            <Text style={styles.calToggle}>{calOpen ? 'Collapse ▲' : 'Month ▼'}</Text>
+            <Text style={styles.calToggle}>{calOpen ? 'Collapse ▴' : 'Month ▾'}</Text>
           </AnimatedPressable>
-        ) : null}
-      </View>
+        </View>
+      ) : null}
 
-      {isDesktop || calOpen ? (
+      {calendarExpanded ? (
         <MonthCalendar
-          compact
           selected={selectedSet}
           onSelectDay={setSelectedKey}
           marked={marked}
-          minMonth={minMonth}
-          maxMonth={maxMonth}
           todayKey={todayKey}
+          initialMonthKey={selectedKey}
+          onVisibleMonthChange={setVisibleMonthKey}
         />
       ) : (
         <WeekStrip
@@ -249,8 +264,8 @@ export default function TripScheduleScreen() {
           marked={marked}
           onSelectDay={setSelectedKey}
           todayKey={todayKey}
-          minKey={rangeFrom}
-          maxKey={rangeTo}
+          minKey={viewMinKey}
+          maxKey={viewMaxKey}
         />
       )}
 

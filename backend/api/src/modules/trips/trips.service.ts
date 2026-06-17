@@ -18,6 +18,13 @@ const TRANSITIONS: Record<string, TripStatus[]> = {
   [TripStatus.ABORTED]: [],
 };
 
+/** `from` shifted exactly one calendar month forward (the scheduling horizon). */
+function oneMonthAhead(from: Date): Date {
+  const d = new Date(from);
+  d.setMonth(d.getMonth() + 1);
+  return d;
+}
+
 /** Prisma date filter for [start-of-day, end-of-day] around the given instant. */
 function dayRange(at: Date): { gte: Date; lte: Date } {
   const gte = new Date(at);
@@ -561,6 +568,19 @@ export class TripsService {
     // age-group pickup/drop time (2B trip-start governance window).
     const scheduledStart =
       data.scheduledStart ?? (await this.deriveScheduledStart(routeId, tenantId, date, direction));
+
+    // Scheduling window (mirrors the admin client): the planned start must fall
+    // between now and one month ahead. Re-validated here so the rule holds for
+    // any caller, not just the UI. A small grace on each side absorbs request
+    // latency, clock skew, and the client's booking buffer without rejecting a
+    // request the client already accepted.
+    const now = new Date();
+    const lowerBound = now.getTime() - 2 * 60_000;
+    const upperBound = oneMonthAhead(now).getTime() + 24 * 60 * 60_000;
+    const startMs = scheduledStart.getTime();
+    if (startMs < lowerBound || startMs > upperBound) {
+      throw new BadRequestException('Trips can only be scheduled between now and one month ahead.');
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const trip = await tx.trip.create({

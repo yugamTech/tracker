@@ -64,6 +64,7 @@ export default function AppLayout() {
       {/* Reached from Live Fleet / Dashboard; renders its own AppHeader with a back affordance. */}
       <Drawer.Screen name="fleet/exceptions" options={{ title: 'Fleet Exceptions', ...SECTION }} />
       <Drawer.Screen name="trips/new" options={{ title: 'Schedule Trip' }} />
+      <Drawer.Screen name="trips/schedule-result" options={{ title: 'Scheduled' }} />
       <Drawer.Screen name="people/students/index" options={{ title: 'Students' }} />
       <Drawer.Screen name="people/students/[id]" options={{ title: 'Student Detail' }} />
       <Drawer.Screen name="people/students/new" options={{ title: 'Add Student' }} />

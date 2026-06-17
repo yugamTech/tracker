@@ -1,15 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, TextInput,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, LoadingSpinner, Badge } from '@saarthi/ui';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, LoadingSpinner } from '@saarthi/ui';
 import {
   useRoutes, useVehicles, useMembers, useStudents, useCreateTrip,
   useTripById, useUpdateTrip,
 } from '@saarthi/api-client';
-import { MonthCalendar, ymdKey, startOfMonth, addMonths, formatDayLabel } from '../../../components/Calendar';
-import { goBackTo } from '../../../lib/nav';
+import { MonthCalendar, ymdKey, startOfMonth, formatDayLabel } from '../../../components/Calendar';
+import { useScheduleResultStore, type ScheduleDayResult } from '../../../store/schedule.store';
+
+/** Minutes from now before which a trip can't be scheduled (small booking buffer). */
+const SCHEDULE_BUFFER_MIN = 15;
 
 /** Build a full ISO timestamp from a `YYYY-MM-DD` day key + chosen HH:MM (local). */
 function isoFromKey(key: string, hour: number, minute: number): string {
@@ -17,7 +20,12 @@ function isoFromKey(key: string, hour: number, minute: number): string {
   return new Date(y, m - 1, d, hour, minute, 0, 0).toISOString();
 }
 
-type DayResult = { key: string; ok: boolean; message?: string };
+/** `from` shifted exactly one calendar month forward (the scheduling horizon). */
+function oneMonthAhead(from: Date): Date {
+  const d = new Date(from);
+  d.setMonth(d.getMonth() + 1);
+  return d;
+}
 
 export default function ScheduleTripScreen() {
   const { data: routes = [], isLoading: routesLoading } = useRoutes();
@@ -27,6 +35,7 @@ export default function ScheduleTripScreen() {
   const { data: students = [] } = useStudents();
   const createTrip = useCreateTrip();
   const updateTrip = useUpdateTrip();
+  const setScheduleResult = useScheduleResultStore((s) => s.set);
 
   // Edit mode: `/(app)/trips/new?tripId=…` reuses this form to PATCH one trip.
   const { tripId: editTripId } = useLocalSearchParams<{ tripId?: string }>();
@@ -41,17 +50,45 @@ export default function ScheduleTripScreen() {
   const [startMin, setStartMin] = useState('00');
   const [direction, setDirection] = useState<'PICKUP' | 'DROP'>('PICKUP');
 
-  // Multi-select day picker — one trip is created per selected date.
-  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
-  const todayKey = ymdKey(today);
-  const [selectedDays, setSelectedDays] = useState<Set<string>>(() => new Set([todayKey]));
-  const minMonth = useMemo(() => startOfMonth(today), [today]);
-  const maxMonth = useMemo(() => addMonths(today, 1), [today]);
+  // `now` is re-anchored on every focus so the schedulable window (and the
+  // form) is always fresh — the Drawer keeps this screen mounted between visits.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const minSelectableKey = useMemo(() => ymdKey(new Date(nowMs + SCHEDULE_BUFFER_MIN * 60_000)), [nowMs]);
+  const maxDate = useMemo(() => oneMonthAhead(new Date(nowMs)), [nowMs]);
+  const maxSelectableKey = useMemo(() => ymdKey(maxDate), [maxDate]);
+  const todayKey = useMemo(() => ymdKey(new Date(nowMs)), [nowMs]);
+  const minMonth = useMemo(() => startOfMonth(new Date(nowMs)), [nowMs]);
+  const maxMonth = useMemo(() => startOfMonth(maxDate), [maxDate]);
 
-  // Submission progress + per-day outcome summary.
-  const [phase, setPhase] = useState<'idle' | 'submitting' | 'done'>('idle');
-  const [progress, setProgress] = useState({ done: 0, total: 0 });
-  const [results, setResults] = useState<DayResult[]>([]);
+  // Multi-select day picker — one trip is created per selected date.
+  const [selectedDays, setSelectedDays] = useState<Set<string>>(() => new Set([ymdKey(new Date(Date.now() + SCHEDULE_BUFFER_MIN * 60_000))]));
+
+  // Whole-batch submission flag (a batch is several sequential POSTs).
+  const [submitting, setSubmitting] = useState(false);
+
+  /**
+   * Reset to a clean state on every focus. The Drawer keeps this screen mounted,
+   * so without this a previous submission or edit would linger: re-opening
+   * "+ Schedule" must always show a fresh form, and editing must always re-open
+   * the prefilled form (never a stale summary).
+   */
+  useFocusEffect(
+    useCallback(() => {
+      setSubmitting(false);
+      setNowMs(Date.now());
+      if (!isEdit) {
+        setRouteId('');
+        setVehicleId('');
+        setDriverId('');
+        setConductorId(undefined);
+        setStartHour('08');
+        setStartMin('00');
+        setDirection('PICKUP');
+        setSelectedDays(new Set([ymdKey(new Date(Date.now() + SCHEDULE_BUFFER_MIN * 60_000))]));
+      }
+      // Edit-mode prefill is driven by the `editingTrip` effect below.
+    }, [isEdit]),
+  );
 
   // In edit mode, prefill the form from the trip being edited (once it loads).
   useEffect(() => {
@@ -115,14 +152,37 @@ export default function ScheduleTripScreen() {
     const h = Math.min(23, Math.max(0, parseInt(startHour, 10) || 0));
     const m = Math.min(59, Math.max(0, parseInt(startMin, 10) || 0));
 
-    setPhase('submitting');
-    setProgress({ done: 0, total: sortedDays.length });
-    const tally: DayResult[] = [];
+    // Enforce the scheduling window on the exact instant (the calendar bounds
+    // days; the chosen time can still push a day's start out of range). Days
+    // outside [now + buffer, now + 1 month] are flagged, never POSTed — the
+    // backend re-validates the same window.
+    const now = Date.now();
+    const minInstant = now + SCHEDULE_BUFFER_MIN * 60_000;
+    const maxInstant = oneMonthAhead(new Date(now)).getTime();
+
+    const plan = sortedDays.map((key) => {
+      const iso = isoFromKey(key, h, m);
+      const t = new Date(iso).getTime();
+      if (t < minInstant) return { key, iso, reason: 'Start time has passed' as string | null };
+      if (t > maxInstant) return { key, iso, reason: 'Beyond 1-month window' as string | null };
+      return { key, iso, reason: null as string | null };
+    });
+
+    if (plan.every((p) => p.reason)) {
+      Alert.alert(
+        'Outside the schedulable window',
+        `Trips can be scheduled from about ${SCHEDULE_BUFFER_MIN} min from now up to one month ahead. Adjust the time or dates.`,
+      );
+      return;
+    }
+
+    setSubmitting(true);
+    const tally: ScheduleDayResult[] = [];
 
     // Sequential POSTs — one trip per selected day, so a partial failure leaves
     // a clear per-day record instead of an all-or-nothing error.
-    for (const key of sortedDays) {
-      const iso = isoFromKey(key, h, m);
+    for (const { key, iso, reason } of plan) {
+      if (reason) { tally.push({ key, ok: false, message: reason }); continue; }
       try {
         await createTrip.mutateAsync({
           routeId, vehicleId, driverId, conductorId,
@@ -132,12 +192,12 @@ export default function ScheduleTripScreen() {
       } catch (e: any) {
         tally.push({ key, ok: false, message: e?.response?.data?.message ?? 'Failed' });
       }
-      setProgress((p) => ({ ...p, done: p.done + 1 }));
-      setResults([...tally]);
     }
 
-    setResults(tally);
-    setPhase('done');
+    // Stow the summary and leave — the form must never sit in a terminal state.
+    setSubmitting(false);
+    setScheduleResult(tally);
+    router.replace('/(app)/trips/schedule-result' as never);
   };
 
   // Edit mode: a single PATCH of the SCHEDULED trip, then back to its detail.
@@ -160,50 +220,6 @@ export default function ScheduleTripScreen() {
 
   if (isLoading) {
     return <LoadingSpinner fullScreen />;
-  }
-
-  // ── Submission overlay: progress while running, summary when done. ──
-  if (phase !== 'idle') {
-    const ok = results.filter((r) => r.ok).length;
-    const failed = results.filter((r) => !r.ok).length;
-    const running = phase === 'submitting';
-    return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {running ? 'Scheduling trips…' : 'Schedule complete'}
-          </Text>
-          <Text style={styles.progressText}>
-            {running
-              ? `${progress.done} of ${progress.total} processed`
-              : `${ok} scheduled${failed ? ` · ${failed} failed` : ''}`}
-          </Text>
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` },
-              ]}
-            />
-          </View>
-
-          <View style={styles.resultsList}>
-            {results.map((r) => (
-              <View key={r.key} style={styles.resultRow}>
-                <Text style={styles.resultDay}>{formatDayLabel(r.key)}</Text>
-                {r.ok
-                  ? <Badge label="Scheduled" variant="success" size="sm" />
-                  : <Badge label={r.message ?? 'Failed'} variant="error" size="sm" />}
-              </View>
-            ))}
-          </View>
-        </Card>
-
-        {!running ? (
-          <Button title="Done" onPress={() => goBackTo('trips/new')} fullWidth style={styles.saveBtn} />
-        ) : null}
-      </ScrollView>
-    );
   }
 
   return (
@@ -293,14 +309,18 @@ export default function ScheduleTripScreen() {
                 {sortedDays.length} day{sortedDays.length === 1 ? '' : 's'} selected
               </Text>
             </View>
-            <Text style={styles.hint}>Tap any number of days — one trip is created per day.</Text>
+            <Text style={styles.hint}>
+              Tap any number of days — one trip per day. Schedulable from now up to one month ahead.
+            </Text>
             <MonthCalendar
               selected={selectedDays}
               onSelectDay={toggleDay}
+              todayKey={todayKey}
+              minSelectable={minSelectableKey}
+              maxSelectable={maxSelectableKey}
               minMonth={minMonth}
               maxMonth={maxMonth}
-              minDay={todayKey}
-              todayKey={todayKey}
+              initialMonthKey={minSelectableKey}
             />
           </>
         )}
@@ -367,7 +387,7 @@ export default function ScheduleTripScreen() {
       <Button
         title={isEdit ? 'Save Changes' : sortedDays.length > 1 ? `Schedule ${sortedDays.length} Trips` : 'Schedule Trip'}
         onPress={isEdit ? handleUpdate : handleCreate}
-        loading={isEdit ? updateTrip.isPending : createTrip.isPending}
+        loading={isEdit ? updateTrip.isPending : submitting}
         fullWidth
         style={styles.saveBtn}
       />
@@ -412,12 +432,4 @@ const styles = StyleSheet.create({
   previewCount: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.extrabold, color: colors.primary },
   previewHint: { fontSize: fontSizes.xs, color: colors.textMuted, textAlign: 'center', lineHeight: 16 },
   saveBtn: { marginTop: spacing[2] },
-
-  // Submission progress + summary
-  progressText: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  progressTrack: { height: 8, borderRadius: radius.full, backgroundColor: colors.gray100, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: radius.full, backgroundColor: colors.primary },
-  resultsList: { gap: spacing[2], marginTop: spacing[2] },
-  resultRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] },
-  resultDay: { fontSize: fontSizes.sm, color: colors.textPrimary, flex: 1 },
 });

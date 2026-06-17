@@ -138,6 +138,7 @@ export const PARENT_ROUTE: Record<string, string> = {
   'fleet/[tripId]': '/(app)/trips',
   'fleet/exceptions': '/(app)/fleet',
   'trips/new': '/(app)/trips',
+  'trips/schedule-result': '/(app)/trips',
   // People — student/staff detail & CRUD all belong to the People list.
   'people/students/index': '/(app)/people',
   'people/students/[id]': '/(app)/people',
