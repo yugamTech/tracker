@@ -10,6 +10,7 @@ import {
   useMemberById,
   useUpdateMember,
   useDeactivateMember,
+  useReactivateMember,
   useDriverProfile,
   useUpsertDriverProfile,
 } from '@saarthi/api-client';
@@ -35,6 +36,7 @@ export default function StaffDetailScreen() {
   const { data: member, isLoading } = useMemberById(id);
   const updateMember = useUpdateMember();
   const deactivateMember = useDeactivateMember();
+  const reactivateMember = useReactivateMember();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -67,6 +69,24 @@ export default function StaffDetailScreen() {
         onSuccess: () => Alert.alert('Saved', 'Staff member updated'),
         onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to update'),
       },
+    );
+  };
+
+  const handleReactivate = () => {
+    Alert.alert(
+      'Reactivate staff member',
+      `${member.person.name} will regain access to this school and reappear on the active staff list.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reactivate',
+          onPress: () =>
+            reactivateMember.mutate(id, {
+              onSuccess: () => { Alert.alert('Done', 'Staff member reactivated'); goBackTo('people/staff/[id]'); },
+              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to reactivate'),
+            }),
+        },
+      ],
     );
   };
 
@@ -161,8 +181,8 @@ export default function StaffDetailScreen() {
       {/* Driver KYC — only meaningful for DRIVER memberships (text only, no docs). */}
       {member.role === 'DRIVER' && <DriverKycSection membershipId={id} />}
 
-      {/* Deactivate */}
-      {isActive && (
+      {/* Deactivate / Reactivate — soft state only (never a hard delete). */}
+      {isActive ? (
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Danger Zone</Text>
           <Text style={styles.hint}>
@@ -173,6 +193,19 @@ export default function StaffDetailScreen() {
             variant="danger"
             onPress={handleDeactivate}
             loading={deactivateMember.isPending}
+            fullWidth
+          />
+        </Card>
+      ) : (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Reactivate</Text>
+          <Text style={styles.hint}>
+            This staff member is deactivated. Reactivating restores their access at this school.
+          </Text>
+          <Button
+            title="Reactivate Staff Member"
+            onPress={handleReactivate}
+            loading={reactivateMember.isPending}
             fullWidth
           />
         </Card>

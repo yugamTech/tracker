@@ -59,6 +59,13 @@ export class RoutesController {
     return this.routesService.deactivate(id, tenantId);
   }
 
+  /** Reactivate a soft-deactivated route (status → ACTIVE). Tenant-scoped. */
+  @Post(':id/reactivate')
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  reactivate(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.routesService.reactivate(id, tenantId);
+  }
+
   @Post(':id/stops')
   @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
   addStop(@TenantId() tenantId: string, @Param('id') routeId: string, @Body() dto: AddStopDto) {

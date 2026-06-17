@@ -56,4 +56,11 @@ export class VehiclesController {
   deactivate(@TenantId() tenantId: string, @Param('id') id: string) {
     return this.vehiclesService.deactivate(id, tenantId);
   }
+
+  /** Reactivate a soft-deactivated vehicle (status → ACTIVE). Tenant-scoped. */
+  @Post(':id/reactivate')
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  reactivate(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.vehiclesService.reactivate(id, tenantId);
+  }
 }

@@ -26,7 +26,9 @@ export default function StaffListScreen() {
   const [roleFilter, setRoleFilter] = useState<string | undefined>(undefined);
   const [statusFilter, setStatusFilter] = useState<string>('');
 
-  const { data: staff, isLoading, isError } = useMembers(roleFilter);
+  // includeInactive: the management list must surface deactivated (SUSPENDED)
+  // staff so the Inactive filter works and they can be reopened to reactivate.
+  const { data: staff, isLoading, isError } = useMembers(roleFilter, true);
 
   const filtered = (staff ?? []).filter((m) =>
     (!statusFilter || (statusFilter === 'ACTIVE' ? m.status === 'ACTIVE' : m.status !== 'ACTIVE')) &&

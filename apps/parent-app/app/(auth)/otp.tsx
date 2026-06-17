@@ -12,6 +12,10 @@ const APP_ROLES = ['PARENT', 'TEACHER_RIDER'];
 export default function OtpScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const [otp, setOtp] = useState('');
+  // Set when the backend reports this number IS a parent here but the membership
+  // is deactivated (MEMBERSHIP_INACTIVE) — we show a dedicated re-subscribe screen
+  // instead of the generic "not a parent" rejection.
+  const [inactive, setInactive] = useState(false);
   const setAuth = useAuthStore((s) => s.setAuth);
   const verifyOtp = useVerifyOtp();
 
@@ -38,7 +42,9 @@ export default function OtpScreen() {
       );
       router.replace('/(app)/child-select' as never);
     } catch (err: any) {
-      if (err?.response?.status === 403) {
+      if (err?.response?.data?.error?.code === 'MEMBERSHIP_INACTIVE') {
+        setInactive(true);
+      } else if (err?.response?.status === 403) {
         Alert.alert(
           'Not a parent account',
           "This number isn't registered as a parent or teacher-rider. If you're a driver, please use the Yaanam Driver app, or contact your school admin.",
@@ -48,6 +54,26 @@ export default function OtpScreen() {
       }
     }
   };
+
+  if (inactive) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.content}>
+          <Text style={styles.title}>Transport service inactive</Text>
+          <Text style={styles.subtitle}>
+            Your transport service is inactive — please contact your school to re-subscribe.
+          </Text>
+          <Button
+            title="Back to login"
+            onPress={() => router.replace('/(auth)/phone' as never)}
+            fullWidth
+            size="lg"
+            style={{ marginTop: spacing[4] }}
+          />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

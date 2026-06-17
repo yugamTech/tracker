@@ -6,7 +6,8 @@ export const identityKeys = {
   myStudents: ['identity', 'students', 'my'] as const,
   students: (tenantId?: string) => ['identity', 'students', tenantId] as const,
   student: (id: string) => ['identity', 'students', id] as const,
-  members: (role?: string) => ['identity', 'members', role] as const,
+  members: (role?: string, includeInactive?: boolean) =>
+    ['identity', 'members', role, includeInactive ?? false] as const,
   member: (id: string) => ['identity', 'members', id] as const,
   ageGroups: ['identity', 'age-groups'] as const,
   tenant: ['identity', 'tenant'] as const,
@@ -63,8 +64,22 @@ export const useDeactivateStudent = () => {
   });
 };
 
-export const useMembers = (role?: string) =>
-  useQuery({ queryKey: identityKeys.members(role), queryFn: () => identityApi.listMembers(role) });
+export const useReactivateStudent = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => identityApi.reactivateStudent(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: identityKeys.student(id) });
+      qc.invalidateQueries({ queryKey: ['identity', 'students'] });
+    },
+  });
+};
+
+export const useMembers = (role?: string, includeInactive?: boolean) =>
+  useQuery({
+    queryKey: identityKeys.members(role, includeInactive),
+    queryFn: () => identityApi.listMembers(role, includeInactive),
+  });
 
 export const useMemberById = (id: string) =>
   useQuery({ queryKey: identityKeys.member(id), queryFn: () => identityApi.getMemberById(id), enabled: !!id });
@@ -93,6 +108,17 @@ export const useDeactivateMember = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => identityApi.deactivateMember(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: identityKeys.member(id) });
+      qc.invalidateQueries({ queryKey: ['identity', 'members'] });
+    },
+  });
+};
+
+export const useReactivateMember = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => identityApi.reactivateMember(id),
     onSuccess: (_data, id) => {
       qc.invalidateQueries({ queryKey: identityKeys.member(id) });
       qc.invalidateQueries({ queryKey: ['identity', 'members'] });

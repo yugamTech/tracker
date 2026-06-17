@@ -138,6 +138,29 @@ export class StudentsService {
     });
   }
 
+  /**
+   * Reactivate a student — the inverse of deactivate(): flips status back to
+   * ACTIVE so they return to the active roster and are eligible for new trips.
+   * Tenant-scoped (NFR-05) — a student id from another school 404s.
+   */
+  async reactivate(id: string, tenantId: string) {
+    const student = await this.prisma.student.findFirst({
+      where: { id, tenantId },
+      select: { id: true },
+    });
+    if (!student) throw new NotFoundException(`Student ${id} not found`);
+    return this.prisma.student.update({
+      where: { id: student.id },
+      data: { status: 'ACTIVE' },
+      include: {
+        ageGroup: true,
+        route: true,
+        stop: true,
+        guardianships: { include: { person: true } },
+      },
+    });
+  }
+
   getByGuardian(personId: string) {
     return this.prisma.student.findMany({
       where: { guardianships: { some: { personId } } },

@@ -29,9 +29,27 @@ const MEMBER_INCLUDE = {
 export class MembersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string, role?: string) {
+  /**
+   * List staff for a tenant. PARENTS ARE NOT STAFF (PRD-01 §7): parents are
+   * managed via students.service (guardian linkage), so this endpoint is scoped
+   * to STAFF_ROLES only — a role query is honoured only if it IS a staff role,
+   * and the unfiltered list returns every staff role but never PARENT.
+   *
+   * `includeInactive` widens the status filter to surface deactivated (SUSPENDED)
+   * staff for the management list (reactivation, status filtering). It defaults
+   * off so driver/conductor pickers (trips, complaints) keep getting ACTIVE
+   * staff only — ACTIVE-membership filtering elsewhere is unchanged.
+   */
+  list(tenantId: string, role?: string, includeInactive = false) {
+    if (role && !STAFF_ROLES.includes(role as Role)) {
+      throw new BadRequestException(`Role ${role} is not a staff role`);
+    }
     return this.prisma.membership.findMany({
-      where: { tenantId, status: 'ACTIVE', ...(role ? { role: role as Role } : {}) },
+      where: {
+        tenantId,
+        role: role ? (role as Role) : { in: STAFF_ROLES },
+        ...(includeInactive ? {} : { status: 'ACTIVE' }),
+      },
       include: { person: true },
       orderBy: { person: { name: 'asc' } },
     });
@@ -176,6 +194,26 @@ export class MembersService {
     return this.prisma.membership.update({
       where: { id: membership.id },
       data: { status: 'SUSPENDED' },
+      include: MEMBER_INCLUDE,
+    });
+  }
+
+  /**
+   * Reactivate a staff member — the inverse of deactivate(). Restores the
+   * tenant-scoped Membership to ACTIVE so they reappear on the active staff list
+   * and regain access at this school. Soft state only; the Person identity and
+   * any other-school memberships are untouched. Tenant-scoped (NFR-05).
+   */
+  async reactivate(id: string, tenantId: string) {
+    const membership = await this.prisma.membership.findFirst({
+      where: { id, tenantId },
+      select: { id: true },
+    });
+    if (!membership) throw new NotFoundException(`Member ${id} not found`);
+
+    return this.prisma.membership.update({
+      where: { id: membership.id },
+      data: { status: 'ACTIVE' },
       include: MEMBER_INCLUDE,
     });
   }

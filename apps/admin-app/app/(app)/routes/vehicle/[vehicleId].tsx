@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge } from '@saarthi/ui';
-import { useVehicleById, useCreateVehicle, useUpdateVehicle, useDeactivateVehicle } from '@saarthi/api-client';
+import { useVehicleById, useCreateVehicle, useUpdateVehicle, useDeactivateVehicle, useReactivateVehicle } from '@saarthi/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
 const TYPES = ['BUS', 'MINI_BUS', 'VAN'];
@@ -19,6 +19,7 @@ export default function VehicleDetailScreen() {
   const createVehicle = useCreateVehicle();
   const updateVehicle = useUpdateVehicle();
   const deactivateVehicle = useDeactivateVehicle();
+  const reactivateVehicle = useReactivateVehicle();
 
   const [regNumber, setRegNumber] = useState('');
   const [capacity, setCapacity] = useState('');
@@ -73,6 +74,25 @@ export default function VehicleDetailScreen() {
             deactivateVehicle.mutate(vehicleId, {
               onSuccess: () => { Alert.alert('Done', 'Vehicle deactivated'); goBackTo('routes/vehicle/[vehicleId]'); },
               onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to deactivate'),
+            }),
+        },
+      ],
+    );
+  };
+
+  const handleReactivate = () => {
+    if (!vehicle) return;
+    Alert.alert(
+      'Reactivate vehicle',
+      `${vehicle.regNumber} will be marked active and rejoin the fleet for scheduling.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reactivate',
+          onPress: () =>
+            reactivateVehicle.mutate(vehicleId, {
+              onSuccess: () => { Alert.alert('Done', 'Vehicle reactivated'); goBackTo('routes/vehicle/[vehicleId]'); },
+              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to reactivate'),
             }),
         },
       ],
@@ -185,7 +205,7 @@ export default function VehicleDetailScreen() {
         />
       )}
 
-      {/* Deactivate — soft delete only (never a hard delete). */}
+      {/* Deactivate / Reactivate — soft delete only (never a hard delete). */}
       {!isNew && vehicle?.status === 'ACTIVE' && (
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Danger Zone</Text>
@@ -197,6 +217,20 @@ export default function VehicleDetailScreen() {
             variant="danger"
             onPress={handleDeactivate}
             loading={deactivateVehicle.isPending}
+            fullWidth
+          />
+        </Card>
+      )}
+      {!isNew && vehicle?.status === 'INACTIVE' && (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Reactivate</Text>
+          <Text style={styles.hint}>
+            This vehicle is deactivated. Reactivating returns it to the active fleet for scheduling.
+          </Text>
+          <Button
+            title="Reactivate Vehicle"
+            onPress={handleReactivate}
+            loading={reactivateVehicle.isPending}
             fullWidth
           />
         </Card>

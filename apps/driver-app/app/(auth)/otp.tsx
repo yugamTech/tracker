@@ -11,6 +11,9 @@ const APP_ROLES = ['DRIVER', 'CONDUCTOR'];
 export default function DriverOtpScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const [otp, setOtp] = useState('');
+  // Set when the backend reports this number IS staff here but the membership is
+  // deactivated (MEMBERSHIP_INACTIVE) — show a dedicated inactive-access screen.
+  const [inactive, setInactive] = useState(false);
   const setAuth = useAuthStore((s) => s.setAuth);
   const verifyOtp = useVerifyOtp();
 
@@ -41,7 +44,9 @@ export default function DriverOtpScreen() {
         router.replace('/(app)/home');
       }
     } catch (err: any) {
-      if (err?.response?.status === 403) {
+      if (err?.response?.data?.error?.code === 'MEMBERSHIP_INACTIVE') {
+        setInactive(true);
+      } else if (err?.response?.status === 403) {
         Alert.alert(
           'Not a driver account',
           "This number isn't registered as a driver or conductor. If you're a parent, please use the Yaanam Parent app, or contact your school admin.",
@@ -51,6 +56,26 @@ export default function DriverOtpScreen() {
       }
     }
   };
+
+  if (inactive) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.content}>
+          <Text style={styles.title}>Access inactive</Text>
+          <Text style={styles.subtitle}>
+            Your access is inactive — contact your school admin.
+          </Text>
+          <Button
+            title="Back to login"
+            onPress={() => router.replace('/(auth)/phone' as never)}
+            fullWidth
+            size="lg"
+            style={{ marginTop: spacing[4] }}
+          />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

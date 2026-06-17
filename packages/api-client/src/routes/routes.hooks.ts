@@ -44,6 +44,17 @@ export const useDeactivateRoute = () => {
   });
 };
 
+export const useReactivateRoute = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => routesApi.reactivate(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: routeKeys.route(id) });
+      qc.invalidateQueries({ queryKey: routeKeys.all });
+    },
+  });
+};
+
 export const useStops = () =>
   useQuery({ queryKey: routeKeys.stops, queryFn: stopsApi.list });
 

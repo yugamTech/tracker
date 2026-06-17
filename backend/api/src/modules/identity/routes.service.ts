@@ -61,6 +61,16 @@ export class RoutesService {
     return this.prisma.route.update({ where: { id }, data: { status: 'INACTIVE' } });
   }
 
+  /**
+   * Reactivate a route — the inverse of deactivate(): flips status back to ACTIVE
+   * so it returns to the active routes list and can be scheduled again. Its stops
+   * and students are untouched. Tenant-scoped (NFR-05).
+   */
+  async reactivate(id: string, tenantId: string) {
+    await this.assertOwned(id, tenantId);
+    return this.prisma.route.update({ where: { id }, data: { status: 'ACTIVE' } });
+  }
+
   async addStop(tenantId: string, data: { routeId: string; stopId: string; sequence: number }) {
     await this.assertOwned(data.routeId, tenantId);
     // The stop must also belong to this tenant — otherwise an admin could pin

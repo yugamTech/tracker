@@ -71,4 +71,11 @@ export class StudentsController {
   deactivate(@TenantId() tenantId: string, @Param('id') id: string) {
     return this.studentsService.deactivate(id, tenantId);
   }
+
+  /** Reactivate a soft-deactivated student (status → ACTIVE). Tenant-scoped. */
+  @Post(':id/reactivate')
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  reactivate(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.studentsService.reactivate(id, tenantId);
+  }
 }

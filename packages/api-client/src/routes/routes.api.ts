@@ -58,6 +58,11 @@ export const routesApi = {
     return data.data;
   },
 
+  reactivate: async (id: string): Promise<Route> => {
+    const { data } = await apiClient.post(`/routes/${id}/reactivate`);
+    return data.data;
+  },
+
   addStop: async (routeId: string, dto: { stopId: string; sequence: number }) => {
     const { data } = await apiClient.post(`/routes/${routeId}/stops`, dto);
     return data.data;

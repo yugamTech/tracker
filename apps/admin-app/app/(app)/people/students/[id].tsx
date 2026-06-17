@@ -6,7 +6,7 @@ import {
 import { useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Avatar, Badge } from '@saarthi/ui';
 import {
-  useStudentById, useUpdateStudent, useDeactivateStudent, useAgeGroups, useRoutes, useStops,
+  useStudentById, useUpdateStudent, useDeactivateStudent, useReactivateStudent, useAgeGroups, useRoutes, useStops,
 } from '@saarthi/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
@@ -19,6 +19,7 @@ export default function StudentDetailScreen() {
   const { data: stops = [] } = useStops();
   const updateStudent = useUpdateStudent();
   const deactivateStudent = useDeactivateStudent();
+  const reactivateStudent = useReactivateStudent();
 
   const [name, setName] = useState('');
   const [regId, setRegId] = useState('');
@@ -52,6 +53,25 @@ export default function StudentDetailScreen() {
         onSuccess: () => { Alert.alert('Saved', 'Student updated'); setEditing(false); },
         onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Update failed'),
       },
+    );
+  };
+
+  const handleReactivate = () => {
+    if (!student) return;
+    Alert.alert(
+      'Reactivate student',
+      `${student.name} will be marked active and become eligible for new trip rosters again.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reactivate',
+          onPress: () =>
+            reactivateStudent.mutate(id, {
+              onSuccess: () => { Alert.alert('Done', 'Student reactivated'); goBackTo('people/students/[id]'); },
+              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to reactivate'),
+            }),
+        },
+      ],
     );
   };
 
@@ -199,8 +219,8 @@ export default function StudentDetailScreen() {
         />
       )}
 
-      {/* Deactivate — soft delete only (never a hard delete). */}
-      {student.status === 'ACTIVE' && (
+      {/* Deactivate / Reactivate — soft delete only (never a hard delete). */}
+      {student.status === 'ACTIVE' ? (
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Danger Zone</Text>
           <Text style={styles.hint}>
@@ -211,6 +231,19 @@ export default function StudentDetailScreen() {
             variant="danger"
             onPress={handleDeactivate}
             loading={deactivateStudent.isPending}
+            fullWidth
+          />
+        </Card>
+      ) : (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Reactivate</Text>
+          <Text style={styles.hint}>
+            This student is deactivated. Reactivating returns them to the active roster.
+          </Text>
+          <Button
+            title="Reactivate Student"
+            onPress={handleReactivate}
+            loading={reactivateStudent.isPending}
             fullWidth
           />
         </Card>

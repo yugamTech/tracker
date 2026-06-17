@@ -24,7 +24,9 @@ export {
   useCreateMember,
   useUpdateMember,
   useDeactivateMember,
+  useReactivateMember,
   useDeactivateStudent,
+  useReactivateStudent,
   useAgeGroups,
   useMyTenant,
 } from './identity/identity.hooks';
@@ -32,12 +34,12 @@ export {
 // Vehicles
 export { vehiclesApi } from './vehicles/vehicles.api';
 export type { Vehicle } from './vehicles/vehicles.api';
-export { vehicleKeys, useVehicles, useVehicleById, useCreateVehicle, useUpdateVehicle, useDeactivateVehicle } from './vehicles/vehicles.hooks';
+export { vehicleKeys, useVehicles, useVehicleById, useCreateVehicle, useUpdateVehicle, useDeactivateVehicle, useReactivateVehicle } from './vehicles/vehicles.hooks';
 
 // Routes & Stops
 export { routesApi, stopsApi } from './routes/routes.api';
 export type { Route, RouteStudent, Stop } from './routes/routes.api';
-export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useStops, useCreateStop, useAddStop } from './routes/routes.hooks';
+export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useReactivateRoute, useStops, useCreateStop, useAddStop } from './routes/routes.hooks';
 
 // Trips
 export { tripsApi, pickupCancelInfo, PICKUP_CANCEL_CUTOFF_MINUTES } from './trips/trips.api';

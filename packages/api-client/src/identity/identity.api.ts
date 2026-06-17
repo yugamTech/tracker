@@ -99,8 +99,18 @@ export const identityApi = {
     return data.data;
   },
 
-  listMembers: async (role?: string): Promise<Member[]> => {
-    const { data } = await apiClient.get('/members', { params: role ? { role } : undefined });
+  reactivateStudent: async (id: string): Promise<Student> => {
+    const { data } = await apiClient.post(`/students/${id}/reactivate`);
+    return data.data;
+  },
+
+  listMembers: async (role?: string, includeInactive?: boolean): Promise<Member[]> => {
+    const params: Record<string, string> = {};
+    if (role) params.role = role;
+    if (includeInactive) params.includeInactive = 'true';
+    const { data } = await apiClient.get('/members', {
+      params: Object.keys(params).length ? params : undefined,
+    });
     return data.data;
   },
 
@@ -130,6 +140,11 @@ export const identityApi = {
 
   deactivateMember: async (id: string): Promise<Member> => {
     const { data } = await apiClient.post(`/members/${id}/deactivate`);
+    return data.data;
+  },
+
+  reactivateMember: async (id: string): Promise<Member> => {
+    const { data } = await apiClient.post(`/members/${id}/reactivate`);
     return data.data;
   },
 

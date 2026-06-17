@@ -6,7 +6,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge } from '@saarthi/ui';
 import {
-  useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute,
+  useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useReactivateRoute,
   useStops, useCreateStop, useAddStop,
 } from '@saarthi/api-client';
 import type { Stop } from '@saarthi/api-client';
@@ -23,6 +23,7 @@ export default function RouteDetailScreen() {
   const createRoute = useCreateRoute();
   const updateRoute = useUpdateRoute();
   const deactivateRoute = useDeactivateRoute();
+  const reactivateRoute = useReactivateRoute();
   const createStop = useCreateStop();
   const addStop = useAddStop();
 
@@ -81,6 +82,25 @@ export default function RouteDetailScreen() {
             deactivateRoute.mutate(routeId, {
               onSuccess: () => { Alert.alert('Done', 'Route deactivated'); goBackTo('routes/[routeId]'); },
               onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to deactivate'),
+            }),
+        },
+      ],
+    );
+  };
+
+  const handleReactivate = () => {
+    if (!route) return;
+    Alert.alert(
+      'Reactivate route',
+      `${route.name} will be marked active and return to the active routes list for scheduling.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reactivate',
+          onPress: () =>
+            reactivateRoute.mutate(routeId, {
+              onSuccess: () => { Alert.alert('Done', 'Route reactivated'); goBackTo('routes/[routeId]'); },
+              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to reactivate'),
             }),
         },
       ],
@@ -246,7 +266,7 @@ export default function RouteDetailScreen() {
         </Card>
       )}
 
-      {/* Deactivate — soft delete only (never a hard delete). */}
+      {/* Deactivate / Reactivate — soft delete only (never a hard delete). */}
       {!isNew && route?.status === 'ACTIVE' && (
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Danger Zone</Text>
@@ -258,6 +278,20 @@ export default function RouteDetailScreen() {
             variant="danger"
             onPress={handleDeactivate}
             loading={deactivateRoute.isPending}
+            fullWidth
+          />
+        </Card>
+      )}
+      {!isNew && route?.status === 'INACTIVE' && (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Reactivate</Text>
+          <Text style={styles.hint}>
+            This route is deactivated. Reactivating returns it to the active routes list for scheduling.
+          </Text>
+          <Button
+            title="Reactivate Route"
+            onPress={handleReactivate}
+            loading={reactivateRoute.isPending}
             fullWidth
           />
         </Card>

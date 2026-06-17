@@ -41,12 +41,6 @@ export class AuthService {
       include: { tenant: { select: { name: true } } },
     });
 
-    if (memberships.length === 0) {
-      throw new UnauthorizedException(
-        "This number isn't registered with any school yet. Contact your school admin.",
-      );
-    }
-
     // Role-aware login: each app passes the roles it serves. One person may hold
     // many roles (one identity, many memberships — PRD-01 §2), but an app only
     // admits memberships whose role it serves, so e.g. a parent can never land in
@@ -56,6 +50,35 @@ export class AuthService {
       : memberships;
 
     if (eligible.length === 0) {
+      // No ACTIVE membership this app will admit. Before the generic rejections,
+      // distinguish a *deactivated* member of this app: a number that DID have
+      // access for one of this app's roles but whose membership is now non-ACTIVE
+      // (SUSPENDED). They should be told their access/subscription is inactive —
+      // not that they're unknown — so the app can route them to a re-subscribe /
+      // contact-admin screen. A truly-unknown number keeps the existing behaviour.
+      if (dto.allowedRoles?.length) {
+        const inactiveForApp = await this.prisma.membership.findFirst({
+          where: {
+            personId: person.id,
+            role: { in: dto.allowedRoles as Role[] },
+            status: { not: 'ACTIVE' },
+          },
+          select: { id: true },
+        });
+        if (inactiveForApp) {
+          throw new ForbiddenException({
+            error: 'MEMBERSHIP_INACTIVE',
+            message:
+              'Your access at this school is inactive. Please contact your school to restore it.',
+          });
+        }
+      }
+
+      if (memberships.length === 0) {
+        throw new UnauthorizedException(
+          "This number isn't registered with any school yet. Contact your school admin.",
+        );
+      }
       throw new ForbiddenException(
         `This number is registered, but not for this app (needs one of: ${dto.allowedRoles!.join(', ')}).`,
       );

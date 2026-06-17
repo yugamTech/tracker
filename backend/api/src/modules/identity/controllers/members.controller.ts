@@ -34,8 +34,12 @@ export class MembersController {
   constructor(private readonly membersService: MembersService) {}
 
   @Get()
-  list(@TenantId() tenantId: string, @Query('role') role?: string) {
-    return this.membersService.list(tenantId, role);
+  list(
+    @TenantId() tenantId: string,
+    @Query('role') role?: string,
+    @Query('includeInactive') includeInactive?: string,
+  ) {
+    return this.membersService.list(tenantId, role, includeInactive === 'true');
   }
 
   @Get(':id')
@@ -56,5 +60,11 @@ export class MembersController {
   @Post(':id/deactivate')
   deactivate(@TenantId() tenantId: string, @Param('id') id: string) {
     return this.membersService.deactivate(id, tenantId);
+  }
+
+  /** Reactivate a soft-deactivated staff member (status → ACTIVE). Tenant-scoped. */
+  @Post(':id/reactivate')
+  reactivate(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.membersService.reactivate(id, tenantId);
   }
 }

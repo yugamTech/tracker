@@ -42,3 +42,14 @@ export const useDeactivateVehicle = () => {
     },
   });
 };
+
+export const useReactivateVehicle = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => vehiclesApi.reactivate(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: vehicleKeys.vehicle(id) });
+      qc.invalidateQueries({ queryKey: vehicleKeys.all });
+    },
+  });
+};

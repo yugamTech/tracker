@@ -60,4 +60,23 @@ export class VehiclesService {
       },
     });
   }
+
+  /**
+   * Reactivate a vehicle — the inverse of deactivate(): flips status back to
+   * ACTIVE so it rejoins the active fleet and can be scheduled again. Its record
+   * and assignment history are untouched. Tenant-scoped (NFR-05).
+   */
+  async reactivate(id: string, tenantId: string) {
+    const vehicle = await this.prisma.vehicle.findFirst({ where: { id, tenantId }, select: { id: true } });
+    if (!vehicle) throw new NotFoundException(`Vehicle ${id} not found`);
+    return this.prisma.vehicle.update({
+      where: { id },
+      data: { status: 'ACTIVE' },
+      include: {
+        assignments: {
+          include: { membership: { include: { person: true } } },
+        },
+      },
+    });
+  }
 }
