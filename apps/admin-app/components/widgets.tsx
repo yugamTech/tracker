@@ -84,13 +84,13 @@ export function GridList<T>({
 
 export type StatTone = 'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info';
 
-const TONE: Record<StatTone, { value: string; chipBg: string }> = {
-  neutral: { value: colors.textPrimary, chipBg: colors.gray100 },
-  primary: { value: colors.primary, chipBg: colors.primaryBg },
-  success: { value: colors.success, chipBg: colors.successBg },
-  warning: { value: colors.warning, chipBg: colors.warningBg },
-  error: { value: colors.error, chipBg: colors.errorBg },
-  info: { value: colors.info, chipBg: colors.infoBg },
+const TONE: Record<StatTone, { color: string; chipBg: string }> = {
+  neutral: { color: colors.textPrimary, chipBg: colors.gray100 },
+  primary: { color: colors.primary, chipBg: colors.primaryBg },
+  success: { color: colors.success, chipBg: colors.successBg },
+  warning: { color: colors.warning, chipBg: colors.warningBg },
+  error: { color: colors.error, chipBg: colors.errorBg },
+  info: { color: colors.info, chipBg: colors.infoBg },
 };
 
 interface StatCardProps {
@@ -114,7 +114,7 @@ export function StatCard({ label, value, hint, icon, tone = 'neutral', style }: 
           </View>
         ) : null}
       </View>
-      <Text style={[styles.statValue, { color: t.value }]}>{value}</Text>
+      <Text style={[styles.statValue, { color: t.color }]}>{value}</Text>
       {hint ? <Text style={styles.statHint}>{hint}</Text> : null}
     </View>
   );
