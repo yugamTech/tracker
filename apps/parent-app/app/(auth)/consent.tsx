@@ -39,7 +39,7 @@ export default function ConsentScreen() {
       </ScrollView>
 
       <View style={styles.actions}>
-        <Button title="I Agree & Continue" onPress={() => router.replace('/(app)/home')} fullWidth size="lg" />
+        <Button title="I Agree & Continue" onPress={() => router.replace('/(app)/child-select' as never)} fullWidth size="lg" />
         <Button title="Decline" variant="ghost" onPress={() => router.back()} fullWidth />
       </View>
     </View>

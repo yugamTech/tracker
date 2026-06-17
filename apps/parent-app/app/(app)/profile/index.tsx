@@ -1,164 +1,123 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, fontSizes, fontWeights, radius, Avatar, Button } from '@saarthi/ui';
+import { router } from 'expo-router';
+import {
+  colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
+  AppHeader, Avatar, Card, Badge, Button, ListItem, Divider, SectionHeader,
+} from '@saarthi/ui';
 import { useAuthStore } from '../../../store/auth.store';
 import { useMyStudents } from '@saarthi/api-client';
-import { router } from 'expo-router';
 
 export default function ProfileScreen() {
   const { person, activeMembership, logout } = useAuthStore();
   const { data: students } = useMyStudents();
+  const childCount = students?.length ?? 0;
+  const multiple = childCount > 1;
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure?', [
+    Alert.alert('Log out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Logout',
+        text: 'Log out',
         style: 'destructive',
         onPress: () => { logout(); router.replace('/(auth)/phone'); },
       },
     ]);
   };
 
+  const soon = () => Alert.alert('Coming soon', 'This feature is being built');
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>My Profile</Text>
-      </View>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <AppHeader title="Profile" />
 
-      {/* Identity card */}
-      <View style={styles.profileCard}>
-        <Avatar name={person?.name ?? 'Parent'} size={72} />
-        <View style={styles.profileInfo}>
-          <Text style={styles.name}>{person?.name ?? 'Parent'}</Text>
-          <Text style={styles.phone}>{person?.phone}</Text>
-          <View style={styles.rolePill}>
-            <Text style={styles.roleText}>Parent</Text>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Identity */}
+        <Card style={styles.identity} shadow="md">
+          <Avatar name={person?.name ?? 'Parent'} size={64} />
+          <View style={styles.identityInfo}>
+            <Text style={styles.name} numberOfLines={1}>{person?.name ?? 'Parent'}</Text>
+            <Text style={styles.phone}>{person?.phone}</Text>
+            <Badge label="Parent" variant="info" size="sm" />
           </View>
-        </View>
-      </View>
+        </Card>
 
-      {/* School pill */}
-      {activeMembership?.tenantName && (
-        <View style={styles.schoolRow}>
-          <Text style={styles.schoolIcon}>🏫</Text>
-          <Text style={styles.schoolName}>{activeMembership.tenantName}</Text>
-          {students != null && (
-            <View style={styles.childCount}>
-              <Text style={styles.childCountText}>
-                {students.length} child{students.length !== 1 ? 'ren' : ''}
-              </Text>
-            </View>
+        {/* School */}
+        {activeMembership?.tenantName ? (
+          <Card style={styles.school} shadow="sm">
+            <Text style={styles.schoolIcon}>🏫</Text>
+            <Text style={styles.schoolName} numberOfLines={1}>{activeMembership.tenantName}</Text>
+            <Badge
+              label={`${childCount} ${childCount === 1 ? 'child' : 'children'}`}
+              variant="default"
+              size="sm"
+            />
+          </Card>
+        ) : null}
+
+        {/* Menu */}
+        <SectionHeader title="Account" />
+        <Card style={styles.menu} padding={0} shadow="sm">
+          {multiple && (
+            <>
+              <ListItem
+                left={<Text style={styles.menuIcon}>👶</Text>}
+                title="Switch child"
+                subtitle={`${childCount} linked profiles`}
+                onPress={() => router.push('/(app)/child-select' as never)}
+              />
+              <Divider inset={4} />
+            </>
           )}
-        </View>
-      )}
+          <ListItem
+            left={<Text style={styles.menuIcon}>🔔</Text>}
+            title="Notifications"
+            onPress={() => router.push('/(app)/profile/notifications' as never)}
+          />
+          <Divider inset={4} />
+          <ListItem
+            left={<Text style={styles.menuIcon}>🔒</Text>}
+            title="Privacy & consent"
+            onPress={soon}
+          />
+          <Divider inset={4} />
+          <ListItem
+            left={<Text style={styles.menuIcon}>📞</Text>}
+            title="Contact support"
+            onPress={soon}
+          />
+          <Divider inset={4} />
+          <ListItem
+            left={<Text style={styles.menuIcon}>📜</Text>}
+            title="Terms & privacy"
+            onPress={soon}
+          />
+        </Card>
 
-      {/* Menu */}
-      <View style={styles.menu}>
-        {[
-          {
-            label: '👶 My Children',
-            value: students != null ? `${students.length} linked` : '',
-            onPress: () => Alert.alert('Coming soon', 'This feature is being built'),
-          },
-          {
-            label: '🔔 Notifications',
-            value: '',
-            onPress: () => router.push('/(app)/profile/notifications' as never),
-          },
-          {
-            label: '🔒 Privacy & Consent',
-            value: '',
-            onPress: () => Alert.alert('Coming soon', 'This feature is being built'),
-          },
-          {
-            label: '📞 Contact Support',
-            value: '',
-            onPress: () => Alert.alert('Coming soon', 'This feature is being built'),
-          },
-          {
-            label: '📜 Terms & Privacy',
-            value: '',
-            onPress: () => Alert.alert('Coming soon', 'This feature is being built'),
-          },
-        ].map((item, idx, arr) => (
-          <TouchableOpacity
-            key={item.label}
-            style={[styles.menuItem, idx === arr.length - 1 && styles.menuItemLast]}
-            onPress={item.onPress}
-          >
-            <Text style={styles.menuLabel}>{item.label}</Text>
-            <View style={styles.menuRight}>
-              {item.value ? <Text style={styles.menuValue}>{item.value}</Text> : null}
-              <Text style={styles.arrow}>›</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <Button
-        title="Logout"
-        variant="danger"
-        onPress={handleLogout}
-        fullWidth
-        style={{ margin: spacing[5] }}
-      />
+        <Button
+          title="Log out"
+          variant="danger"
+          fullWidth
+          onPress={handleLogout}
+          style={styles.logout}
+        />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  header: {
-    padding: spacing[5],
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  title: { fontSize: fontSizes.xl, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  profileCard: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing[4],
-    margin: spacing[4], padding: spacing[5], backgroundColor: colors.white,
-    borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border,
-  },
-  profileInfo: { gap: spacing[2] },
-  name: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
+  container: { flex: 1, backgroundColor: colors.backgroundMuted },
+  scroll: { padding: spacing[4], paddingBottom: spacing[8] },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: spacing[4] },
+  identityInfo: { flex: 1, gap: spacing[1], alignItems: 'flex-start' },
+  name: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
   phone: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  rolePill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[1],
-    borderRadius: radius.full,
-  },
-  roleText: { fontSize: fontSizes.xs, color: colors.primary, fontWeight: fontWeights.semibold },
-  schoolRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing[2],
-    marginHorizontal: spacing[4], marginBottom: spacing[2],
-    padding: spacing[3], backgroundColor: colors.white,
-    borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border,
-  },
+  school: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[3] },
   schoolIcon: { fontSize: 18 },
   schoolName: { flex: 1, fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textPrimary },
-  childCount: {
-    backgroundColor: colors.primary + '15',
-    paddingHorizontal: spacing[2], paddingVertical: 2,
-    borderRadius: radius.full,
-  },
-  childCountText: { fontSize: fontSizes.xs, color: colors.primary, fontWeight: fontWeights.semibold },
-  menu: {
-    backgroundColor: colors.white, borderRadius: radius.xl,
-    marginHorizontal: spacing[4], overflow: 'hidden',
-    borderWidth: 1, borderColor: colors.border,
-  },
-  menuItem: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: spacing[4], borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  menuItemLast: { borderBottomWidth: 0 },
-  menuLabel: { fontSize: fontSizes.base, color: colors.textPrimary },
-  menuRight: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  menuValue: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  arrow: { fontSize: fontSizes.xl, color: colors.gray400 },
+  menu: { overflow: 'hidden' },
+  menuIcon: { fontSize: 18, width: 24, textAlign: 'center' },
+  logout: { marginTop: spacing[6] },
 });

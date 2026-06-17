@@ -1,100 +1,123 @@
 import React from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button } from '@saarthi/ui';
+import {
+  colors, spacing, fontSizes, fontWeights, letterSpacing, radius, shadows,
+  AppHeader, Card, Badge, Button, Skeleton, EmptyState,
+} from '@saarthi/ui';
 import { useMyInvoices } from '@saarthi/api-client';
+import type { BadgeVariant } from '@saarthi/ui';
 
-const STATUS_V: Record<string, 'warning' | 'success' | 'error'> = {
+const STATUS_VARIANT: Record<string, BadgeVariant> = {
   DUE: 'warning', PAID: 'success', OVERDUE: 'error',
 };
+
+const rupees = (paise?: number) => `₹${((paise ?? 0) / 100).toLocaleString('en-IN')}`;
 
 export default function PaymentsScreen() {
   const { data: invoices = [], isLoading } = useMyInvoices();
 
   const due = invoices.filter((i) => i.status === 'DUE' || i.status === 'OVERDUE');
-  const totalDue = due.reduce((s, i) => s + (i.amountPaise ?? 0) / 100, 0);
+  const totalDue = due.reduce((s, i) => s + (i.amountPaise ?? 0), 0);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Payments</Text>
-        <Text style={styles.subtitle}>Transport fee management</Text>
-      </View>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <AppHeader
+        title="Payments"
+        right={
+          <Button title="History" variant="ghost" size="sm" onPress={() => router.push('/(app)/payments/history' as never)} />
+        }
+      />
 
       {isLoading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
+        <View style={styles.list}>
+          <Skeleton width="100%" height={88} radius="xl" />
+          {[0, 1].map((i) => (
+            <Card key={i} shadow="sm">
+              <Skeleton width="40%" height={16} />
+              <Skeleton width="25%" height={13} style={{ marginTop: spacing[2] }} />
+            </Card>
+          ))}
+        </View>
       ) : (
-        <>
-          {totalDue > 0 && (
-            <View style={styles.dueBanner}>
-              <View>
-                <Text style={styles.dueLabel}>Amount Due</Text>
-                <Text style={styles.dueAmount}>₹{totalDue.toLocaleString('en-IN')}</Text>
+        <FlatList
+          data={invoices}
+          keyExtractor={(i) => i.id}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            totalDue > 0 ? (
+              <View style={styles.dueBanner}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.dueLabel}>Total amount due</Text>
+                  <Text style={styles.dueAmount}>{rupees(totalDue)}</Text>
+                </View>
+                <Button
+                  title="Pay now"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => due[0] && router.push(`/(app)/payments/pay/${due[0].id}` as never)}
+                />
               </View>
-              <Button
-                title="Pay Now"
-                size="sm"
-                onPress={() => due[0] && router.push(`/(app)/payments/pay/${due[0].id}` as never)}
+            ) : null
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <EmptyState
+                icon={<Text style={{ fontSize: 40 }}>🧾</Text>}
+                title="No invoices yet"
+                description="Your transport fee invoices will appear here"
               />
             </View>
-          )}
-
-          <FlatList
-            data={invoices}
-            keyExtractor={(i) => i.id}
-            contentContainerStyle={styles.list}
-            ListEmptyComponent={
-              <View style={{ alignItems: 'center', marginTop: 60 }}>
-                <Text style={{ color: colors.textSecondary }}>No invoices yet.</Text>
-              </View>
-            }
-            renderItem={({ item }) => (
-              <Card style={styles.card}>
+          }
+          renderItem={({ item }) => {
+            const paid = item.status === 'PAID';
+            return (
+              <Card shadow="sm">
                 <View style={styles.cardRow}>
-                  <View>
-                    <Text style={styles.month}>{(item as any).month ?? item.id.slice(-6)}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.month}>{(item as any).month ?? `Invoice ${item.id.slice(-6)}`}</Text>
                     <Text style={styles.invoiceNo}>{(item as any).invoiceNo ?? `INV-${item.id.slice(-6)}`}</Text>
                   </View>
-                  <View style={{ alignItems: 'flex-end', gap: spacing[2] }}>
-                    <Text style={styles.amount}>₹{((item.amountPaise ?? 0) / 100).toLocaleString('en-IN')}</Text>
-                    <Badge label={item.status} variant={STATUS_V[item.status] ?? 'default'} size="sm" />
+                  <View style={styles.amountCol}>
+                    <Text style={styles.amount}>{rupees(item.amountPaise)}</Text>
+                    <Badge label={item.status} variant={STATUS_VARIANT[item.status] ?? 'default'} size="sm" />
                   </View>
                 </View>
-                {item.status !== 'PAID' && (
+                {!paid && (
                   <Button
-                    title={`Pay ₹${((item.amountPaise ?? 0) / 100).toLocaleString('en-IN')}`}
+                    title={`Pay ${rupees(item.amountPaise)}`}
                     variant="outline"
                     size="sm"
+                    fullWidth
                     onPress={() => router.push(`/(app)/payments/pay/${item.id}` as never)}
                     style={{ marginTop: spacing[3] }}
                   />
                 )}
               </Card>
-            )}
-          />
-        </>
+            );
+          }}
+        />
       )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  header: { padding: spacing[5], backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border },
-  title: { fontSize: fontSizes.xl, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  subtitle: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  container: { flex: 1, backgroundColor: colors.backgroundMuted },
+  list: { padding: spacing[4], gap: spacing[3], flexGrow: 1 },
   dueBanner: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    margin: spacing[4], padding: spacing[4], borderRadius: radius.xl,
-    backgroundColor: colors.primary,
+    flexDirection: 'row', alignItems: 'center', gap: spacing[3],
+    padding: spacing[5], borderRadius: radius.xl, backgroundColor: colors.primary,
+    marginBottom: spacing[1], ...shadows.md,
   },
-  dueLabel: { fontSize: fontSizes.sm, color: 'rgba(255,255,255,0.7)' },
-  dueAmount: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.extrabold, color: colors.white },
-  list: { padding: spacing[4], gap: spacing[3] },
-  card: {},
-  cardRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  dueLabel: { fontSize: fontSizes.sm, color: 'rgba(255,255,255,0.75)' },
+  dueAmount: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.extrabold, color: colors.white, marginTop: 2, letterSpacing: letterSpacing.tight },
+  cardRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
   month: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   invoiceNo: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: 2 },
+  amountCol: { alignItems: 'flex-end', gap: spacing[2] },
   amount: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
+  emptyWrap: { flex: 1, minHeight: 360 },
 });

@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { colors } from '@saarthi/ui';
+import { colors, transitions } from '@saarthi/ui';
 
 export default function ProfileLayout() {
   return (
@@ -9,6 +9,7 @@ export default function ProfileLayout() {
         headerTintColor: colors.primary,
         headerTitleStyle: { fontWeight: '700' },
         headerShadowVisible: false,
+        ...transitions.slideFromRight,
       }}
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />

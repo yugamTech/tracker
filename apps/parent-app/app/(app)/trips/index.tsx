@@ -1,8 +1,11 @@
 import React from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, LoadingSpinner, EmptyState } from '@saarthi/ui';
+import {
+  colors, spacing, fontSizes, fontWeights, letterSpacing,
+  AppHeader, Card, Badge, Skeleton, EmptyState, AnimatedPressable,
+} from '@saarthi/ui';
 import { useTodayTrips } from '@saarthi/api-client';
 import type { BadgeVariant } from '@saarthi/ui';
 
@@ -17,60 +20,84 @@ function tripStatusVariant(status: string): BadgeVariant {
   }
 }
 
+function statusLabel(status: string): string {
+  switch (status) {
+    case 'IN_PROGRESS': return 'In progress';
+    case 'STARTED': return 'Started';
+    case 'SCHEDULED': return 'Scheduled';
+    case 'COMPLETED': return 'Completed';
+    case 'CANCELLED': return 'Cancelled';
+    case 'ABORTED': return 'Aborted';
+    default: return status;
+  }
+}
+
 export default function TripsScreen() {
   const { data: trips, isLoading, isError } = useTodayTrips();
+  const count = trips?.length ?? 0;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Today's Trips</Text>
-        {!isLoading && !isError && (
-          <Text style={styles.subtitle}>{trips?.length ?? 0} trips today</Text>
-        )}
-      </View>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <AppHeader title="Trips" subtitle={!isLoading && !isError ? `${count} today` : undefined} />
 
-      {isLoading && <LoadingSpinner fullScreen />}
-
-      {isError && (
+      {isLoading ? (
+        <View style={styles.list}>
+          {[0, 1, 2].map((i) => (
+            <Card key={i} shadow="sm">
+              <Skeleton width="55%" height={18} />
+              <Skeleton width="30%" height={13} style={{ marginTop: spacing[2] }} />
+            </Card>
+          ))}
+        </View>
+      ) : isError ? (
         <EmptyState title="Could not load trips" description="Check your connection and try again" />
-      )}
-
-      {!isLoading && !isError && (
+      ) : (
         <FlatList
           data={trips ?? []}
           keyExtractor={(t) => t.id}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <EmptyState title="No trips today" description="No trips are scheduled for today" />
+            <View style={styles.emptyWrap}>
+              <EmptyState
+                icon={<Text style={{ fontSize: 40 }}>🚌</Text>}
+                title="No trips today"
+                description="No trips are scheduled for today"
+              />
+            </View>
           }
-          renderItem={({ item }) => (
-            <TouchableOpacity onPress={() => router.push(`/(app)/trips/${item.id}` as never)} activeOpacity={0.85}>
-              <Card style={styles.card}>
-                <View style={styles.cardRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.route}>{(item as any)?.route?.name ?? item.routeId}</Text>
-                    <Text style={styles.direction}>{item.direction}</Text>
+          renderItem={({ item }) => {
+            const routeName = (item as any)?.route?.name ?? item.routeId;
+            const completed = item.status === 'COMPLETED';
+            return (
+              <AnimatedPressable
+                onPress={() => router.push(`/(app)/trips/${item.id}` as never)}
+                scaleTo={0.985}
+              >
+                <Card shadow="sm">
+                  <View style={styles.cardRow}>
+                    <View style={styles.cardInfo}>
+                      <Text style={styles.route} numberOfLines={1}>{routeName}</Text>
+                      <Text style={styles.direction}>
+                        {item.direction === 'PICKUP' ? 'Pickup' : 'Drop'}
+                      </Text>
+                    </View>
+                    <Badge label={statusLabel(item.status)} variant={tripStatusVariant(item.status)} size="sm" />
                   </View>
-                  <Badge
-                    label={item.status}
-                    variant={tripStatusVariant(item.status)}
-                    size="sm"
-                  />
-                  {item.status === 'COMPLETED' && (
-                    <TouchableOpacity
+
+                  {completed && (
+                    <AnimatedPressable
+                      onPress={() => router.push(`/(app)/ratings/ride?tripId=${item.id}` as never)}
+                      scaleTo={0.94}
                       style={styles.rateBtn}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        router.push(`/(app)/ratings/ride?tripId=${item.id}` as never);
-                      }}
                     >
-                      <Text style={styles.rateBtnText}>★ Rate</Text>
-                    </TouchableOpacity>
+                      <Text style={styles.rateBtnText}>★  Rate this ride</Text>
+                    </AnimatedPressable>
                   )}
-                </View>
-              </Card>
-            </TouchableOpacity>
-          )}
+                </Card>
+              </AnimatedPressable>
+            );
+          }}
         />
       )}
     </SafeAreaView>
@@ -78,15 +105,17 @@ export default function TripsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  header: { padding: spacing[5], backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border },
-  title: { fontSize: fontSizes.xl, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  subtitle: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: spacing[1] },
-  list: { padding: spacing[4], gap: spacing[3] },
-  card: {},
+  container: { flex: 1, backgroundColor: colors.backgroundMuted },
+  list: { padding: spacing[4], gap: spacing[3], flexGrow: 1 },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[3] },
-  route: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
+  cardInfo: { flex: 1 },
+  route: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
   direction: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
-  rateBtn: { paddingHorizontal: spacing[2], paddingVertical: spacing[1], borderRadius: radius.md, backgroundColor: '#FEF3C7' },
-  rateBtnText: { fontSize: fontSizes.xs, color: '#B45309', fontWeight: fontWeights.semibold },
+  rateBtn: {
+    alignSelf: 'flex-start', marginTop: spacing[3],
+    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
+    borderRadius: 9999, backgroundColor: colors.warningBg,
+  },
+  rateBtnText: { fontSize: fontSizes.xs, color: colors.warningDark, fontWeight: fontWeights.semibold },
+  emptyWrap: { flex: 1, minHeight: 360 },
 });

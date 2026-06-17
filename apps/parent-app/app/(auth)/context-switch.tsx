@@ -9,7 +9,7 @@ export default function ContextSwitchScreen() {
 
   const select = (m: typeof memberships[number]) => {
     setActiveMembership(m);
-    router.replace('/(app)/home');
+    router.replace('/(app)/child-select' as never);
   };
 
   return (

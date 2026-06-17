@@ -36,7 +36,7 @@ export default function OtpScreen() {
           role: activeMembership.role as any,
         }
       );
-      router.replace('/(app)/home');
+      router.replace('/(app)/child-select' as never);
     } catch (err: any) {
       if (err?.response?.status === 403) {
         Alert.alert(

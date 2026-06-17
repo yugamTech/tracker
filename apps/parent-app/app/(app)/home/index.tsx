@@ -1,137 +1,184 @@
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, StatusDot } from '@saarthi/ui';
+import {
+  colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
+  Card, Badge, Avatar, Skeleton, EmptyState, AnimatedPressable, Button, Divider,
+} from '@saarthi/ui';
 import { useAuthStore } from '../../../store/auth.store';
+import { useChildStore } from '../../../store/child.store';
 import { useMyStudents, useTodayTrips } from '@saarthi/api-client';
+
+const LIVE_STATUSES = ['STARTED', 'IN_PROGRESS', 'SCHEDULED'];
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
 
 export default function HomeScreen() {
   const person = useAuthStore((s) => s.person);
+  const activeChildId = useChildStore((s) => s.activeChildId);
+  const setActiveChild = useChildStore((s) => s.setActiveChild);
   const { data: students, isLoading, refetch, isRefetching } = useMyStudents();
   const { data: todayTrips } = useTodayTrips();
 
+  const multiple = (students?.length ?? 0) > 1;
+  const activeChild =
+    students?.find((s) => s.id === activeChildId) ??
+    (students?.length === 1 ? students[0] : undefined);
+
+  // Multi-child accounts with no (valid) selection bounce to the picker.
+  useEffect(() => {
+    if (isLoading || !students) return;
+    if (students.length > 1 && !students.some((s) => s.id === activeChildId)) {
+      router.replace('/(app)/child-select' as never);
+    } else if (students.length === 1 && activeChildId !== students[0].id) {
+      setActiveChild(students[0].id);
+    }
+  }, [isLoading, students, activeChildId, setActiveChild]);
+
+  const activeTrip =
+    activeChild &&
+    todayTrips?.find(
+      (t) => t.routeId === activeChild.routeId && LIVE_STATUSES.includes(t.status),
+    );
+
+  const onTrack = () => {
+    if (activeTrip) router.push(`/(app)/track/${activeTrip.id}` as never);
+    else router.push('/(app)/trips' as never);
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
         refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            tintColor={colors.primary}
-          />
+          <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
         }
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Good morning 👋</Text>
-            <Text style={styles.name}>{person?.name ?? 'Parent'}</Text>
+          <View style={styles.headerText}>
+            <Text style={styles.greeting}>{greeting()} 👋</Text>
+            <Text style={styles.name} numberOfLines={1}>{person?.name ?? 'Parent'}</Text>
           </View>
-          <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/(app)/notifications' as never)}>
-            <Text style={{ fontSize: 22 }}>🔔</Text>
-          </TouchableOpacity>
+          <AnimatedPressable
+            onPress={() => router.push('/(app)/notifications' as never)}
+            scaleTo={0.92}
+            style={styles.iconBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
+          >
+            <Text style={{ fontSize: 20 }}>🔔</Text>
+          </AnimatedPressable>
         </View>
 
-        {/* Loading */}
-        {isLoading && (
-          <View style={styles.loader}>
-            <ActivityIndicator color={colors.primary} />
-          </View>
+        {/* Switch-child pill (only when more than one) */}
+        {multiple && activeChild && (
+          <AnimatedPressable
+            onPress={() => router.push('/(app)/child-select' as never)}
+            scaleTo={0.98}
+            style={styles.switchPill}
+            accessibilityRole="button"
+            accessibilityLabel="Switch child"
+          >
+            <Avatar name={activeChild.name} size={24} />
+            <Text style={styles.switchName} numberOfLines={1}>{activeChild.name}</Text>
+            <Text style={styles.switchAction}>Switch ⇄</Text>
+          </AnimatedPressable>
         )}
 
-        {/* Children cards */}
-        {!isLoading && (
-          <>
-            <Text style={styles.sectionTitle}>Your Children</Text>
-
-            {students?.length === 0 && (
-              <View style={styles.emptyBox}>
-                <Text style={styles.emptyText}>No children linked to your account</Text>
+        {isLoading ? (
+          <Card style={styles.heroCard} shadow="sm">
+            <View style={styles.heroTop}>
+              <Skeleton width={48} height={48} circle />
+              <View style={{ flex: 1, gap: spacing[2] }}>
+                <Skeleton width="50%" height={18} />
+                <Skeleton width="35%" height={13} />
               </View>
-            )}
+            </View>
+            <Skeleton width="100%" height={1} style={{ marginVertical: spacing[4] }} />
+            <Skeleton width="100%" height={44} radius="lg" />
+          </Card>
+        ) : !students || students.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <EmptyState
+              icon={<Text style={{ fontSize: 40 }}>👶</Text>}
+              title="No children linked"
+              description="No students are linked to your account yet. Contact your school to get set up."
+            />
+          </View>
+        ) : activeChild ? (
+          <>
+            {/* Active child hero */}
+            <Text style={styles.sectionTitle}>TRACKING</Text>
+            <Card style={styles.heroCard} shadow="md">
+              <View style={styles.heroTop}>
+                <Avatar name={activeChild.name} size={48} />
+                <View style={styles.heroInfo}>
+                  <Text style={styles.heroName} numberOfLines={1}>{activeChild.name}</Text>
+                  {activeChild.regId ? <Text style={styles.heroSub}>{activeChild.regId}</Text> : null}
+                </View>
+                <Badge
+                  label={activeTrip ? 'Live ●' : 'No trip'}
+                  variant={activeTrip ? 'active' : 'inactive'}
+                  size="sm"
+                />
+              </View>
 
-            {students?.map((child) => {
-              const activeTrip = todayTrips?.find(
-                (t) =>
-                  t.routeId === child.routeId &&
-                  (t.status === 'STARTED' || t.status === 'IN_PROGRESS' || t.status === 'SCHEDULED'),
-              );
-              return (
-              <TouchableOpacity
-                key={child.id}
-                onPress={() => {
-                  if (activeTrip) {
-                    router.push(`/(app)/track/${activeTrip.id}` as never);
-                  } else {
-                    router.push('/(app)/trips' as never);
-                  }
-                }}
-                activeOpacity={0.85}
-              >
-                <Card style={styles.childCard}>
-                  <View style={styles.cardTop}>
-                    <View style={styles.childAvatar}>
-                      <Text style={styles.childInitial}>{child.name[0]}</Text>
-                    </View>
-                    <View style={styles.childInfo}>
-                      <Text style={styles.childName}>{child.name}</Text>
-                      {child.regId && <Text style={styles.childClass}>{child.regId}</Text>}
-                    </View>
-                    <Badge
-                      label={activeTrip ? 'Live ●' : 'No trip'}
-                      variant={activeTrip ? 'active' : 'inactive'}
-                      size="sm"
-                    />
+              <Divider spacingY={4} />
+
+              <View style={styles.rows}>
+                {activeChild.route?.name ? (
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabel}>🛣  Route</Text>
+                    <Text style={styles.rowValue} numberOfLines={1}>{activeChild.route.name}</Text>
                   </View>
-
-                  <View style={styles.divider} />
-
-                  <View style={styles.tripInfo}>
-                    {child.route && (
-                      <View style={styles.tripRow}>
-                        <Text style={styles.tripLabel}>🛣 Route</Text>
-                        <Text style={styles.tripValue}>{child.route.name}</Text>
-                      </View>
-                    )}
-                    {child.stop && (
-                      <View style={styles.tripRow}>
-                        <Text style={styles.tripLabel}>📍 Stop</Text>
-                        <Text style={styles.tripValue}>{child.stop.name}</Text>
-                      </View>
-                    )}
-                    {child.ageGroup && (
-                      <View style={styles.tripRow}>
-                        <Text style={styles.tripLabel}>🕐 Pickup</Text>
-                        <Text style={styles.tripValue}>{child.ageGroup.pickupTime}</Text>
-                      </View>
-                    )}
+                ) : null}
+                {activeChild.stop?.name ? (
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabel}>📍  Stop</Text>
+                    <Text style={styles.rowValue} numberOfLines={1}>{activeChild.stop.name}</Text>
                   </View>
-
-                  <View style={styles.trackBtn}>
-                    <Text style={styles.trackBtnText}>Track Live →</Text>
+                ) : null}
+                {activeChild.ageGroup?.pickupTime ? (
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabel}>🕐  Pickup</Text>
+                    <Text style={styles.rowValue}>{activeChild.ageGroup.pickupTime}</Text>
                   </View>
-                </Card>
-              </TouchableOpacity>
-              );
-            })}
+                ) : null}
+              </View>
+
+              <Button
+                title={activeTrip ? 'Track live →' : 'View trips'}
+                variant={activeTrip ? 'primary' : 'outline'}
+                size="lg"
+                fullWidth
+                onPress={onTrack}
+                style={{ marginTop: spacing[4] }}
+              />
+            </Card>
           </>
-        )}
+        ) : null}
 
         {/* Quick actions */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
         <View style={styles.quickActions}>
           {[
-            { icon: '📋', label: 'Past Trips', onPress: () => router.push('/(app)/trips' as never) },
+            { icon: '🚌', label: 'Trips', onPress: () => router.push('/(app)/trips' as never) },
             { icon: '💬', label: 'Raise Issue', onPress: () => router.push('/(app)/complaints/new' as never) },
             { icon: '💳', label: 'Pay Fees', onPress: () => router.push('/(app)/payments' as never) },
-            { icon: '📞', label: 'Contact', onPress: () => {} },
+            { icon: '👤', label: 'Profile', onPress: () => router.push('/(app)/profile' as never) },
           ].map((a) => (
-            <TouchableOpacity key={a.label} style={styles.quickAction} onPress={a.onPress}>
-              <Text style={{ fontSize: 28 }}>{a.icon}</Text>
+            <AnimatedPressable key={a.label} onPress={a.onPress} scaleTo={0.95} style={styles.quickAction}>
+              <Text style={{ fontSize: 26 }}>{a.icon}</Text>
               <Text style={styles.quickLabel}>{a.label}</Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           ))}
         </View>
       </ScrollView>
@@ -140,64 +187,47 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
+  container: { flex: 1, backgroundColor: colors.backgroundMuted },
+  scroll: { paddingBottom: spacing[8] },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing[5],
-    backgroundColor: colors.white,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: spacing[5], paddingVertical: spacing[4],
   },
+  headerText: { flex: 1, marginRight: spacing[3] },
   greeting: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  name: { fontSize: fontSizes.xl, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  notifBtn: { padding: spacing[2] },
-  loader: { padding: spacing[8], alignItems: 'center' },
+  name: { fontSize: fontSizes.xl, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
+  iconBtn: {
+    width: 40, height: 40, borderRadius: radius.full, backgroundColor: colors.white,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border,
+  },
+  switchPill: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing[2],
+    marginHorizontal: spacing[4], marginBottom: spacing[1],
+    paddingVertical: spacing[2], paddingHorizontal: spacing[3],
+    backgroundColor: colors.primaryBg, borderRadius: radius.full,
+  },
+  switchName: { flex: 1, fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.primaryDark },
+  switchAction: { fontSize: fontSizes.xs, fontWeight: fontWeights.bold, color: colors.primary, letterSpacing: letterSpacing.wide },
   sectionTitle: {
-    fontSize: fontSizes.base,
-    fontWeight: fontWeights.semibold,
-    color: colors.textPrimary,
-    marginHorizontal: spacing[5],
-    marginTop: spacing[5],
-    marginBottom: spacing[3],
+    fontSize: fontSizes.xs, fontWeight: fontWeights.semibold, color: colors.textMuted,
+    letterSpacing: letterSpacing.wider, marginHorizontal: spacing[5],
+    marginTop: spacing[5], marginBottom: spacing[3],
   },
-  emptyBox: { margin: spacing[5], padding: spacing[5], backgroundColor: colors.white, borderRadius: radius.xl, alignItems: 'center' },
-  emptyText: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  childCard: { marginHorizontal: spacing[4], marginBottom: spacing[3] },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  childAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  childInitial: { fontSize: fontSizes.lg, color: colors.white, fontWeight: fontWeights.bold },
-  childInfo: { flex: 1 },
-  childName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  childClass: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing[3] },
-  tripInfo: { gap: spacing[2] },
-  tripRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  tripLabel: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  tripValue: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textPrimary },
-  trackBtn: { alignItems: 'flex-end', marginTop: spacing[3] },
-  trackBtnText: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.semibold },
-  quickActions: {
-    flexDirection: 'row',
-    marginHorizontal: spacing[4],
-    gap: spacing[3],
-    marginBottom: spacing[8],
-  },
+  heroCard: { marginHorizontal: spacing[4] },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  heroInfo: { flex: 1 },
+  heroName: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
+  heroSub: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  rows: { gap: spacing[2] },
+  row: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
+  rowLabel: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  rowValue: { flex: 1, textAlign: 'right', fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textPrimary },
+  emptyWrap: { minHeight: 320 },
+  quickActions: { flexDirection: 'row', marginHorizontal: spacing[4], gap: spacing[3] },
   quickAction: {
-    flex: 1,
-    backgroundColor: colors.white,
-    borderRadius: radius.xl,
-    padding: spacing[4],
-    alignItems: 'center',
-    gap: spacing[2],
-    borderWidth: 1,
-    borderColor: colors.border,
+    flex: 1, backgroundColor: colors.white, borderRadius: radius.xl,
+    paddingVertical: spacing[4], paddingHorizontal: spacing[2], alignItems: 'center', gap: spacing[2],
+    borderWidth: 1, borderColor: colors.border,
   },
   quickLabel: { fontSize: fontSizes.xs, color: colors.textSecondary, fontWeight: fontWeights.medium, textAlign: 'center' },
 });

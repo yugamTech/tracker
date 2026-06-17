@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, StatusDot, Card, MockBusMap } from '@saarthi/ui';
+import {
+  colors, spacing, fontSizes, fontWeights, radius,
+  StatusDot, Card, MockBusMap, AppHeader, AnimatedPressable,
+} from '@saarthi/ui';
 import {
   useTripById,
   useLatestPosition,
@@ -68,17 +71,18 @@ export default function TrackScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Live Tracking</Text>
-        <View style={[styles.livePill, !live && styles.livePillIdle]}>
-          <StatusDot variant={live ? 'live' : 'idle'} size={8} />
-          <Text style={[styles.liveText, !live && styles.liveTextIdle]}>{live ? 'LIVE' : 'OFFLINE'}</Text>
-        </View>
-      </View>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <AppHeader
+        title="Live tracking"
+        subtitle={(trip as any)?.route?.name}
+        onBack={() => router.back()}
+        right={
+          <View style={[styles.livePill, !live && styles.livePillIdle]}>
+            <StatusDot variant={live ? 'live' : 'offline'} size={7} />
+            <Text style={[styles.liveText, !live && styles.liveTextIdle]}>{live ? 'LIVE' : 'OFFLINE'}</Text>
+          </View>
+        }
+      />
 
       <View style={styles.mapPlaceholder}>
         {isLoading && !latest ? (
@@ -131,22 +135,32 @@ export default function TrackScreen() {
                 <Text style={styles.driverPhone}>📞 {(trip as any).driver.phone}</Text>
               )}
             </View>
-            <TouchableOpacity
+            <AnimatedPressable
               style={styles.callBtn}
+              scaleTo={0.92}
               onPress={() => router.push(`/(app)/messages/driver?tripId=${tripId}` as never)}
+              accessibilityRole="button"
+              accessibilityLabel="Message driver"
             >
               <Text style={{ fontSize: 16 }}>💬</Text>
               <Text style={styles.callText}>Message</Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         </Card>
 
         {cancellable && (
-          <TouchableOpacity style={styles.cancelBtn} onPress={onCancelPickup} disabled={cancelPickup.isPending}>
+          <AnimatedPressable
+            style={[styles.cancelBtn, cancelPickup.isPending && styles.cancelBtnDisabled]}
+            scaleTo={0.98}
+            onPress={onCancelPickup}
+            disabled={cancelPickup.isPending}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel pickup for today"
+          >
             <Text style={styles.cancelText}>
-              {cancelPickup.isPending ? 'Cancelling…' : '✕ Cancel pickup for today'}
+              {cancelPickup.isPending ? 'Cancelling…' : '✕  Cancel pickup for today'}
             </Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         )}
       </View>
     </SafeAreaView>
@@ -154,24 +168,12 @@ export default function TrackScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing[4],
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backBtn: {},
-  backText: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.medium },
-  headerTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
+  container: { flex: 1, backgroundColor: colors.backgroundMuted },
   livePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[1],
-    backgroundColor: '#D1FAE5',
+    backgroundColor: colors.successBg,
     paddingHorizontal: spacing[2],
     paddingVertical: 4,
     borderRadius: radius.full,
@@ -227,6 +229,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.error,
+    backgroundColor: colors.background,
   },
+  cancelBtnDisabled: { opacity: 0.5 },
   cancelText: { fontSize: fontSizes.sm, color: colors.error, fontWeight: fontWeights.semibold },
 });
