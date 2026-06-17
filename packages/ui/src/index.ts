@@ -17,8 +17,20 @@ export { ScreenContainer } from './components/ScreenContainer';
 export { MockBusMap } from './components/MockBusMap';
 export type { MockBusMapStop } from './components/MockBusMap';
 
+// Primitives
+export { AnimatedPressable, Pressable } from './components/Pressable';
+export { AppHeader, HEADER_HEIGHT } from './components/AppHeader';
+export { ListItem } from './components/ListItem';
+export { SectionHeader } from './components/SectionHeader';
+export { Divider } from './components/Divider';
+export { Chip } from './components/Chip';
+export { SegmentedControl } from './components/SegmentedControl';
+export { Sheet } from './components/Sheet';
+export { Skeleton } from './components/Skeleton';
+
 // Theme
 export { colors } from './theme/colors';
 export type { ColorKey } from './theme/colors';
-export { fontFamilies, fontSizes, fontWeights, lineHeights } from './theme/typography';
+export { fontFamilies, fontSizes, fontWeights, lineHeights, letterSpacing } from './theme/typography';
 export { spacing, radius, shadows } from './theme/spacing';
+export { transitions, slideFromRight, fade, modalSlideUp, none } from './theme/transitions';

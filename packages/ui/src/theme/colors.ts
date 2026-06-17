@@ -1,70 +1,98 @@
+/**
+ * Yaanam color system.
+ *
+ * Calm, modern, trustworthy — a cool slate neutral ramp with a single indigo
+ * primary, a teal accent, and a full set of semantic colors. Every key that
+ * existed before is preserved (apps depend on them); values are refined and new
+ * tokens are added. Values are literal hex strings (no sibling references) so
+ * the object stays a flat, tree-shakeable const.
+ */
 export const colors = {
-  // Brand
+  // ── Brand ──────────────────────────────────────────────────────────────
   primary: '#4F46E5',      // Indigo 600
   primaryLight: '#818CF8', // Indigo 400
   primaryDark: '#3730A3',  // Indigo 800
+  primaryBg: '#EEF2FF',    // Indigo 50  — tinted surface for primary
 
-  secondary: '#0EA5E9',    // Sky 500
+  secondary: '#0284C7',    // Sky 600
   secondaryLight: '#38BDF8',
-  secondaryDark: '#0369A1',
+  secondaryDark: '#075985',
+  secondaryBg: '#E0F2FE',
 
-  accent: '#F59E0B',       // Amber 500
-  accentLight: '#FCD34D',
-  accentDark: '#B45309',
+  accent: '#0D9488',       // Teal 600 — calm, modern highlight
+  accentLight: '#5EEAD4',  // Teal 300
+  accentDark: '#0F766E',   // Teal 700
+  accentBg: '#CCFBF1',     // Teal 100
 
-  success: '#10B981',      // Emerald 500
+  // ── Semantic ───────────────────────────────────────────────────────────
+  success: '#059669',      // Emerald 600
   successLight: '#6EE7B7',
+  successDark: '#047857',
   successBg: '#D1FAE5',
 
-  warning: '#F59E0B',
+  warning: '#D97706',      // Amber 600
   warningLight: '#FDE68A',
+  warningDark: '#B45309',
   warningBg: '#FEF3C7',
 
-  error: '#EF4444',        // Red 500
+  error: '#DC2626',        // Red 600
   errorLight: '#FCA5A5',
+  errorDark: '#B91C1C',
   errorBg: '#FEE2E2',
 
-  info: '#3B82F6',         // Blue 500
+  info: '#2563EB',         // Blue 600
+  infoLight: '#93C5FD',
+  infoDark: '#1D4ED8',
   infoBg: '#DBEAFE',
 
-  // Neutral
+  // ── Neutral ramp (cool slate) ────────────────────────────────────────────
   white: '#FFFFFF',
   black: '#000000',
 
-  gray50: '#F9FAFB',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#9CA3AF',
-  gray500: '#6B7280',
-  gray600: '#4B5563',
-  gray700: '#374151',
-  gray800: '#1F2937',
-  gray900: '#111827',
+  gray50: '#F8FAFC',
+  gray100: '#F1F5F9',
+  gray200: '#E2E8F0',
+  gray300: '#CBD5E1',
+  gray400: '#94A3B8',
+  gray500: '#64748B',
+  gray600: '#475569',
+  gray700: '#334155',
+  gray800: '#1E293B',
+  gray900: '#0F172A',
 
-  // Dark mode surfaces
-  surface: '#1E1E2E',
-  surfaceCard: '#2A2A3E',
-  surfaceMuted: '#16162A',
+  // ── Light-mode surfaces ──────────────────────────────────────────────────
+  background: '#FFFFFF',
+  backgroundMuted: '#F8FAFC',  // app canvas behind cards
+  backgroundElevated: '#FFFFFF',
 
-  // Semantic
-  textPrimary: '#111827',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
+  // ── Dark-mode surfaces ───────────────────────────────────────────────────
+  surface: '#0F172A',
+  surfaceCard: '#1E293B',
+  surfaceMuted: '#020617',
+
+  // ── Text ───────────────────────────────────────────────────────────────
+  textPrimary: '#0F172A',
+  textSecondary: '#475569',
+  textMuted: '#94A3B8',
+  textDisabled: '#CBD5E1',
+  textLink: '#4F46E5',
   textInverse: '#FFFFFF',
 
-  border: '#E5E7EB',
+  // ── Borders ──────────────────────────────────────────────────────────────
+  border: '#E2E8F0',
+  borderSubtle: '#F1F5F9',
+  borderStrong: '#CBD5E1',
   borderFocus: '#4F46E5',
 
-  // Status chips
-  statusBoarded: '#10B981',
-  statusNotBoarded: '#EF4444',
-  statusExpected: '#F59E0B',
-  statusCancelled: '#6B7280',
+  // ── Status chips ───────────────────────────────────────────────────────
+  statusBoarded: '#059669',
+  statusNotBoarded: '#DC2626',
+  statusExpected: '#D97706',
+  statusCancelled: '#64748B',
 
-  // Transparent
-  overlay: 'rgba(0, 0, 0, 0.5)',
-  overlayLight: 'rgba(0, 0, 0, 0.2)',
+  // ── Transparent overlays ──────────────────────────────────────────────────
+  overlay: 'rgba(15, 23, 42, 0.55)',
+  overlayLight: 'rgba(15, 23, 42, 0.2)',
 } as const;
 
 export type ColorKey = keyof typeof colors;

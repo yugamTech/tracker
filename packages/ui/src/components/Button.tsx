@@ -9,8 +9,8 @@ import {
   type TextStyle,
 } from 'react-native';
 import { colors } from '../theme/colors';
-import { fontSizes, fontWeights } from '../theme/typography';
-import { radius, spacing } from '../theme/spacing';
+import { fontSizes, fontWeights, letterSpacing } from '../theme/typography';
+import { radius, spacing, shadows } from '../theme/spacing';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
@@ -92,18 +92,22 @@ const styles = StyleSheet.create({
   size_lg: { paddingVertical: spacing[4], paddingHorizontal: spacing[6] },
 
   // Variants
-  variant_primary: { backgroundColor: colors.primary },
-  variant_secondary: { backgroundColor: colors.secondary },
+  variant_primary: { backgroundColor: colors.primary, ...shadows.xs },
+  variant_secondary: { backgroundColor: colors.secondary, ...shadows.xs },
   variant_outline: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.background,
     borderWidth: 1.5,
     borderColor: colors.primary,
   },
   variant_ghost: { backgroundColor: 'transparent' },
-  variant_danger: { backgroundColor: colors.error },
+  variant_danger: { backgroundColor: colors.error, ...shadows.xs },
 
   // Text base
-  text: { fontWeight: fontWeights.semibold, textAlign: 'center' },
+  text: {
+    fontWeight: fontWeights.semibold,
+    textAlign: 'center',
+    letterSpacing: letterSpacing.tight,
+  },
 
   // Text sizes
   text_sm: { fontSize: fontSizes.sm },
