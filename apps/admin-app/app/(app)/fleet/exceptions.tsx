@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, fontSizes, fontWeights, radius, LoadingSpinner, EmptyState } from '@saarthi/ui';
+import { View, Text, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
+import {
+  colors, spacing, radius, fontSizes, fontWeights,
+  Card, Chip, Skeleton, EmptyState,
+} from '@saarthi/ui';
 import { useFleet } from '@saarthi/api-client';
 import type { FleetEntry } from '@saarthi/api-client';
+import { AdminScreen } from '../../../components/AdminScreen';
+import { GridList } from '../../../components/widgets';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 type FilterKey = 'All' | 'Signal';
 const FILTERS: FilterKey[] = ['All', 'Signal'];
-
 type Severity = 'high' | 'medium';
 
 interface ExceptionItem {
@@ -19,14 +24,13 @@ interface ExceptionItem {
   severity: Severity;
 }
 
-const SEVERITY_COLORS: Record<Severity, string> = {
-  high: '#EF4444',
-  medium: '#F59E0B',
+const SEVERITY: Record<Severity, { color: string; bg: string }> = {
+  high: { color: colors.error, bg: colors.errorBg },
+  medium: { color: colors.warning, bg: colors.warningBg },
 };
 
 function fleetToExceptions(fleet: FleetEntry[]): ExceptionItem[] {
   const items: ExceptionItem[] = [];
-
   for (const f of fleet) {
     if (f.status === 'SIGNAL_LOST') {
       items.push({
@@ -38,7 +42,6 @@ function fleetToExceptions(fleet: FleetEntry[]): ExceptionItem[] {
         severity: 'high',
       });
     }
-
     const riders: any[] = (f as any)?.riders ?? [];
     for (const r of riders) {
       if (r.boardStatus === 'NOT_BOARDED') {
@@ -53,105 +56,97 @@ function fleetToExceptions(fleet: FleetEntry[]): ExceptionItem[] {
       }
     }
   }
-
   return items;
 }
 
 export default function ExceptionsFeedScreen() {
   const [filter, setFilter] = useState<FilterKey>('All');
   const { data: fleet, isLoading, isError } = useFleet();
+  const { gridColumns } = useResponsive();
 
-  const allExceptions = fleetToExceptions(fleet ?? []);
-  const filtered = allExceptions.filter((e) => {
-    if (filter === 'Signal') return e.icon === '📡';
-    return true;
-  });
+  const all = fleetToExceptions(fleet ?? []);
+  const filtered = all.filter((e) => (filter === 'Signal' ? e.icon === '📡' : true));
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Filter pills */}
-      <View style={styles.filterRow}>
-        {FILTERS.map((f) => (
-          <TouchableOpacity
-            key={f}
-            onPress={() => setFilter(f)}
-            style={[styles.filterPill, filter === f && styles.filterPillActive]}
-          >
-            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+    <AdminScreen
+      title="Fleet Exceptions"
+      subtitle={isLoading || isError ? undefined : `${all.length} active`}
+      onBack={() => (router.canGoBack() ? router.back() : router.navigate('/(app)/fleet' as never))}
+    >
+      <View style={styles.root}>
+        <View style={styles.filterRow}>
+          {FILTERS.map((f) => (
+            <Chip key={f} label={f} selected={filter === f} onPress={() => setFilter(f)} />
+          ))}
+        </View>
 
-      {isLoading && <LoadingSpinner fullScreen />}
-
-      {isError && (
-        <EmptyState title="Could not load exceptions" description="Check your connection and try again" />
-      )}
-
-      {!isLoading && !isError && (
-        <FlatList
-          data={filtered}
-          keyExtractor={(e) => e.key}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <View style={[styles.card, { borderLeftColor: SEVERITY_COLORS[item.severity] }]}>
-              <View style={styles.cardRow}>
-                <Text style={styles.icon}>{item.icon}</Text>
-                <View style={styles.cardBody}>
-                  <View style={styles.cardTop}>
-                    <Text style={styles.cardTitle}>{item.title}</Text>
-                  </View>
-                  <Text style={styles.detail}>{item.detail}</Text>
-                  <View style={styles.cardBottom}>
-                    <Text style={styles.route}>{item.route}</Text>
-                    <Text style={[styles.severityTag, { color: SEVERITY_COLORS[item.severity] }]}>
-                      {item.severity.toUpperCase()}
-                    </Text>
-                  </View>
-                </View>
+        {isError ? (
+          <EmptyState title="Could not load exceptions" description="Check your connection and try again." />
+        ) : isLoading ? (
+          <View style={styles.skeletonWrap}>
+            {[0, 1, 2].map((i) => (
+              <Card key={i} shadow="sm" style={styles.skeletonCard}>
+                <Skeleton width="60%" height={15} />
+                <Skeleton width="40%" height={12} style={{ marginTop: 8 }} />
+              </Card>
+            ))}
+          </View>
+        ) : (
+          <GridList
+            data={filtered}
+            columns={gridColumns}
+            keyExtractor={(e) => e.key}
+            ListEmptyComponent={
+              <View style={styles.emptyWrap}>
+                <EmptyState
+                  icon={<Text style={{ fontSize: 44 }}>✅</Text>}
+                  title={fleet && fleet.length > 0 ? 'No exceptions right now' : 'No active trips'}
+                  description="Signal loss and missed boardings will surface here in real time."
+                />
               </View>
-            </View>
-          )}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={{ fontSize: 48 }}>✅</Text>
-              <Text style={styles.emptyText}>
-                {fleet && fleet.length > 0 ? 'No exceptions right now' : 'No active trips'}
-              </Text>
-            </View>
-          }
-        />
-      )}
-    </SafeAreaView>
+            }
+            renderItem={(item) => {
+              const sev = SEVERITY[item.severity];
+              return (
+                <Card shadow="sm" style={[styles.card, { borderLeftColor: sev.color }]}>
+                  <View style={styles.cardRow}>
+                    <View style={[styles.iconChip, { backgroundColor: sev.bg }]}>
+                      <Text style={styles.iconGlyph}>{item.icon}</Text>
+                    </View>
+                    <View style={styles.body}>
+                      <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+                      <Text style={styles.detail} numberOfLines={1}>{item.detail}</Text>
+                      <View style={styles.cardBottom}>
+                        <Text style={styles.route} numberOfLines={1}>{item.route}</Text>
+                        <Text style={[styles.severityTag, { color: sev.color }]}>{item.severity.toUpperCase()}</Text>
+                      </View>
+                    </View>
+                  </View>
+                </Card>
+              );
+            }}
+          />
+        )}
+      </View>
+    </AdminScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  filterRow: { flexDirection: 'row', padding: spacing[4], gap: spacing[2] },
-  filterPill: {
-    paddingHorizontal: spacing[3], paddingVertical: spacing[1],
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.white,
-  },
-  filterPillActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
-  filterText: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  filterTextActive: { color: colors.white, fontWeight: fontWeights.semibold },
-  list: { paddingHorizontal: spacing[4], gap: spacing[3], paddingBottom: spacing[8] },
-  card: {
-    backgroundColor: colors.white, borderRadius: radius.lg,
-    padding: spacing[4], borderLeftWidth: 4,
-    borderWidth: 1, borderColor: colors.border,
-  },
-  cardRow: { flexDirection: 'row', gap: spacing[3] },
-  icon: { fontSize: 28 },
-  cardBody: { flex: 1, gap: spacing[1] },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between' },
-  cardTitle: { flex: 1, fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.textPrimary },
+  root: { flex: 1 },
+  filterRow: { flexDirection: 'row', gap: spacing[2], paddingHorizontal: spacing[4], paddingTop: spacing[4] },
+  skeletonWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4], padding: spacing[4] },
+  skeletonCard: { width: 320, flexGrow: 1 },
+  emptyWrap: { flex: 1, minHeight: 320 },
+
+  card: { borderLeftWidth: 4 },
+  cardRow: { flexDirection: 'row', gap: spacing[3], alignItems: 'center' },
+  iconChip: { width: 40, height: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  iconGlyph: { fontSize: 20 },
+  body: { flex: 1, gap: 2 },
+  cardTitle: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   detail: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  cardBottom: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing[1] },
-  route: { fontSize: fontSizes.xs, color: colors.textMuted },
+  cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing[1] },
+  route: { flex: 1, fontSize: fontSizes.xs, color: colors.textMuted },
   severityTag: { fontSize: fontSizes.xs, fontWeight: fontWeights.bold },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing[8], gap: spacing[3] },
-  emptyText: { fontSize: fontSizes.base, color: colors.textSecondary },
 });

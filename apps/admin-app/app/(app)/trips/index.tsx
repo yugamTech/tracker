@@ -1,155 +1,143 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, LoadingSpinner, EmptyState } from '@saarthi/ui';
+import {
+  colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
+  Card, Badge, Skeleton, EmptyState, AnimatedPressable,
+} from '@saarthi/ui';
+import type { BadgeVariant } from '@saarthi/ui';
 import { useTodayTrips } from '@saarthi/api-client';
+import { AdminScreen, HeaderAction } from '../../../components/AdminScreen';
+import { SubNav } from '../../../components/SubNav';
+import { SearchField } from '../../../components/SearchField';
+import { GridList } from '../../../components/widgets';
+import { useResponsive } from '../../../hooks/useResponsive';
+import { SUBNAV } from '../../../lib/nav';
 
-const STATUS_COLORS: Record<string, string> = {
-  COMPLETED: colors.success,
-  ABORTED: colors.error,
-  IN_PROGRESS: '#0EA5E9',
-  STARTED: '#0EA5E9',
-  SCHEDULED: colors.gray400,
-  CANCELLED: colors.gray400,
-};
+function tripStatus(status: string): { label: string; variant: BadgeVariant } {
+  switch (status) {
+    case 'COMPLETED': return { label: 'Completed', variant: 'success' };
+    case 'ABORTED': return { label: 'Aborted', variant: 'error' };
+    case 'IN_PROGRESS': case 'STARTED': return { label: 'In progress', variant: 'info' };
+    case 'CANCELLED': return { label: 'Cancelled', variant: 'cancelled' };
+    default: return { label: 'Scheduled', variant: 'warning' };
+  }
+}
 
 export default function TripHistoryScreen() {
   const [search, setSearch] = useState('');
   const { data: trips, isLoading, isError } = useTodayTrips();
+  const { gridColumns } = useResponsive();
 
   const filtered = (trips ?? []).filter((t) => {
     if (!search) return true;
+    const q = search.toLowerCase();
     const routeName: string = (t as any)?.route?.name ?? t.routeId;
     const vehicleReg: string = (t as any)?.vehicle?.regNumber ?? t.vehicleId ?? '';
     const driverName: string = (t as any)?.driver?.name ?? '';
     return (
-      routeName.toLowerCase().includes(search.toLowerCase()) ||
-      vehicleReg.toLowerCase().includes(search.toLowerCase()) ||
-      driverName.toLowerCase().includes(search.toLowerCase())
+      routeName.toLowerCase().includes(q) ||
+      vehicleReg.toLowerCase().includes(q) ||
+      driverName.toLowerCase().includes(q)
     );
   });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.searchRow}>
-        <TextInput
-          style={styles.search}
-          placeholder="Search route, driver, bus…"
-          placeholderTextColor={colors.textMuted}
-          value={search}
-          onChangeText={setSearch}
-        />
-        <TouchableOpacity
-          style={styles.alarmBtn}
-          onPress={() => router.push('/(app)/trips/exceptions' as never)}
-        >
-          <Text style={styles.alarmBtnText}>🚨 Alarms</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => router.push('/(app)/trips/new' as never)}
-        >
-          <Text style={styles.addBtnText}>+ Schedule</Text>
-        </TouchableOpacity>
-      </View>
+    <AdminScreen
+      title="Trips"
+      subtitle={!isLoading && !isError ? `${filtered.length} today` : undefined}
+      subnav={<SubNav segments={SUBNAV.trips} value="trips" />}
+      headerRight={<HeaderAction label="+ Schedule" onPress={() => router.push('/(app)/trips/new' as never)} />}
+    >
+      <View style={styles.root}>
+        <View style={styles.searchRow}>
+          <SearchField value={search} onChangeText={setSearch} placeholder="Search route, driver, or bus…" />
+        </View>
 
-      {isLoading && <LoadingSpinner fullScreen />}
-
-      {isError && (
-        <EmptyState title="Could not load trips" description="Check your connection and try again" />
-      )}
-
-      {!isLoading && !isError && (
-        <FlatList
-          data={filtered}
-          keyExtractor={(t) => t.id}
-          contentContainerStyle={styles.list}
-          ListHeaderComponent={
-            <Text style={styles.header}>Today — {filtered.length} trip{filtered.length !== 1 ? 's' : ''}</Text>
-          }
-          ListEmptyComponent={
-            <EmptyState
-              title={search ? 'No trips match' : 'No trips today'}
-              description={search ? 'Try a different search' : 'No trips are scheduled for today'}
-            />
-          }
-          renderItem={({ item }) => {
-            const t = item as any;
-            const routeName: string = t?.route?.name ?? item.routeId;
-            const vehicleReg: string = t?.vehicle?.regNumber ?? item.vehicleId ?? '—';
-            const driverName: string = t?.driver?.name ?? '—';
-            const boarded: number = t?.boardedCount ?? 0;
-            const total: number = t?.riderCount ?? 0;
-
-            return (
-              <TouchableOpacity
-                onPress={() => router.push(`/(app)/fleet/${item.id}` as never)}
-                activeOpacity={0.85}
-              >
-                <Card style={styles.card}>
-                  <View style={styles.cardTop}>
-                    <View style={styles.leftCol}>
-                      <Text style={styles.route}>{routeName} · {item.direction}</Text>
-                      <Text style={styles.driver}>{driverName}</Text>
-                      <Text style={styles.bus}>{vehicleReg}</Text>
+        {isError ? (
+          <EmptyState title="Could not load trips" description="Check your connection and try again." />
+        ) : isLoading ? (
+          <View style={styles.skeletonWrap}>
+            {[0, 1, 2, 3].map((i) => (
+              <Card key={i} shadow="sm" style={styles.skeletonCard}>
+                <Skeleton width="60%" height={17} />
+                <Skeleton width="40%" height={13} style={{ marginTop: 10 }} />
+                <Skeleton width="30%" height={13} style={{ marginTop: 8 }} />
+              </Card>
+            ))}
+          </View>
+        ) : (
+          <GridList
+            data={filtered}
+            columns={gridColumns}
+            keyExtractor={(t) => t.id}
+            ListEmptyComponent={
+              <View style={styles.emptyWrap}>
+                <EmptyState
+                  icon={<Text style={{ fontSize: 40 }}>🗓️</Text>}
+                  title={search ? 'No trips match' : 'No trips today'}
+                  description={search ? 'Try a different search term.' : 'No trips are scheduled for today.'}
+                />
+              </View>
+            }
+            renderItem={(item) => {
+              const t = item as any;
+              const routeName: string = t?.route?.name ?? item.routeId;
+              const vehicleReg: string = t?.vehicle?.regNumber ?? item.vehicleId ?? '—';
+              const driverName: string = t?.driver?.name ?? '—';
+              const boarded: number = t?.boardedCount ?? 0;
+              const total: number = t?.riderCount ?? 0;
+              const s = tripStatus(item.status);
+              return (
+                <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/fleet/${item.id}` as never)}>
+                  <Card shadow="sm" style={styles.card}>
+                    <View style={styles.cardTop}>
+                      <Text style={styles.route} numberOfLines={1}>{routeName}</Text>
+                      <Badge label={s.label} variant={s.variant} size="sm" />
                     </View>
-                    <View style={styles.rightCol}>
-                      <Text style={[styles.status, { color: STATUS_COLORS[item.status] ?? colors.gray400 }]}>
-                        {item.status}
-                      </Text>
-                      {total > 0 && (
-                        <>
+                    <Text style={styles.direction}>{item.direction === 'PICKUP' ? 'Pickup' : 'Drop'}</Text>
+                    <View style={styles.metaRow}>
+                      <View style={styles.metaItem}>
+                        <Text style={styles.metaLabel}>Driver</Text>
+                        <Text style={styles.metaValue} numberOfLines={1}>{driverName}</Text>
+                      </View>
+                      <View style={styles.metaItem}>
+                        <Text style={styles.metaLabel}>Bus</Text>
+                        <Text style={styles.metaValue} numberOfLines={1}>{vehicleReg}</Text>
+                      </View>
+                      {total > 0 ? (
+                        <View style={styles.metaItemRight}>
+                          <Text style={styles.metaLabel}>Boarded</Text>
                           <Text style={styles.boarding}>{boarded}/{total}</Text>
-                          <Text style={styles.boardingLabel}>boarded</Text>
-                        </>
-                      )}
+                        </View>
+                      ) : null}
                     </View>
-                  </View>
-                </Card>
-              </TouchableOpacity>
-            );
-          }}
-        />
-      )}
-    </SafeAreaView>
+                  </Card>
+                </AnimatedPressable>
+              );
+            }}
+          />
+        )}
+      </View>
+    </AdminScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  searchRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing[2],
-    padding: spacing[4], backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  search: {
-    flex: 1,
-    backgroundColor: colors.gray50, borderRadius: radius.lg, borderWidth: 1,
-    borderColor: colors.border, padding: spacing[3], fontSize: fontSizes.base, color: colors.textPrimary,
-  },
-  addBtn: {
-    backgroundColor: '#7C3AED', borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-  },
-  addBtnText: { color: colors.white, fontWeight: fontWeights.semibold, fontSize: fontSizes.sm },
-  alarmBtn: {
-    backgroundColor: '#FEF2F2', borderRadius: radius.lg, borderWidth: 1, borderColor: '#FECACA',
-    paddingHorizontal: spacing[3], paddingVertical: spacing[3],
-  },
-  alarmBtnText: { color: '#DC2626', fontWeight: fontWeights.semibold, fontSize: fontSizes.sm },
-  header: {
-    fontSize: fontSizes.sm, fontWeight: fontWeights.semibold,
-    color: colors.textSecondary, marginBottom: spacing[2],
-  },
-  list: { padding: spacing[4], gap: spacing[3] },
-  card: {},
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between' },
-  leftCol: { flex: 1, gap: spacing[1] },
-  route: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  driver: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  bus: { fontSize: fontSizes.xs, color: colors.textMuted },
-  rightCol: { alignItems: 'flex-end', gap: spacing[1] },
-  status: { fontSize: fontSizes.xs, fontWeight: fontWeights.bold },
-  boarding: { fontSize: fontSizes.xl, fontWeight: fontWeights.extrabold, color: colors.textPrimary },
-  boardingLabel: { fontSize: fontSizes.xs, color: colors.textSecondary },
+  root: { flex: 1 },
+  searchRow: { paddingHorizontal: spacing[4], paddingTop: spacing[4] },
+  skeletonWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4], padding: spacing[4] },
+  skeletonCard: { width: 300, flexGrow: 1 },
+  emptyWrap: { flex: 1, minHeight: 320 },
+
+  card: { gap: spacing[1] },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] },
+  route: { flex: 1, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
+  direction: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  metaRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[4], marginTop: spacing[3], paddingTop: spacing[3], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderSubtle },
+  metaItem: { gap: 2 },
+  metaItemRight: { gap: 2, marginLeft: 'auto', alignItems: 'flex-end' },
+  metaLabel: { fontSize: fontSizes.xs, color: colors.textMuted, letterSpacing: letterSpacing.wide },
+  metaValue: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textPrimary },
+  boarding: { fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.textPrimary },
 });

@@ -1,17 +1,21 @@
 import React, { useEffect } from 'react';
 import { Drawer } from 'expo-router/drawer';
-import { Platform, Text } from 'react-native';
-import { colors, fontSizes, fontWeights } from '@saarthi/ui';
+import { Platform, StyleSheet } from 'react-native';
+import { colors } from '@saarthi/ui';
 import { useRegisterDeviceToken } from '@saarthi/api-client';
 import { useAuthStore } from '../../store/auth.store';
+import { useResponsive } from '../../hooks/useResponsive';
+import { Sidebar } from '../../components/Sidebar';
+import { NavHeader } from '../../components/NavHeader';
 
-const HIDDEN: React.ComponentProps<typeof Drawer.Screen>['options'] = {
-  drawerItemStyle: { display: 'none' },
-};
+/** Primary section screens render their own AppHeader (via AdminScreen), so the
+ *  navigator header is suppressed for them. Everything else gets NavHeader. */
+const SECTION = { headerShown: false } as const;
 
 export default function AppLayout() {
   const person = useAuthStore((s) => s.person);
   const { mutate: registerToken } = useRegisterDeviceToken();
+  const { isDesktop } = useResponsive();
 
   useEffect(() => {
     if (person?.id) {
@@ -22,47 +26,57 @@ export default function AppLayout() {
 
   return (
     <Drawer
+      drawerContent={(props) => <Sidebar {...props} />}
       screenOptions={{
-        headerShown: true,
-        headerStyle: { backgroundColor: colors.white },
-        headerTintColor: '#7C3AED',
-        headerTitleStyle: { fontWeight: fontWeights.bold as never, fontSize: fontSizes.lg },
-        drawerActiveTintColor: '#7C3AED',
-        drawerInactiveTintColor: colors.gray500,
-        drawerLabelStyle: { fontSize: fontSizes.base, fontWeight: fontWeights.medium as never },
+        header: (props) => <NavHeader {...props} />,
+        // Always-on rail on wide screens; collapsible overlay on phones.
+        drawerType: isDesktop ? 'permanent' : 'front',
+        drawerStyle: {
+          width: isDesktop ? 280 : 300,
+          backgroundColor: colors.background,
+          borderRightColor: colors.border,
+          borderRightWidth: StyleSheet.hairlineWidth,
+        },
+        sceneStyle: { backgroundColor: colors.backgroundMuted },
+        overlayColor: colors.overlay,
+        swipeEdgeWidth: 64,
       }}
     >
-      {/* ── Visible drawer items ── */}
-      <Drawer.Screen name="dashboard/index" options={{ title: 'Dashboard', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>📊</Text> }} />
-      <Drawer.Screen name="dashboard/trends" options={{ title: 'Trends', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>📈</Text> }} />
-      <Drawer.Screen name="fleet/index" options={{ title: 'Live Fleet', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>🚌</Text> }} />
-      <Drawer.Screen name="fleet/exceptions" options={{ title: 'Exceptions', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>⚠️</Text> }} />
-      <Drawer.Screen name="trips/index" options={{ title: 'Trip History', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>🗓️</Text> }} />
-      <Drawer.Screen name="people/index" options={{ title: 'People', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>👥</Text> }} />
-      <Drawer.Screen name="routes/index" options={{ title: 'Routes', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>🗺️</Text> }} />
-      <Drawer.Screen name="complaints/index" options={{ title: 'Complaints', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>💬</Text> }} />
-      <Drawer.Screen name="complaints/kpi" options={{ title: 'Complaint KPIs', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>📉</Text> }} />
-      <Drawer.Screen name="payments/index" options={{ title: 'Payments', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>💳</Text> }} />
-      <Drawer.Screen name="payments/reconciliation" options={{ title: 'Reconciliation', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>🔄</Text> }} />
-      <Drawer.Screen name="settings/index" options={{ title: 'Settings', drawerIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>⚙️</Text> }} />
+      {/* ── Primary destinations (8) ── */}
+      <Drawer.Screen name="dashboard/index" options={{ title: 'Dashboard', ...SECTION }} />
+      <Drawer.Screen name="fleet/index" options={{ title: 'Live Fleet', ...SECTION }} />
+      <Drawer.Screen name="trips/index" options={{ title: 'Trips', ...SECTION }} />
+      <Drawer.Screen name="people/index" options={{ title: 'People', ...SECTION }} />
+      <Drawer.Screen name="routes/index" options={{ title: 'Routes', ...SECTION }} />
+      <Drawer.Screen name="complaints/index" options={{ title: 'Complaints', ...SECTION }} />
+      <Drawer.Screen name="payments/index" options={{ title: 'Payments', ...SECTION }} />
+      <Drawer.Screen name="settings/index" options={{ title: 'Settings', ...SECTION }} />
 
-      {/* ── Hidden detail / CRUD screens ── */}
-      <Drawer.Screen name="fleet/[tripId]" options={{ ...HIDDEN, title: 'Trip Monitor' }} />
-      <Drawer.Screen name="trips/new" options={{ ...HIDDEN, title: 'Schedule Trip' }} />
-      <Drawer.Screen name="people/students/index" options={HIDDEN} />
-      <Drawer.Screen name="people/students/[id]" options={{ ...HIDDEN, title: 'Student Detail' }} />
-      <Drawer.Screen name="people/students/new" options={{ ...HIDDEN, title: 'Add Student' }} />
-      <Drawer.Screen name="people/staff/index" options={{ ...HIDDEN, title: 'Staff' }} />
-      <Drawer.Screen name="people/staff/new" options={{ ...HIDDEN, title: 'Add Staff' }} />
-      <Drawer.Screen name="people/staff/[id]" options={{ ...HIDDEN, title: 'Staff Detail' }} />
-      <Drawer.Screen name="people/import/index" options={{ ...HIDDEN, title: 'Import Data' }} />
-      <Drawer.Screen name="people/import/preview" options={{ ...HIDDEN, title: 'Import Preview' }} />
-      <Drawer.Screen name="people/import/result" options={{ ...HIDDEN, title: 'Import Result' }} />
-      <Drawer.Screen name="routes/[routeId]" options={{ ...HIDDEN, title: 'Route Detail' }} />
-      <Drawer.Screen name="routes/vehicle/[vehicleId]" options={{ ...HIDDEN, title: 'Vehicle Detail' }} />
-      <Drawer.Screen name="complaints/[id]" options={{ ...HIDDEN, title: 'Complaint Detail' }} />
-      <Drawer.Screen name="payments/fee-plans" options={{ ...HIDDEN, title: 'Fee Plans' }} />
-      <Drawer.Screen name="settings/notifications" options={{ ...HIDDEN, title: 'Notification Audit' }} />
+      {/* ── Secondary section screens (reached via SubNav, kept as hidden routes) ── */}
+      <Drawer.Screen name="dashboard/trends" options={{ title: 'Trends', ...SECTION }} />
+      <Drawer.Screen name="trips/exceptions" options={{ title: 'Exceptions', ...SECTION }} />
+      <Drawer.Screen name="complaints/kpi" options={{ title: 'Complaint KPIs', ...SECTION }} />
+      <Drawer.Screen name="payments/reconciliation" options={{ title: 'Reconciliation', ...SECTION }} />
+      <Drawer.Screen name="payments/fee-plans" options={{ title: 'Fee Plans', ...SECTION }} />
+
+      {/* ── Detail / CRUD screens (pushed; NavHeader supplies a back affordance) ── */}
+      <Drawer.Screen name="fleet/[tripId]" options={{ title: 'Trip Monitor' }} />
+      {/* Reached from Live Fleet / Dashboard; renders its own AppHeader with a back affordance. */}
+      <Drawer.Screen name="fleet/exceptions" options={{ title: 'Fleet Exceptions', ...SECTION }} />
+      <Drawer.Screen name="trips/new" options={{ title: 'Schedule Trip' }} />
+      <Drawer.Screen name="people/students/index" options={{ title: 'Students' }} />
+      <Drawer.Screen name="people/students/[id]" options={{ title: 'Student Detail' }} />
+      <Drawer.Screen name="people/students/new" options={{ title: 'Add Student' }} />
+      <Drawer.Screen name="people/staff/index" options={{ title: 'Staff' }} />
+      <Drawer.Screen name="people/staff/new" options={{ title: 'Add Staff' }} />
+      <Drawer.Screen name="people/staff/[id]" options={{ title: 'Staff Detail' }} />
+      <Drawer.Screen name="people/import/index" options={{ title: 'Import Data' }} />
+      <Drawer.Screen name="people/import/preview" options={{ title: 'Import Preview' }} />
+      <Drawer.Screen name="people/import/result" options={{ title: 'Import Result' }} />
+      <Drawer.Screen name="routes/[routeId]" options={{ title: 'Route Detail' }} />
+      <Drawer.Screen name="routes/vehicle/[vehicleId]" options={{ title: 'Vehicle Detail' }} />
+      <Drawer.Screen name="complaints/[id]" options={{ title: 'Complaint Detail' }} />
+      <Drawer.Screen name="settings/notifications" options={{ title: 'Notification Audit' }} />
     </Drawer>
   );
 }

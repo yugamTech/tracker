@@ -1,153 +1,187 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
-import { colors, spacing, fontSizes, fontWeights, radius, Avatar, Card, Button } from '@saarthi/ui';
-import { useStudents, useMembers } from '@saarthi/api-client';
+import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
+import {
+  colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
+  Card, Avatar, Badge, Button, Skeleton, EmptyState, AnimatedPressable, SegmentedControl,
+} from '@saarthi/ui';
+import { useStudents, useMembers } from '@saarthi/api-client';
+import { AdminScreen, HeaderAction } from '../../../components/AdminScreen';
+import { SearchField } from '../../../components/SearchField';
+import { GridList } from '../../../components/widgets';
+import { useResponsive } from '../../../hooks/useResponsive';
+
+type Tab = 'students' | 'staff' | 'import';
+const TABS = [
+  { label: 'Students', value: 'students' as const },
+  { label: 'Staff', value: 'staff' as const },
+  { label: 'Import', value: 'import' as const },
+];
+
+function SkeletonGrid() {
+  return (
+    <View style={styles.skeletonWrap}>
+      {[0, 1, 2, 3].map((i) => (
+        <Card key={i} shadow="sm" style={styles.skeletonCard}>
+          <View style={styles.skeletonRow}>
+            <Skeleton width={44} height={44} circle />
+            <View style={{ flex: 1, gap: 8 }}>
+              <Skeleton width="55%" height={15} />
+              <Skeleton width="35%" height={12} />
+            </View>
+          </View>
+        </Card>
+      ))}
+    </View>
+  );
+}
 
 export default function PeopleScreen() {
+  const [tab, setTab] = useState<Tab>('students');
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'students' | 'staff'>('students');
+  const { gridColumns } = useResponsive();
 
   const { data: students, isLoading: studentsLoading } = useStudents();
-  const { data: staff, isLoading: staffLoading } = useMembers(tab === 'staff' ? undefined : undefined);
+  const { data: staff, isLoading: staffLoading } = useMembers();
 
+  const q = search.toLowerCase();
   const filteredStudents = (students ?? []).filter(
-    (s) =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      (s.regId ?? '').toLowerCase().includes(search.toLowerCase())
+    (s) => !q || s.name.toLowerCase().includes(q) || (s.regId ?? '').toLowerCase().includes(q) || (s.route?.name ?? '').toLowerCase().includes(q),
+  );
+  const filteredStaff = (staff ?? []).filter(
+    (m) => !q || m.person.name.toLowerCase().includes(q) || m.person.phone.includes(search),
   );
 
-  const filteredStaff = (staff ?? []).filter((m) =>
-    m.person.name.toLowerCase().includes(search.toLowerCase()) ||
-    m.person.phone.includes(search)
-  );
-
-  const isLoading = tab === 'students' ? studentsLoading : staffLoading;
+  const headerRight =
+    tab === 'students' ? <HeaderAction label="+ Add" onPress={() => router.push('/(app)/people/students/new' as never)} />
+    : tab === 'staff' ? <HeaderAction label="+ Add" onPress={() => router.push('/(app)/people/staff/new' as never)} />
+    : undefined;
 
   return (
-    <View style={styles.container}>
-      {/* Search + Add */}
-      <View style={styles.searchRow}>
-        <TextInput
-          style={styles.search}
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search by name or ID…"
-          placeholderTextColor={colors.gray400}
-        />
-        <Button
-          title="Import"
-          size="sm"
-          variant="secondary"
-          onPress={() => router.push('/(app)/people/import' as never)}
-          style={styles.addBtn}
-        />
-        <Button
-          title="+ Add"
-          size="sm"
-          onPress={() =>
-            router.push(
-              (tab === 'students' ? '/(app)/people/students/new' : '/(app)/people/staff/new') as never,
-            )
-          }
-          style={styles.addBtn}
-        />
-      </View>
+    <AdminScreen
+      title="People"
+      subtitle="Students, staff & imports"
+      headerRight={headerRight}
+      subnav={<SegmentedControl segments={TABS} value={tab} onChange={(v) => setTab(v as Tab)} />}
+    >
+      <View style={styles.root}>
+        {tab !== 'import' ? (
+          <View style={styles.searchRow}>
+            <SearchField
+              value={search}
+              onChangeText={setSearch}
+              placeholder={tab === 'students' ? 'Search name, reg ID, route…' : 'Search name or phone…'}
+            />
+          </View>
+        ) : null}
 
-      {/* Tabs */}
-      <View style={styles.tabs}>
-        {(['students', 'staff'] as const).map((t) => (
-          <TouchableOpacity
-            key={t}
-            style={[styles.tab, tab === t && styles.tabActive]}
-            onPress={() => setTab(t)}
-          >
-            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {tab === 'import' ? (
+          <ImportPanel />
+        ) : tab === 'students' ? (
+          studentsLoading ? <SkeletonGrid /> : (
+            <GridList
+              data={filteredStudents}
+              columns={gridColumns}
+              keyExtractor={(s) => s.id}
+              ListEmptyComponent={
+                <View style={styles.emptyWrap}>
+                  <EmptyState
+                    icon={<Text style={{ fontSize: 40 }}>🧑‍🎓</Text>}
+                    title={search ? 'No students match' : 'No students yet'}
+                    description={search ? 'Try a different search term.' : 'Add students with the + button or the import wizard.'}
+                  />
+                </View>
+              }
+              renderItem={(item) => (
+                <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/people/students/${item.id}` as never)}>
+                  <Card shadow="sm">
+                    <View style={styles.row}>
+                      <Avatar name={item.name} size={44} />
+                      <View style={styles.info}>
+                        <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+                        <Text style={styles.meta} numberOfLines={1}>
+                          {item.regId ? `${item.regId} · ` : ''}{item.route?.name ?? 'No route assigned'}
+                        </Text>
+                      </View>
+                      <Badge label={item.status} variant={item.status === 'ACTIVE' ? 'active' : 'inactive'} size="sm" />
+                    </View>
+                  </Card>
+                </AnimatedPressable>
+              )}
+            />
+          )
+        ) : (
+          staffLoading ? <SkeletonGrid /> : (
+            <GridList
+              data={filteredStaff}
+              columns={gridColumns}
+              keyExtractor={(m) => m.id}
+              ListEmptyComponent={
+                <View style={styles.emptyWrap}>
+                  <EmptyState
+                    icon={<Text style={{ fontSize: 40 }}>🧑‍✈️</Text>}
+                    title={search ? 'No staff match' : 'No staff yet'}
+                    description={search ? 'Try a different search term.' : 'Add a driver, conductor or admin with the + button.'}
+                  />
+                </View>
+              }
+              renderItem={(m) => (
+                <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/people/staff/${m.id}` as never)}>
+                  <Card shadow="sm">
+                    <View style={styles.row}>
+                      <Avatar name={m.person.name} size={44} />
+                      <View style={styles.info}>
+                        <Text style={styles.name} numberOfLines={1}>{m.person.name}</Text>
+                        <Text style={styles.meta} numberOfLines={1}>{m.person.phone}</Text>
+                      </View>
+                      <Badge label={m.role} variant="active" size="sm" />
+                    </View>
+                  </Card>
+                </AnimatedPressable>
+              )}
+            />
+          )
+        )}
       </View>
+    </AdminScreen>
+  );
+}
 
-      {isLoading ? (
-        <View style={styles.loader}>
-          <ActivityIndicator color="#7C3AED" />
-        </View>
-      ) : tab === 'students' ? (
-        <FlatList
-          data={filteredStudents}
-          keyExtractor={(s) => s.id}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>No students found</Text></View>}
-          renderItem={({ item: s }) => (
-            <TouchableOpacity onPress={() => router.push(`/(app)/people/students/${s.id}` as never)} activeOpacity={0.85}>
-              <Card style={styles.card}>
-                <View style={styles.cardRow}>
-                  <Avatar name={s.name} size={44} />
-                  <View style={styles.info}>
-                    <Text style={styles.name}>{s.name}</Text>
-                    {s.regId && <Text style={styles.meta}>{s.regId}</Text>}
-                    {(s.route || s.stop) && (
-                      <Text style={styles.route}>
-                        {s.route ? `🚌 ${s.route.name}` : ''}{s.stop ? ` · 📍 ${s.stop.name}` : ''}
-                      </Text>
-                    )}
-                  </View>
-                  <Text style={styles.chevron}>›</Text>
-                </View>
-              </Card>
-            </TouchableOpacity>
-          )}
-        />
-      ) : (
-        <FlatList
-          data={filteredStaff}
-          keyExtractor={(m) => m.id}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>No staff found</Text></View>}
-          renderItem={({ item: m }) => (
-            <TouchableOpacity onPress={() => router.push(`/(app)/people/staff/${m.id}` as never)} activeOpacity={0.85}>
-              <Card style={styles.card}>
-                <View style={styles.cardRow}>
-                  <Avatar name={m.person.name} size={44} />
-                  <View style={styles.info}>
-                    <Text style={styles.name}>{m.person.name}</Text>
-                    <Text style={styles.meta}>{m.person.phone} · {m.role}</Text>
-                  </View>
-                  <Text style={styles.chevron}>›</Text>
-                </View>
-              </Card>
-            </TouchableOpacity>
-          )}
-        />
-      )}
+function ImportPanel() {
+  return (
+    <View style={styles.importWrap}>
+      <Card shadow="sm" style={styles.importCard}>
+        <View style={styles.importIcon}><Text style={{ fontSize: 30 }}>📥</Text></View>
+        <Text style={styles.importTitle}>Bulk import</Text>
+        <Text style={styles.importBody}>
+          Upload a spreadsheet of students or staff. We'll validate every row and show a preview before anything is saved.
+        </Text>
+        <Button title="Start import" onPress={() => router.push('/(app)/people/import' as never)} style={styles.importBtn} />
+      </Card>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  searchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], padding: spacing[4], backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border },
-  addBtn: { flexShrink: 0 },
-  chevron: { fontSize: 20, color: colors.gray400, paddingLeft: spacing[2] },
-  search: {
-    backgroundColor: colors.gray100, borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    fontSize: fontSizes.base, color: colors.textPrimary,
-  },
-  tabs: { flexDirection: 'row', backgroundColor: colors.white },
-  tab: { flex: 1, paddingVertical: spacing[3], alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: '#7C3AED' },
-  tabText: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.gray400 },
-  tabTextActive: { color: '#7C3AED', fontWeight: fontWeights.bold },
-  loader: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing[8] },
-  list: { padding: spacing[4], gap: spacing[3] },
-  card: {},
-  cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  root: { flex: 1 },
+  searchRow: { paddingHorizontal: spacing[4], paddingTop: spacing[4] },
+  skeletonWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4], padding: spacing[4] },
+  skeletonCard: { width: 300, flexGrow: 1 },
+  skeletonRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  emptyWrap: { flex: 1, minHeight: 320 },
+
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   info: { flex: 1 },
   name: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   meta: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
-  route: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: 2 },
-  empty: { alignItems: 'center', padding: spacing[8] },
-  emptyText: { fontSize: fontSizes.base, color: colors.textSecondary },
+
+  importWrap: { padding: spacing[4], alignItems: 'center' },
+  importCard: { maxWidth: 460, width: '100%', alignItems: 'center', gap: spacing[2], paddingVertical: spacing[6] },
+  importIcon: {
+    width: 64, height: 64, borderRadius: radius.xl, backgroundColor: colors.primaryBg,
+    alignItems: 'center', justifyContent: 'center', marginBottom: spacing[1],
+  },
+  importTitle: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
+  importBody: { fontSize: fontSizes.sm, color: colors.textSecondary, textAlign: 'center', lineHeight: 21, paddingHorizontal: spacing[2] },
+  importBtn: { marginTop: spacing[3], alignSelf: 'stretch' },
 });

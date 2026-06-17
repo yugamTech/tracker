@@ -1,105 +1,108 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { ScrollView } from 'react-native';
-import { colors, spacing, fontSizes, fontWeights, radius } from '@saarthi/ui';
-import { useAuthStore } from '../../../store/auth.store';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { router } from 'expo-router';
+import {
+  colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
+  Card, Avatar, ListItem, SectionHeader, Divider, AnimatedPressable,
+} from '@saarthi/ui';
+import { useMyTenant } from '@saarthi/api-client';
+import { AdminScreen } from '../../../components/AdminScreen';
+import { useAuthStore } from '../../../store/auth.store';
+
+interface MenuItem {
+  label: string;
+  icon: string;
+  tint: string;
+  onPress?: () => void;
+}
 
 export default function SettingsScreen() {
-  const { person, logout } = useAuthStore();
+  const { person, activeMembership, logout } = useAuthStore();
+  const { data: tenant } = useMyTenant();
+  const schoolName = tenant?.name ?? activeMembership?.tenantName ?? 'Your school';
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure?', [
+    Alert.alert('Log out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: () => { logout(); router.replace('/(auth)/phone'); } },
+      { text: 'Log out', style: 'destructive', onPress: () => { logout(); router.replace('/(auth)/phone'); } },
     ]);
   };
 
-  const SECTIONS = [
+  const groups: { title: string; items: MenuItem[] }[] = [
     {
-      title: 'School Settings',
+      title: 'School',
       items: [
-        { label: '🏫 School Profile', onPress: () => {} },
-        { label: '⏰ Bell Timings', onPress: () => {} },
-        { label: '🚨 Alert Numbers', onPress: () => {} },
-        { label: '🚩 Feature Flags', onPress: () => {} },
+        { label: 'School Profile', icon: '🏫', tint: colors.primaryBg },
+        { label: 'Bell Timings', icon: '⏰', tint: colors.warningBg },
+        { label: 'Alert Numbers', icon: '🚨', tint: colors.errorBg },
+        { label: 'Feature Flags', icon: '🚩', tint: colors.accentBg },
       ],
     },
     {
       title: 'Account',
       items: [
-        { label: '👤 Profile', onPress: () => {} },
-        { label: '🔔 Notification Config', onPress: () => {} },
-        { label: '🔒 Privacy & Security', onPress: () => {} },
+        { label: 'Profile', icon: '👤', tint: colors.infoBg },
+        { label: 'Notification Config', icon: '🔔', tint: colors.primaryBg, onPress: () => router.push('/(app)/settings/notifications' as never) },
+        { label: 'Privacy & Security', icon: '🔒', tint: colors.successBg },
       ],
     },
   ];
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Admin info */}
-      <View style={styles.adminCard}>
-        <View style={styles.adminAvatar}>
-          <Text style={{ fontSize: 28 }}>👩‍💼</Text>
-        </View>
-        <View>
-          <Text style={styles.adminName}>{person?.name ?? 'Admin'}</Text>
-          <Text style={styles.adminPhone}>{person?.phone}</Text>
-          <Text style={styles.adminRole}>School Admin · Sunrise School</Text>
-        </View>
-      </View>
-
-      {SECTIONS.map((section) => (
-        <View key={section.title} style={styles.section}>
-          <Text style={styles.sectionTitle}>{section.title}</Text>
-          <View style={styles.menuGroup}>
-            {section.items.map((item, idx) => (
-              <TouchableOpacity
-                key={item.label}
-                style={[styles.menuItem, idx < section.items.length - 1 && styles.menuItemBorder]}
-                onPress={item.onPress}
-              >
-                <Text style={styles.menuLabel}>{item.label}</Text>
-                <Text style={styles.arrow}>›</Text>
-              </TouchableOpacity>
-            ))}
+    <AdminScreen title="Settings" subtitle="School & account" maxWidth={760}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Identity */}
+        <Card shadow="sm" style={styles.identity}>
+          <Avatar name={person?.name ?? 'Admin'} size={56} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.idName} numberOfLines={1}>{person?.name ?? 'Admin'}</Text>
+            <Text style={styles.idMeta} numberOfLines={1}>{person?.phone ?? ''}</Text>
+            <Text style={styles.idSchool} numberOfLines={1}>{schoolName}</Text>
           </View>
-        </View>
-      ))}
+        </Card>
 
-      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <Text style={styles.logoutText}>🚪 Logout</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        {groups.map((group) => (
+          <View key={group.title}>
+            <SectionHeader title={group.title} />
+            <Card shadow="sm" padding={0} style={styles.group}>
+              {group.items.map((item, idx) => (
+                <View key={item.label}>
+                  <ListItem
+                    title={item.label}
+                    onPress={item.onPress ?? (() => {})}
+                    left={<View style={[styles.iconChip, { backgroundColor: item.tint }]}><Text style={styles.iconGlyph}>{item.icon}</Text></View>}
+                  />
+                  {idx < group.items.length - 1 ? <Divider inset={4} /> : null}
+                </View>
+              ))}
+            </Card>
+          </View>
+        ))}
+
+        <AnimatedPressable scaleTo={0.98} onPress={handleLogout} style={styles.logout}>
+          <Text style={styles.logoutGlyph}>⏻</Text>
+          <Text style={styles.logoutText}>Log out</Text>
+        </AnimatedPressable>
+      </ScrollView>
+    </AdminScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  adminCard: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing[4],
-    margin: spacing[4], padding: spacing[5],
-    backgroundColor: '#7C3AED', borderRadius: radius.xl,
+  scroll: { padding: spacing[4], gap: spacing[2], paddingBottom: spacing[8] },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: spacing[4] },
+  idName: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
+  idMeta: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  idSchool: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.medium, marginTop: 2 },
+  group: { overflow: 'hidden' },
+  iconChip: { width: 36, height: 36, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  iconGlyph: { fontSize: fontSizes.lg },
+  logout: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[2],
+    marginTop: spacing[4], paddingVertical: spacing[4],
+    backgroundColor: colors.background, borderRadius: radius.xl,
+    borderWidth: 1, borderColor: colors.border,
   },
-  adminAvatar: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center',
-  },
-  adminName: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.white },
-  adminPhone: { fontSize: fontSizes.sm, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
-  adminRole: { fontSize: fontSizes.xs, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
-  section: { marginHorizontal: spacing[4], marginBottom: spacing[4] },
-  sectionTitle: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.textSecondary, marginBottom: spacing[2], paddingLeft: spacing[1] },
-  menuGroup: { backgroundColor: colors.white, borderRadius: radius.xl, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
-  menuItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing[4] },
-  menuItemBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
-  menuLabel: { fontSize: fontSizes.base, color: colors.textPrimary },
-  arrow: { fontSize: fontSizes.xl, color: colors.gray400 },
-  logoutBtn: {
-    margin: spacing[4], padding: spacing[4],
-    backgroundColor: colors.white, borderRadius: radius.xl,
-    alignItems: 'center', borderWidth: 1, borderColor: colors.errorBg,
-    marginBottom: spacing[8],
-  },
-  logoutText: { fontSize: fontSizes.base, color: colors.error, fontWeight: fontWeights.semibold },
+  logoutGlyph: { fontSize: fontSizes.lg, color: colors.error },
+  logoutText: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.error },
 });

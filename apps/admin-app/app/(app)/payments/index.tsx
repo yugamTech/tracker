@@ -1,95 +1,110 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
-import { colors, spacing, fontSizes, fontWeights, Card, Badge } from '@saarthi/ui';
+import { View, Text, StyleSheet } from 'react-native';
+import {
+  colors, spacing, fontSizes, fontWeights,
+  Card, Badge, Skeleton, EmptyState,
+} from '@saarthi/ui';
+import type { BadgeVariant } from '@saarthi/ui';
 import { useMyInvoices } from '@saarthi/api-client';
+import { AdminScreen } from '../../../components/AdminScreen';
+import { SubNav } from '../../../components/SubNav';
+import { StatCard, GridList } from '../../../components/widgets';
+import { useResponsive } from '../../../hooks/useResponsive';
+import { SUBNAV } from '../../../lib/nav';
 
-const STATUS_V: Record<string, 'success' | 'warning' | 'error'> = {
+const STATUS_V: Record<string, BadgeVariant> = {
   PAID: 'success', DUE: 'warning', OVERDUE: 'error',
 };
 
+const fmt = (paise: number) => `₹${(paise / 100).toLocaleString('en-IN')}`;
+
 export default function AdminPaymentsScreen() {
   const { data: invoices = [], isLoading } = useMyInvoices();
+  const { isDesktop, gridColumns } = useResponsive();
 
   const totalPaise = invoices.reduce((s, i) => s + (i.amountPaise ?? 0), 0);
   const collectedPaise = invoices.filter((i) => i.status === 'PAID').reduce((s, i) => s + (i.amountPaise ?? 0), 0);
   const pendingPaise = totalPaise - collectedPaise;
 
-  const fmt = (paise: number) => `₹${(paise / 100).toLocaleString('en-IN')}`;
-
-  if (isLoading) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      <View style={styles.summary}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>{fmt(totalPaise)}</Text>
-          <Text style={styles.summaryLabel}>Total Billed</Text>
+    <AdminScreen
+      title="Payments"
+      subtitle="Fee collection"
+      subnav={<SubNav segments={SUBNAV.payments} value="overview" />}
+    >
+      <View style={styles.root}>
+        <View style={[styles.kpiRow, isDesktop ? styles.kpiRowDesktop : styles.kpiRowPhone]}>
+          <View style={isDesktop ? styles.cellDesktop : styles.cellPhoneFull}>
+            <StatCard label="Total Billed" value={isLoading ? '—' : fmt(totalPaise)} icon="▣" tone="neutral" />
+          </View>
+          <View style={isDesktop ? styles.cellDesktop : styles.cellPhoneHalf}>
+            <StatCard label="Collected" value={isLoading ? '—' : fmt(collectedPaise)} icon="✓" tone="success" />
+          </View>
+          <View style={isDesktop ? styles.cellDesktop : styles.cellPhoneHalf}>
+            <StatCard label="Pending" value={isLoading ? '—' : fmt(pendingPaise)} icon="⏳" tone={pendingPaise > 0 ? 'error' : 'neutral'} />
+          </View>
         </View>
-        <View style={styles.divider} />
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, { color: colors.success }]}>{fmt(collectedPaise)}</Text>
-          <Text style={styles.summaryLabel}>Collected</Text>
-        </View>
-        <View style={styles.divider} />
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, { color: colors.error }]}>{fmt(pendingPaise)}</Text>
-          <Text style={styles.summaryLabel}>Pending</Text>
-        </View>
-      </View>
 
-      {invoices.length === 0 ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing[3] }}>
-          <Text style={{ fontSize: fontSizes.lg, color: colors.textSecondary, textAlign: 'center' }}>
-            No invoices yet.
-          </Text>
-          <Text style={{ fontSize: fontSizes.sm, color: colors.textMuted, textAlign: 'center', paddingHorizontal: spacing[8] }}>
-            Payment gateway configuration and invoice generation will be available in Phase 5.
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={invoices}
-          keyExtractor={(i) => i.id}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <Card style={styles.card}>
-              <View style={styles.cardRow}>
-                <View>
-                  <Text style={styles.student}>{(item as any).student?.name ?? 'Student'}</Text>
-                  <Text style={styles.month}>{(item as any).month ?? `INV-${item.id.slice(-6)}`}</Text>
-                </View>
-                <View style={styles.right}>
-                  <Text style={styles.amount}>{fmt(item.amountPaise ?? 0)}</Text>
-                  <Badge label={item.status} variant={STATUS_V[item.status] ?? 'default'} size="sm" />
-                </View>
+        {isLoading ? (
+          <View style={styles.skeletonWrap}>
+            {[0, 1, 2].map((i) => (
+              <Card key={i} shadow="sm" style={styles.skeletonCard}>
+                <Skeleton width="50%" height={15} />
+                <Skeleton width="30%" height={13} style={{ marginTop: 10 }} />
+              </Card>
+            ))}
+          </View>
+        ) : (
+          <GridList
+            data={invoices}
+            columns={gridColumns}
+            keyExtractor={(i) => i.id}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <View style={styles.emptyWrap}>
+                <EmptyState
+                  icon={<Text style={{ fontSize: 40 }}>💳</Text>}
+                  title="No invoices yet"
+                  description="Payment gateway configuration and invoice generation arrive in Phase 5."
+                />
               </View>
-            </Card>
-          )}
-        />
-      )}
-    </View>
+            }
+            renderItem={(item) => (
+              <Card shadow="sm">
+                <View style={styles.cardRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.student} numberOfLines={1}>{(item as any).student?.name ?? 'Student'}</Text>
+                    <Text style={styles.month} numberOfLines={1}>{(item as any).month ?? `INV-${item.id.slice(-6)}`}</Text>
+                  </View>
+                  <View style={styles.right}>
+                    <Text style={styles.amount}>{fmt(item.amountPaise ?? 0)}</Text>
+                    <Badge label={item.status} variant={STATUS_V[item.status] ?? 'default'} size="sm" />
+                  </View>
+                </View>
+              </Card>
+            )}
+          />
+        )}
+      </View>
+    </AdminScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  summary: {
-    flexDirection: 'row', backgroundColor: colors.white,
-    padding: spacing[5], borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  summaryItem: { flex: 1, alignItems: 'center', gap: spacing[1] },
-  summaryValue: { fontSize: fontSizes.xl, fontWeight: fontWeights.extrabold, color: colors.textPrimary },
-  summaryLabel: { fontSize: fontSizes.xs, color: colors.textSecondary },
-  divider: { width: 1, backgroundColor: colors.border, marginVertical: spacing[2] },
-  list: { padding: spacing[4], gap: spacing[3] },
-  card: {},
-  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  root: { flex: 1 },
+  kpiRow: { padding: spacing[4], paddingBottom: 0 },
+  kpiRowDesktop: { flexDirection: 'row', gap: spacing[3] },
+  kpiRowPhone: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing[3] },
+  cellDesktop: { flex: 1 },
+  cellPhoneFull: { width: '100%' },
+  cellPhoneHalf: { width: '48%' },
+
+  skeletonWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4], padding: spacing[4] },
+  skeletonCard: { width: 300, flexGrow: 1 },
+  listContent: { paddingTop: spacing[4] },
+  emptyWrap: { flex: 1, minHeight: 320 },
+
+  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[3] },
   student: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   month: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
   right: { alignItems: 'flex-end', gap: spacing[2] },

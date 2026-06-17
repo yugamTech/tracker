@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
-import {
-  View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, TextInput,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge } from '@saarthi/ui';
+import {
+  colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
+  Card, Badge, Chip, Skeleton, EmptyState, AnimatedPressable,
+} from '@saarthi/ui';
+import type { BadgeVariant } from '@saarthi/ui';
 import { useAllComplaints, useRoutes, useMembers } from '@saarthi/api-client';
 import type { ComplaintFilters } from '@saarthi/api-client';
+import { AdminScreen, HeaderAction } from '../../../components/AdminScreen';
+import { SubNav } from '../../../components/SubNav';
+import { GridList } from '../../../components/widgets';
+import { useResponsive } from '../../../hooks/useResponsive';
+import { SUBNAV } from '../../../lib/nav';
 
-const STATUS_V: Record<string, 'warning' | 'info' | 'success' | 'default'> = {
+const STATUS_V: Record<string, BadgeVariant> = {
   RECEIVED: 'warning', IN_PROGRESS: 'info', RESOLVED: 'success', CLOSED: 'default',
 };
-
 const STATUS_OPTIONS = ['ALL', 'RECEIVED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
 const CATEGORY_OPTIONS = ['ALL', 'TIMING', 'BEHAVIOUR', 'SAFETY', 'VEHICLE', 'ROUTE', 'OTHER'];
 
@@ -22,6 +28,7 @@ export default function AdminComplaintsScreen() {
   const [driverId, setDriverId] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const { gridColumns } = useResponsive();
 
   const filters: ComplaintFilters = {
     ...(status && { status }),
@@ -37,228 +44,174 @@ export default function AdminComplaintsScreen() {
   const { data: drivers = [] } = useMembers('DRIVER');
 
   const activeFilterCount = [status, category, routeId, driverId, dateFrom, dateTo].filter(Boolean).length;
-
   const clearFilters = () => {
-    setStatus('');
-    setCategory('');
-    setRouteId('');
-    setDriverId('');
-    setDateFrom('');
-    setDateTo('');
+    setStatus(''); setCategory(''); setRouteId(''); setDriverId(''); setDateFrom(''); setDateTo('');
   };
 
   return (
-    <View style={styles.container}>
-      {/* Filter toggle */}
-      <View style={styles.filterToggleRow}>
-        <TouchableOpacity
-          style={[styles.filterToggleBtn, activeFilterCount > 0 && styles.filterToggleBtnActive]}
+    <AdminScreen
+      title="Complaints"
+      subtitle={isLoading ? undefined : `${complaints.length} complaint${complaints.length === 1 ? '' : 's'}`}
+      subnav={<SubNav segments={SUBNAV.complaints} value="complaints" />}
+      headerRight={
+        <HeaderAction
+          label={activeFilterCount > 0 ? `Filters · ${activeFilterCount}` : 'Filters'}
+          tone={activeFilterCount > 0 ? 'primary' : 'subtle'}
           onPress={() => setShowFilters((v) => !v)}
-        >
-          <Text style={[styles.filterToggleText, activeFilterCount > 0 && styles.filterToggleTextActive]}>
-            🔽 Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-          </Text>
-        </TouchableOpacity>
-        {activeFilterCount > 0 && (
-          <TouchableOpacity onPress={clearFilters} style={styles.clearBtn}>
-            <Text style={styles.clearBtnText}>Clear all</Text>
-          </TouchableOpacity>
+        />
+      }
+    >
+      <View style={styles.root}>
+        {showFilters ? (
+          <View style={styles.filterWrap}>
+            <Card shadow="sm" style={styles.filterCard}>
+              <View style={styles.filterHead}>
+                <Text style={styles.filterHeadTitle}>Filters</Text>
+                {activeFilterCount > 0 ? (
+                  <AnimatedPressable scaleTo={0.94} onPress={clearFilters}>
+                    <Text style={styles.clearText}>Clear all</Text>
+                  </AnimatedPressable>
+                ) : null}
+              </View>
+
+              <ChipFilter label="Status" options={STATUS_OPTIONS} value={status} onChange={setStatus} pretty />
+              <ChipFilter label="Category" options={CATEGORY_OPTIONS} value={category} onChange={setCategory} />
+              <ChipFilter
+                label="Route"
+                options={['ALL', ...(routes as any[]).map((r) => r.id)]}
+                labels={{ ALL: 'All', ...Object.fromEntries((routes as any[]).map((r) => [r.id, r.name])) }}
+                value={routeId}
+                onChange={setRouteId}
+              />
+              <ChipFilter
+                label="Driver"
+                options={['ALL', ...(drivers as any[]).map((d) => d.personId ?? d.id)]}
+                labels={{ ALL: 'All', ...Object.fromEntries((drivers as any[]).map((d) => [d.personId ?? d.id, d.person?.name ?? d.name ?? 'Driver'])) }}
+                value={driverId}
+                onChange={setDriverId}
+              />
+
+              <Text style={styles.filterLabel}>DATE RANGE (YYYY-MM-DD)</Text>
+              <View style={styles.dateRow}>
+                <TextInput style={styles.dateInput} value={dateFrom} onChangeText={setDateFrom} placeholder="From" placeholderTextColor={colors.textMuted} />
+                <Text style={{ color: colors.textMuted }}>–</Text>
+                <TextInput style={styles.dateInput} value={dateTo} onChangeText={setDateTo} placeholder="To" placeholderTextColor={colors.textMuted} />
+              </View>
+            </Card>
+          </View>
+        ) : null}
+
+        {isLoading ? (
+          <View style={styles.skeletonWrap}>
+            {[0, 1, 2, 3].map((i) => (
+              <Card key={i} shadow="sm" style={styles.skeletonCard}>
+                <Skeleton width="45%" height={15} />
+                <Skeleton width="100%" height={13} style={{ marginTop: 12 }} />
+                <Skeleton width="70%" height={13} style={{ marginTop: 6 }} />
+              </Card>
+            ))}
+          </View>
+        ) : (
+          <GridList
+            data={complaints}
+            columns={gridColumns}
+            keyExtractor={(c) => c.id}
+            ListEmptyComponent={
+              <View style={styles.emptyWrap}>
+                <EmptyState
+                  icon={<Text style={{ fontSize: 40 }}>💬</Text>}
+                  title="No complaints match"
+                  description={activeFilterCount > 0 ? 'Try clearing or adjusting your filters.' : 'New complaints from parents will appear here.'}
+                />
+              </View>
+            }
+            renderItem={(item) => {
+              const trip = (item as any).trip;
+              const route = trip?.route;
+              return (
+                <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/complaints/${item.id}` as never)}>
+                  <Card shadow="sm" style={styles.card}>
+                    <View style={styles.cardTop}>
+                      <Text style={styles.category}>{item.category.replace('_', ' ')}</Text>
+                      <Badge label={item.status.replace('_', ' ')} variant={STATUS_V[item.status] ?? 'default'} size="sm" />
+                    </View>
+                    <Text style={styles.desc} numberOfLines={2}>{item.description ?? '—'}</Text>
+                    {route ? (
+                      <Text style={styles.routeTag} numberOfLines={1}>🛣️ {route.name} · {trip.direction === 'PICKUP' ? 'Pickup' : 'Drop'}</Text>
+                    ) : null}
+                    <View style={styles.footer}>
+                      <Text style={styles.student} numberOfLines={1}>
+                        {(item as any).student?.name ? `👤 ${(item as any).student.name}` : ' '}
+                      </Text>
+                      <Text style={styles.date}>
+                        {new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </Text>
+                    </View>
+                  </Card>
+                </AnimatedPressable>
+              );
+            }}
+          />
         )}
       </View>
+    </AdminScreen>
+  );
+}
 
-      {/* Collapsible filter panel */}
-      {showFilters && (
-        <View style={styles.filterPanel}>
-          <Text style={styles.filterLabel}>Status</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            {STATUS_OPTIONS.map((s) => {
-              const val = s === 'ALL' ? '' : s;
-              return (
-                <TouchableOpacity
-                  key={s}
-                  style={[styles.chip, status === val && styles.chipActive]}
-                  onPress={() => setStatus(val)}
-                >
-                  <Text style={[styles.chipText, status === val && styles.chipTextActive]}>
-                    {s.replace('_', ' ')}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          <Text style={styles.filterLabel}>Category</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            {CATEGORY_OPTIONS.map((c) => {
-              const val = c === 'ALL' ? '' : c;
-              return (
-                <TouchableOpacity
-                  key={c}
-                  style={[styles.chip, category === val && styles.chipActive]}
-                  onPress={() => setCategory(val)}
-                >
-                  <Text style={[styles.chipText, category === val && styles.chipTextActive]}>
-                    {c}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          <Text style={styles.filterLabel}>Route</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            <TouchableOpacity
-              style={[styles.chip, !routeId && styles.chipActive]}
-              onPress={() => setRouteId('')}
-            >
-              <Text style={[styles.chipText, !routeId && styles.chipTextActive]}>All</Text>
-            </TouchableOpacity>
-            {(routes as any[]).map((r: any) => (
-              <TouchableOpacity
-                key={r.id}
-                style={[styles.chip, routeId === r.id && styles.chipActive]}
-                onPress={() => setRouteId(r.id)}
-              >
-                <Text style={[styles.chipText, routeId === r.id && styles.chipTextActive]} numberOfLines={1}>
-                  {r.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          <Text style={styles.filterLabel}>Driver</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            <TouchableOpacity
-              style={[styles.chip, !driverId && styles.chipActive]}
-              onPress={() => setDriverId('')}
-            >
-              <Text style={[styles.chipText, !driverId && styles.chipTextActive]}>All</Text>
-            </TouchableOpacity>
-            {(drivers as any[]).map((d: any) => (
-              <TouchableOpacity
-                key={d.personId ?? d.id}
-                style={[styles.chip, driverId === (d.personId ?? d.id) && styles.chipActive]}
-                onPress={() => setDriverId(d.personId ?? d.id)}
-              >
-                <Text style={[styles.chipText, driverId === (d.personId ?? d.id) && styles.chipTextActive]} numberOfLines={1}>
-                  {d.person?.name ?? d.name ?? 'Driver'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          <Text style={styles.filterLabel}>Date range (YYYY-MM-DD)</Text>
-          <View style={styles.dateRow}>
-            <TextInput
-              style={styles.dateInput}
-              value={dateFrom}
-              onChangeText={setDateFrom}
-              placeholder="From"
-              placeholderTextColor={colors.gray400}
-            />
-            <Text style={{ color: colors.textMuted }}>–</Text>
-            <TextInput
-              style={styles.dateInput}
-              value={dateTo}
-              onChangeText={setDateTo}
-              placeholder="To"
-              placeholderTextColor={colors.gray400}
-            />
-          </View>
-        </View>
-      )}
-
-      {isLoading ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={complaints}
-          keyExtractor={(c) => c.id}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={
-            <View style={{ alignItems: 'center', marginTop: 60 }}>
-              <Text style={{ color: colors.textSecondary }}>No complaints match these filters.</Text>
-            </View>
-          }
-          renderItem={({ item }) => {
-            const trip = (item as any).trip;
-            const route = trip?.route;
-            return (
-              <TouchableOpacity activeOpacity={0.85} onPress={() => router.push(`/(app)/complaints/${item.id}` as never)}>
-                <Card style={styles.card}>
-                  <View style={styles.cardTop}>
-                    <Text style={styles.category}>{item.category.replace('_', ' ')}</Text>
-                    <Badge label={item.status.replace('_', ' ')} variant={STATUS_V[item.status] ?? 'default'} size="sm" />
-                  </View>
-                  <Text style={styles.desc}>{item.description ?? '—'}</Text>
-                  {route && (
-                    <Text style={styles.routeTag}>🛣️ {route.name} · {trip.direction === 'PICKUP' ? 'Pickup' : 'Drop'}</Text>
-                  )}
-                  <View style={styles.footer}>
-                    <Text style={styles.student}>
-                      {(item as any).student ? `👤 ${(item as any).student.name ?? ''}` : ''}
-                    </Text>
-                    <Text style={styles.date}>
-                      {new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    </Text>
-                  </View>
-                </Card>
-              </TouchableOpacity>
-            );
-          }}
-        />
-      )}
+function ChipFilter({
+  label, options, labels, value, onChange, pretty,
+}: {
+  label: string;
+  options: string[];
+  labels?: Record<string, string>;
+  value: string;
+  onChange: (v: string) => void;
+  pretty?: boolean;
+}) {
+  const display = (o: string) =>
+    labels?.[o] ?? (pretty ? o.replace('_', ' ') : o.charAt(0) + o.slice(1).toLowerCase());
+  return (
+    <View style={styles.filterSection}>
+      <Text style={styles.filterLabel}>{label.toUpperCase()}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+        {options.map((o) => {
+          const val = o === 'ALL' ? '' : o;
+          return (
+            <Chip key={o} label={display(o)} selected={value === val} onPress={() => onChange(val)} size="sm" />
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  filterToggleRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  filterToggleBtn: {
-    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
-    borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.white,
-  },
-  filterToggleBtnActive: { borderColor: colors.primary, backgroundColor: '#EEF2FF' },
-  filterToggleText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  filterToggleTextActive: { color: colors.primary, fontWeight: fontWeights.semibold },
-  clearBtn: { paddingHorizontal: spacing[3], paddingVertical: spacing[2] },
-  clearBtnText: { fontSize: fontSizes.sm, color: colors.error, fontWeight: fontWeights.medium },
-  filterPanel: {
-    backgroundColor: colors.white, paddingHorizontal: spacing[4], paddingBottom: spacing[4],
-    borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing[2],
-  },
-  filterLabel: { fontSize: fontSizes.xs, fontWeight: fontWeights.semibold, color: colors.textMuted, marginTop: spacing[3], textTransform: 'uppercase' },
+  root: { flex: 1 },
+  filterWrap: { padding: spacing[4], paddingBottom: 0 },
+  filterCard: { gap: spacing[1] },
+  filterHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing[1] },
+  filterHeadTitle: { fontSize: fontSizes.md, fontWeight: fontWeights.bold, color: colors.textPrimary },
+  clearText: { fontSize: fontSizes.sm, color: colors.error, fontWeight: fontWeights.semibold },
+  filterSection: { gap: spacing[1] },
+  filterLabel: { fontSize: fontSizes.xs, fontWeight: fontWeights.semibold, color: colors.textMuted, letterSpacing: letterSpacing.wide, marginTop: spacing[2] },
   chipRow: { gap: spacing[2], paddingVertical: spacing[1] },
-  chip: {
-    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.gray50,
-  },
-  chipActive: { borderColor: colors.primary, backgroundColor: '#EEF2FF' },
-  chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  chipTextActive: { color: colors.primary, fontWeight: fontWeights.semibold },
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[1] },
   dateInput: {
-    flex: 1, backgroundColor: colors.gray100, borderRadius: radius.md,
+    flex: 1, backgroundColor: colors.backgroundMuted, borderRadius: radius.md,
     paddingHorizontal: spacing[3], paddingVertical: spacing[2],
-    fontSize: fontSizes.sm, color: colors.textPrimary,
-    borderWidth: 1, borderColor: colors.border,
+    fontSize: fontSizes.sm, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border,
   },
-  list: { padding: spacing[4], gap: spacing[3] },
-  card: {},
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing[2] },
-  category: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
+
+  skeletonWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4], padding: spacing[4] },
+  skeletonCard: { width: 300, flexGrow: 1 },
+  emptyWrap: { flex: 1, minHeight: 320 },
+
+  card: { gap: spacing[2] },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[2] },
+  category: { flex: 1, fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   desc: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 20 },
-  routeTag: { fontSize: fontSizes.xs, color: colors.primary, marginTop: spacing[2], fontWeight: fontWeights.medium },
-  footer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing[3] },
-  student: { fontSize: fontSizes.xs, color: colors.textMuted },
+  routeTag: { fontSize: fontSizes.xs, color: colors.primary, fontWeight: fontWeights.medium },
+  footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing[1] },
+  student: { flex: 1, fontSize: fontSizes.xs, color: colors.textMuted },
   date: { fontSize: fontSizes.xs, color: colors.textMuted },
 });

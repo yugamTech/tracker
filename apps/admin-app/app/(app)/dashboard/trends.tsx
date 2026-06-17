@@ -1,19 +1,33 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, EmptyState } from '@saarthi/ui';
+import { View, Text, StyleSheet } from 'react-native';
+import { colors, radius, EmptyState } from '@saarthi/ui';
+import { AdminScreen } from '../../../components/AdminScreen';
+import { SubNav } from '../../../components/SubNav';
+import { SUBNAV } from '../../../lib/nav';
 
 export default function TrendsScreen() {
   return (
-    <SafeAreaView style={styles.container}>
-      <EmptyState
-        title="Trend charts coming soon"
-        description="7-day boarding rate, on-time trips, and collection % charts are being built in Phase 6"
-      />
-    </SafeAreaView>
+    <AdminScreen
+      title="Dashboard"
+      subtitle="Trends & analytics"
+      subnav={<SubNav segments={SUBNAV.dashboard} value="trends" />}
+    >
+      <View style={styles.body}>
+        <EmptyState
+          icon={<View style={styles.icon}><Text style={styles.iconGlyph}>📈</Text></View>}
+          title="Trend charts coming soon"
+          description="7-day boarding rate, on-time trips, and collection % will appear here in Phase 6."
+        />
+      </View>
+    </AdminScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
+  body: { flex: 1, justifyContent: 'center' },
+  icon: {
+    width: 64, height: 64, borderRadius: radius.xl,
+    backgroundColor: colors.primaryBg, alignItems: 'center', justifyContent: 'center',
+  },
+  iconGlyph: { fontSize: 30 },
 });

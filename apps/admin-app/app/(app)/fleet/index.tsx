@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, StatusDot, MockBusMap } from '@saarthi/ui';
+import {
+  colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
+  StatusDot, MockBusMap, Card, Skeleton, EmptyState, AnimatedPressable,
+} from '@saarthi/ui';
 import { useFleet, useFleetSocket } from '@saarthi/api-client';
+import { AdminScreen, HeaderAction } from '../../../components/AdminScreen';
+import { GridList } from '../../../components/widgets';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 interface Bus {
   tripId: string;
@@ -19,7 +25,8 @@ interface Bus {
 }
 
 export default function FleetMapScreen() {
-  const { data: fleet } = useFleet();
+  const { data: fleet, isLoading } = useFleet();
+  const { gridColumns } = useResponsive();
   const [buses, setBuses] = useState<Record<string, Bus>>({});
 
   // Seed from the REST snapshot.
@@ -82,98 +89,85 @@ export default function FleetMapScreen() {
 
   const list = Object.values(buses);
   const now = Date.now();
+  const liveCount = list.filter((b) => b.updatedAt != null && now - b.updatedAt < 30000).length;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerBar}>
-        <Text style={styles.title}>Live Fleet</Text>
-        <Text style={styles.sub}>{list.length} bus{list.length === 1 ? '' : 'es'} active</Text>
-      </View>
-      <ScrollView contentContainerStyle={styles.busCards}>
-        {list.length === 0 && (
-          <View style={styles.empty}>
-            <Text style={{ fontSize: 56 }}>🚍</Text>
-            <Text style={styles.emptyText}>No active trips right now</Text>
-            <Text style={styles.emptySub}>Start a trip to see live buses here.</Text>
-          </View>
-        )}
-        {list.map((b) => {
-          const fresh = b.updatedAt != null && now - b.updatedAt < 30000;
-          return (
-            <TouchableOpacity
-              key={b.tripId}
-              style={styles.busCard}
-              activeOpacity={0.85}
-              onPress={() => router.push(`/(app)/fleet/${b.tripId}` as never)}
-            >
-              {/* Mock map for this bus */}
-              <MockBusMap
-                stops={b.stops}
-                live={fresh}
-                routeName={b.routeName}
-                height={140}
-              />
-
-              {/* Info strip below the map */}
-              <View style={styles.infoStrip}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.busNum}>{b.vehicleReg ?? b.routeName}</Text>
-                  <Text style={styles.busRoute}>
-                    {b.routeName} · {b.direction ?? b.status}
-                  </Text>
-                  {b.driverName && (
-                    <Text style={styles.driverLine}>🧑‍✈️ {b.driverName}</Text>
-                  )}
-                  <Text style={styles.busCords}>
-                    {b.lat != null
-                      ? `${b.lat.toFixed(4)}, ${b.lng!.toFixed(4)}`
-                      : 'Awaiting GPS…'}
-                    {b.speed != null ? `  ·  ${Math.round(b.speed * 3.6)} km/h` : ''}
-                  </Text>
-                </View>
-                <View style={styles.liveTag}>
-                  <StatusDot variant={fresh ? 'live' : 'offline'} size={8} />
-                  <Text style={[styles.liveTagText, !fresh && styles.liveTagStale]}>
-                    {fresh ? 'LIVE' : 'STALE'}
-                  </Text>
-                </View>
+    <AdminScreen
+      title="Live Fleet"
+      subtitle={`${list.length} bus${list.length === 1 ? '' : 'es'} active · ${liveCount} live`}
+      headerRight={<HeaderAction label="⚠ Exceptions" tone="subtle" onPress={() => router.push('/(app)/fleet/exceptions' as never)} />}
+    >
+      {isLoading && list.length === 0 ? (
+        <View style={styles.skeletonWrap}>
+          {[0, 1, 2, 3].map((i) => (
+            <Card key={i} padding={0} style={styles.skeletonCard}>
+              <Skeleton width="100%" height={140} radius={0} />
+              <View style={styles.skeletonStrip}>
+                <Skeleton width="55%" height={16} />
+                <Skeleton width="35%" height={12} style={{ marginTop: 8 }} />
               </View>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-    </View>
+            </Card>
+          ))}
+        </View>
+      ) : (
+        <GridList
+          data={list}
+          columns={gridColumns}
+          keyExtractor={(b) => b.tripId}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <EmptyState
+                icon={<Text style={{ fontSize: 44 }}>🚍</Text>}
+                title="No active trips right now"
+                description="Start a trip to see live buses track here."
+              />
+            </View>
+          }
+          renderItem={(b) => {
+            const fresh = b.updatedAt != null && now - b.updatedAt < 30000;
+            return (
+              <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/fleet/${b.tripId}` as never)}>
+                <Card padding={0} shadow="sm" style={styles.busCard}>
+                  <MockBusMap stops={b.stops} live={fresh} routeName={b.routeName} height={140} />
+                  <View style={styles.infoStrip}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.busNum} numberOfLines={1}>{b.vehicleReg ?? b.routeName}</Text>
+                      <Text style={styles.busRoute} numberOfLines={1}>{b.routeName} · {b.direction ?? b.status}</Text>
+                      {b.driverName ? <Text style={styles.driverLine} numberOfLines={1}>🧑‍✈️ {b.driverName}</Text> : null}
+                      <Text style={styles.busCords} numberOfLines={1}>
+                        {b.lat != null ? `${b.lat.toFixed(4)}, ${b.lng!.toFixed(4)}` : 'Awaiting GPS…'}
+                        {b.speed != null ? `  ·  ${Math.round(b.speed * 3.6)} km/h` : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.liveTag}>
+                      <StatusDot variant={fresh ? 'live' : 'offline'} size={8} />
+                      <Text style={[styles.liveTagText, !fresh && styles.liveTagStale]}>{fresh ? 'LIVE' : 'STALE'}</Text>
+                    </View>
+                  </View>
+                </Card>
+              </AnimatedPressable>
+            );
+          }}
+        />
+      )}
+    </AdminScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#EEF2FF' },
-  headerBar: { padding: spacing[4], paddingBottom: spacing[2] },
-  title: { fontSize: fontSizes.xl, fontWeight: fontWeights.bold, color: colors.primary },
-  sub: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
-  busCards: { padding: spacing[4], paddingTop: spacing[2], gap: spacing[4] },
-  empty: { alignItems: 'center', gap: spacing[2], paddingTop: spacing[8] },
-  emptyText: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  emptySub: { fontSize: fontSizes.sm, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: spacing[6] },
-  busCard: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  infoStrip: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing[3],
-    padding: spacing[4],
-    paddingTop: spacing[3],
-  },
-  busNum: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
+  skeletonWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4], padding: spacing[4] },
+  skeletonCard: { width: 280, overflow: 'hidden' },
+  skeletonStrip: { padding: spacing[4] },
+
+  emptyWrap: { flex: 1, minHeight: 360 },
+
+  busCard: { overflow: 'hidden' },
+  infoStrip: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3], padding: spacing[4], paddingTop: spacing[3] },
+  busNum: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
   busRoute: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 1 },
   driverLine: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 1 },
   busCords: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: 3 },
   liveTag: { alignItems: 'center', gap: 2, paddingTop: 2 },
-  liveTagText: { fontSize: fontSizes.xs, color: colors.success, fontWeight: fontWeights.bold },
+  liveTagText: { fontSize: fontSizes.xs, color: colors.success, fontWeight: fontWeights.bold, letterSpacing: letterSpacing.wide },
   liveTagStale: { color: colors.textMuted },
 });
