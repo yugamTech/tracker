@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, TextInput, ScrollView, Alert } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, LoadingSpinner } from '@saarthi/ui';
+import {
+  colors, spacing, fontSizes, fontWeights, radius, letterSpacing,
+  Button, Badge, Skeleton, AppHeader, ScreenContainer,
+} from '@saarthi/ui';
+import type { BadgeVariant } from '@saarthi/ui';
 import { useMyDriverProfile, useUpdateMyDriverProfile } from '@saarthi/api-client';
 
-const PV_LABELS: Record<string, { label: string; color: string }> = {
-  PENDING: { label: 'Pending', color: '#F59E0B' },
-  VERIFIED: { label: 'Verified', color: '#10B981' },
-  REJECTED: { label: 'Rejected', color: '#EF4444' },
+const PV_META: Record<string, { label: string; variant: BadgeVariant }> = {
+  PENDING: { label: 'Pending', variant: 'warning' },
+  VERIFIED: { label: 'Verified', variant: 'success' },
+  REJECTED: { label: 'Rejected', variant: 'error' },
 };
 
 export default function DriverKycScreen() {
@@ -30,7 +33,7 @@ export default function DriverKycScreen() {
   }, [profile]);
 
   // Police verification is set by the school admin — the driver views it read-only.
-  const pv = PV_LABELS[profile?.policeVerificationStatus ?? 'PENDING'] ?? PV_LABELS.PENDING;
+  const pv = PV_META[profile?.policeVerificationStatus ?? 'PENDING'] ?? PV_META.PENDING;
 
   const handleSave = () => {
     update.mutate(
@@ -48,25 +51,23 @@ export default function DriverKycScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>My KYC</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <ScreenContainer bg={colors.backgroundMuted}>
+      <AppHeader title="My KYC" onBack={() => router.back()} />
 
       {isLoading ? (
-        <LoadingSpinner fullScreen />
+        <View style={styles.content}>
+          <Skeleton width="100%" height={92} radius="xl" />
+          <Skeleton width="70%" height={14} style={{ marginTop: spacing[4] }} />
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} width="100%" height={48} radius="lg" style={{ marginTop: spacing[4] }} />
+          ))}
+        </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* Police verification — admin controlled, read-only here. */}
           <View style={styles.pvCard}>
-            <Text style={styles.pvLabel}>Police Verification</Text>
-            <View style={[styles.pvBadge, { backgroundColor: pv.color }]}>
-              <Text style={styles.pvBadgeText}>{pv.label}</Text>
-            </View>
+            <Text style={styles.pvLabel}>POLICE VERIFICATION</Text>
+            <Badge label={pv.label} variant={pv.variant} />
             {profile?.policeVerificationRef ? (
               <Text style={styles.pvRef}>Ref: {profile.policeVerificationRef}</Text>
             ) : null}
@@ -121,39 +122,29 @@ export default function DriverKycScreen() {
             loading={update.isPending}
             fullWidth
             size="lg"
-            style={{ marginTop: spacing[4] }}
+            style={{ marginTop: spacing[5] }}
           />
         </ScrollView>
       )}
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: spacing[4], backgroundColor: colors.white,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  back: { fontSize: fontSizes.sm, color: '#0EA5E9', fontWeight: fontWeights.medium, width: 40 },
-  title: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   content: { padding: spacing[4], gap: spacing[2] },
   pvCard: {
-    backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing[4],
-    borderWidth: 1, borderColor: colors.border, gap: spacing[2], marginBottom: spacing[2],
+    backgroundColor: colors.background, borderRadius: radius.xl, padding: spacing[4],
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, gap: spacing[2],
   },
-  pvLabel: { fontSize: fontSizes.xs, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  pvBadge: { alignSelf: 'flex-start', paddingHorizontal: spacing[3], paddingVertical: 4, borderRadius: radius.full },
-  pvBadgeText: { fontSize: fontSizes.sm, color: colors.white, fontWeight: fontWeights.bold },
+  pvLabel: { fontSize: fontSizes.xs, color: colors.textMuted, fontWeight: fontWeights.bold, letterSpacing: letterSpacing.wide },
   pvRef: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18, marginBottom: spacing[1] },
-  fieldLabel: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary, marginTop: spacing[2] },
+  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18, marginTop: spacing[2], marginBottom: spacing[1] },
+  fieldLabel: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary, marginTop: spacing[3] },
   input: {
-    backgroundColor: colors.white, borderRadius: radius.lg,
+    backgroundColor: colors.background, borderRadius: radius.lg,
     paddingHorizontal: spacing[4], paddingVertical: spacing[3],
     fontSize: fontSizes.base, color: colors.textPrimary,
-    borderWidth: 1, borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
   },
   multiline: { minHeight: 64, textAlignVertical: 'top' },
 });
