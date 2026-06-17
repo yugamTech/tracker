@@ -41,6 +41,9 @@ export class TripsService {
   /** Default minutes-before-scheduled-start cutoff for parent pickup cancellation (FR-21). */
   private static readonly DEFAULT_PICKUP_CANCEL_CUTOFF_MIN = 30;
 
+  /** Hours past planned start after which a still-SCHEDULED trip is a never-started anomaly. */
+  private static readonly NOT_STARTED_ALARM_HOURS = 12;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: TrackingGateway,
@@ -262,6 +265,75 @@ export class TripsService {
       this.logger.error(`TRIP_START dispatch failed: ${(err as Error).message}`),
     );
     return updated;
+  }
+
+  /**
+   * Read-computed "never started" alarm feed (admin panel): trips still SCHEDULED
+   * more than {@link NOT_STARTED_ALARM_HOURS}h past their planned start, scoped to
+   * the actor (NFR-05) like every other trip read. Each comes back with its
+   * route/driver/vehicle and how overdue it is, and fires a deduped fire-and-forget
+   * admin notification so the alarm reaches admins who aren't looking at the panel.
+   *
+   * NOTE: computing on read (here) is fine for now; the production-grade trigger is
+   * a scheduled job (cron) that periodically sweeps for stale SCHEDULED trips and
+   * dispatches once — the Redis dedup means either trigger is safe to run.
+   */
+  async listOverdueScheduled(actor: ActiveMembership) {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - TripsService.NOT_STARTED_ALARM_HOURS * 60 * 60_000);
+
+    const trips = await this.prisma.trip.findMany({
+      where: {
+        AND: [
+          this.scopeForActor(actor),
+          { status: TripStatus.SCHEDULED },
+          // Effective start = scheduledStart ?? date; overdue when it predates the cutoff.
+          { OR: [{ scheduledStart: { lt: cutoff } }, { scheduledStart: null, date: { lt: cutoff } }] },
+        ],
+      },
+      include: { route: true, vehicle: true, driver: true, conductor: true },
+      orderBy: { date: 'asc' },
+    });
+
+    const result = trips.map((t) => {
+      const start = t.scheduledStart ?? t.date;
+      const overdueMinutes = Math.max(0, Math.round((now.getTime() - start.getTime()) / 60_000));
+      return { ...t, overdueMinutes };
+    });
+
+    if (result.length) {
+      this.notifyAdminsOfOverdueTrips(actor.tenantId, result).catch((err) =>
+        this.logger.error(`TRIP_NOT_STARTED dispatch failed: ${(err as Error).message}`),
+      );
+    }
+    return result;
+  }
+
+  /** Resolve tenant admins once, then dispatch a deduped TRIP_NOT_STARTED per overdue trip. */
+  private async notifyAdminsOfOverdueTrips(
+    tenantId: string,
+    trips: { id: string; overdueMinutes: number; route?: { name: string } | null }[],
+  ) {
+    const admins = await this.prisma.membership.findMany({
+      where: { tenantId, role: { in: ['ADMIN', 'TRANSPORT_MANAGER'] as never }, status: 'ACTIVE' },
+      select: { personId: true },
+    });
+    const recipientIds = [...new Set(admins.map((a) => a.personId))];
+    if (!recipientIds.length) return;
+    for (const t of trips) {
+      await this.notifications.dispatch({
+        eventType: NotifCategory.TRIP_NOT_STARTED,
+        tenantId,
+        recipientIds,
+        variables: {
+          tripId: t.id,
+          routeName: t.route?.name ?? 'A trip',
+          overdueHours: String(Math.floor(t.overdueMinutes / 60)),
+          deepLink: '/trips/exceptions',
+        },
+        entityId: t.id,
+      });
+    }
   }
 
   /** Open (or all) trip-start exceptions for the alarm panel, tenant-scoped. */
@@ -564,6 +636,19 @@ export class TripsService {
       select: { id: true, stopId: true },
     });
 
+    // Empty-route guard: a route with no stops, or no ACTIVE stop-pinned students,
+    // has no one to carry — block scheduling so a driver is never handed an empty
+    // trip. Mirrored client-side (the scheduler disables submit) but enforced here
+    // so no caller can create an empty trip.
+    if (students.length === 0) {
+      const stopCount = await this.prisma.routeStop.count({ where: { routeId } });
+      throw new BadRequestException(
+        stopCount === 0
+          ? 'This route has no stops — add stops and assign students to them before scheduling a trip.'
+          : 'This route has no eligible riders — assign active students to a stop on this route before scheduling.',
+      );
+    }
+
     // Planned departure: admin-entered if supplied, else derived from the route's
     // age-group pickup/drop time (2B trip-start governance window).
     const scheduledStart =
@@ -681,6 +766,20 @@ export class TripsService {
 
     const routeChanged = !!patch.routeId && patch.routeId !== trip.routeId;
     const newRouteId = patch.routeId ?? trip.routeId;
+
+    // Re-routing onto an empty route would leave the trip with no riders — block it
+    // (a driver can't be assigned an empty route). Only enforced when the route
+    // actually changes, so editing time/driver on an existing trip is never blocked.
+    if (routeChanged) {
+      const eligible = await this.prisma.student.count({
+        where: { tenantId, routeId: newRouteId, status: 'ACTIVE', stopId: { not: null } },
+      });
+      if (eligible === 0) {
+        throw new BadRequestException(
+          'This route has no eligible riders — assign active students to a stop on it before assigning a trip to it.',
+        );
+      }
+    }
 
     const data: Prisma.TripUncheckedUpdateInput = {};
     if (patch.routeId !== undefined) data.routeId = patch.routeId;

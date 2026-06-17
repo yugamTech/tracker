@@ -14,6 +14,9 @@ export enum NotifStatus {
 export enum NotifCategory {
   TRIP_START = 'TRIP_START',
   TRIP_START_EXCEPTION = 'TRIP_START_EXCEPTION',
+  // Raised when a trip is still SCHEDULED well past its planned start (12h) — a
+  // never-started anomaly the admin must review. Targets tenant admins.
+  TRIP_NOT_STARTED = 'TRIP_NOT_STARTED',
   TRIP_END = 'TRIP_END',
   // Per-rider arrival alarms (PRD-03 §4.1): the bus is ~5 min / ~1 min from a
   // rider's stop, or has arrived at it.

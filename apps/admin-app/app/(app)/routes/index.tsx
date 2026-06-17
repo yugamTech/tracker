@@ -67,28 +67,43 @@ export default function RoutesScreen() {
                 />
               </View>
             }
-            renderItem={(item) => (
-              <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/routes/${item.id}` as never)}>
-                <Card shadow="sm" style={styles.card}>
-                  <View style={styles.cardTop}>
-                    <Text style={styles.routeName} numberOfLines={1}>{item.name}</Text>
-                    <Badge label={item.status} variant={item.status === 'ACTIVE' ? 'active' : 'inactive'} size="sm" />
-                  </View>
-                <View style={styles.metrics}>
-                  <Metric value={item.stops?.length ?? 0} label="Stops" />
-                  <View style={styles.metricDivider} />
-                  <Metric value={item._count?.students ?? 0} label="Students" />
-                  <View style={styles.metricDivider} />
-                  <Metric value={item.direction} label="Direction" small />
-                </View>
-                {item.stops?.length > 0 ? (
-                  <Text style={styles.stops} numberOfLines={2}>
-                    📍 {item.stops.map((rs: any) => rs.stop.name).join('  →  ')}
-                  </Text>
-                ) : null}
-              </Card>
-            </AnimatedPressable>
-          )}
+            renderItem={(item) => {
+              const noStops = (item.stops?.length ?? 0) === 0;
+              const noRiders = (item.eligibleRiderCount ?? 0) === 0;
+              return (
+                <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/routes/${item.id}` as never)}>
+                  <Card shadow="sm" style={styles.card}>
+                    <View style={styles.cardTop}>
+                      <Text style={styles.routeName} numberOfLines={1}>{item.name}</Text>
+                      <Badge label={item.status} variant={item.status === 'ACTIVE' ? 'active' : 'inactive'} size="sm" />
+                    </View>
+                    <View style={styles.metrics}>
+                      <Metric value={item.stops?.length ?? 0} label="Stops" />
+                      <View style={styles.metricDivider} />
+                      <Metric value={item.eligibleRiderCount ?? 0} label="Riders" />
+                      <View style={styles.metricDivider} />
+                      <Metric value={item.direction} label="Direction" small />
+                    </View>
+                    {item.stops?.length > 0 ? (
+                      <Text style={styles.stops} numberOfLines={2}>
+                        📍 {item.stops.map((rs: any) => rs.stop.name).join('  →  ')}
+                      </Text>
+                    ) : null}
+                    {/* Empty-route guard: a route with no stops or no stop-pinned active
+                        riders can't be scheduled — flag it so the admin can fix it. */}
+                    {noStops || noRiders ? (
+                      <View style={styles.warnRow}>
+                        <Text style={styles.warnText}>
+                          {noStops
+                            ? '⚠ No stops — add stops before scheduling'
+                            : '⚠ No riders — assign students to a stop on this route'}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </Card>
+                </AnimatedPressable>
+              );
+            }}
           />
         </View>
       )}
@@ -126,4 +141,9 @@ const styles = StyleSheet.create({
   metricValueSmall: { fontSize: fontSizes.sm, fontWeight: fontWeights.bold, color: colors.textPrimary },
   metricLabel: { fontSize: fontSizes.xs, color: colors.textSecondary },
   stops: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 20 },
+  warnRow: {
+    backgroundColor: colors.warningBg, borderRadius: radius.md,
+    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
+  },
+  warnText: { fontSize: fontSizes.xs, color: colors.warningDark, fontWeight: fontWeights.semibold },
 });

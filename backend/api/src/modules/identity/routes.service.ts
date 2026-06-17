@@ -5,8 +5,8 @@ import { PrismaService } from '../../infra/database/prisma.service';
 export class RoutesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string) {
-    return this.prisma.route.findMany({
+  async list(tenantId: string) {
+    const routes = await this.prisma.route.findMany({
       where: { tenantId },
       include: {
         stops: { include: { stop: true }, orderBy: { sequence: 'asc' } },
@@ -14,6 +14,17 @@ export class RoutesService {
       },
       orderBy: { name: 'asc' },
     });
+    // Eligible riders per route = ACTIVE students pinned to a stop — the roster a
+    // trip would actually carry (`_count.students` is the raw total, which can be
+    // non-zero with nobody eligible). Surfaced so the UI can flag empty routes
+    // (0 stops or 0 eligible riders) without a round-trip per route.
+    const eligible = await this.prisma.student.groupBy({
+      by: ['routeId'],
+      where: { tenantId, status: 'ACTIVE', stopId: { not: null }, routeId: { not: null } },
+      _count: { _all: true },
+    });
+    const eligibleByRoute = new Map(eligible.map((e) => [e.routeId, e._count._all]));
+    return routes.map((r) => ({ ...r, eligibleRiderCount: eligibleByRoute.get(r.id) ?? 0 }));
   }
 
   // Tenant-scoped read (NFR-05): a route id alone is not enough — it must belong

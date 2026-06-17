@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
+import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights,
-  Card, Badge, Button, Chip, Skeleton, EmptyState,
+  Card, Badge, Button, Chip, Skeleton, EmptyState, AnimatedPressable,
 } from '@saarthi/ui';
-import { useTripStartExceptions, useResolveStartException } from '@saarthi/api-client';
-import type { TripStartExceptionWithTrip } from '@saarthi/api-client';
+import { useTripStartExceptions, useResolveStartException, useOverdueTrips } from '@saarthi/api-client';
+import type { TripStartExceptionWithTrip, OverdueTrip } from '@saarthi/api-client';
 import { AdminScreen } from '../../../components/AdminScreen';
 import { SubNav } from '../../../components/SubNav';
 import { GridList } from '../../../components/widgets';
@@ -24,11 +25,50 @@ function offsetLabel(deltaMinutes: number): string {
   return `${mins} min ${deltaMinutes < 0 ? 'early' : 'late'}`;
 }
 
+function overdueLabel(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+/** A still-SCHEDULED trip overdue to start (>12h). Tap to review (start / cancel) on the monitor. */
+function OverdueCard({ item }: { item: OverdueTrip }) {
+  const start = item.scheduledStart ?? item.date;
+  return (
+    <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/fleet/${item.id}` as never)}>
+      <Card shadow="sm" style={[styles.card, { borderLeftColor: colors.warning }]}>
+        <View style={styles.cardTop}>
+          <Text style={styles.route} numberOfLines={1}>{item.route?.name ?? 'Route'} · {item.direction}</Text>
+          <Badge label="Never started" variant="warning" size="sm" />
+        </View>
+        <Text style={styles.meta}>{item.driver?.name ?? '—'} · {item.vehicle?.regNumber ?? '—'}</Text>
+        <View style={styles.flags}>
+          <Text style={styles.flag}>⏱ Overdue by {overdueLabel(item.overdueMinutes)}</Text>
+        </View>
+        <Text style={styles.times}>Scheduled {start ? new Date(start).toLocaleString() : '—'}</Text>
+      </Card>
+    </AnimatedPressable>
+  );
+}
+
 export default function TripStartAlarmsScreen() {
   const [filter, setFilter] = useState<FilterKey>('open');
   const { data, isLoading, isError } = useTripStartExceptions(filter === 'all' ? 'all' : undefined);
+  const { data: overdue = [] } = useOverdueTrips();
   const resolve = useResolveStartException();
   const { gridColumns } = useResponsive();
+
+  // "Never started" alarms (computed on read): SCHEDULED trips >12h overdue. Shown
+  // as a section above the start-exception list so both alarm kinds share one panel.
+  const overdueSection = overdue.length > 0 ? (
+    <View style={styles.overdueSection}>
+      <Text style={styles.sectionHeading}>Never started · {overdue.length}</Text>
+      <Text style={styles.sectionSub}>Still scheduled more than 12h after departure. Tap to start or cancel.</Text>
+      <View style={styles.overdueList}>
+        {overdue.map((t) => <OverdueCard key={t.id} item={t} />)}
+      </View>
+    </View>
+  ) : null;
 
   const onResolve = (item: TripStartExceptionWithTrip) => {
     Alert.alert('Resolve alarm', 'Mark this trip-start exception as resolved?', [
@@ -73,11 +113,12 @@ export default function TripStartAlarmsScreen() {
             data={data ?? []}
             columns={gridColumns}
             keyExtractor={(e) => e.id}
+            ListHeaderComponent={overdueSection}
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
                 <EmptyState
                   icon={<Text style={{ fontSize: 40 }}>✅</Text>}
-                  title={filter === 'open' ? 'No open alarms' : 'No alarms'}
+                  title={filter === 'open' ? 'No off-protocol starts' : 'No start exceptions'}
                   description="Trips that start off-protocol will appear here."
                 />
               </View>
@@ -136,6 +177,11 @@ const styles = StyleSheet.create({
   skeletonWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4], padding: spacing[4] },
   skeletonCard: { width: 320, flexGrow: 1 },
   emptyWrap: { flex: 1, minHeight: 320 },
+
+  overdueSection: { paddingHorizontal: spacing[4], paddingTop: spacing[4], gap: spacing[2] },
+  sectionHeading: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary },
+  sectionSub: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  overdueList: { gap: spacing[3], marginTop: spacing[1] },
 
   card: { gap: spacing[1], borderLeftWidth: 4 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[2] },

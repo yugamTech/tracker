@@ -36,12 +36,12 @@ export { vehicleKeys, useVehicles, useVehicleById, useCreateVehicle, useUpdateVe
 
 // Routes & Stops
 export { routesApi, stopsApi } from './routes/routes.api';
-export type { Route, Stop } from './routes/routes.api';
+export type { Route, RouteStudent, Stop } from './routes/routes.api';
 export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useStops, useCreateStop, useAddStop } from './routes/routes.hooks';
 
 // Trips
 export { tripsApi, pickupCancelInfo, PICKUP_CANCEL_CUTOFF_MINUTES } from './trips/trips.api';
-export type { ScheduleTripDto, TripStartExceptionWithTrip, TripFilters, UpdateTripDto, PickupCancelInfo } from './trips/trips.api';
+export type { ScheduleTripDto, TripStartExceptionWithTrip, OverdueTrip, TripFilters, UpdateTripDto, PickupCancelInfo } from './trips/trips.api';
 export {
   tripKeys,
   useTodayTrips,
@@ -49,6 +49,7 @@ export {
   useFilteredTrips,
   useTripDates,
   useTripById,
+  useOverdueTrips,
   useCreateTrip,
   useUpdateTrip,
   useCancelTrip,

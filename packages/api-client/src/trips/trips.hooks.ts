@@ -9,6 +9,7 @@ export const tripKeys = {
   dates: (from: string, to: string) => [...tripKeys.all, 'dates', from, to] as const,
   detail: (id: string) => [...tripKeys.all, id] as const,
   exceptions: (resolved?: string) => [...tripKeys.all, 'exceptions', resolved ?? 'open'] as const,
+  overdue: () => [...tripKeys.all, 'overdue'] as const,
 };
 
 export const useTodayTrips = () =>
@@ -45,6 +46,13 @@ export const useTripById = (tripId: string) =>
     queryKey: tripKeys.detail(tripId),
     queryFn: () => tripsApi.getTripById(tripId),
     enabled: !!tripId,
+  });
+
+/** Never-started alarm feed: still-SCHEDULED trips >12h past their planned start. */
+export const useOverdueTrips = () =>
+  useQuery({
+    queryKey: tripKeys.overdue(),
+    queryFn: tripsApi.getOverdueTrips,
   });
 
 export const useCreateTrip = () => {

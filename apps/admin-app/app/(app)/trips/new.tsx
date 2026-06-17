@@ -134,6 +134,13 @@ export default function ScheduleTripScreen() {
   const isLoading = routesLoading || vehiclesLoading || driversLoading || (isEdit && tripLoading);
   const sortedDays = useMemo(() => [...selectedDays].sort(), [selectedDays]);
 
+  // Empty-route guard (mirrors the backend POST /trips rejection): a route with no
+  // eligible riders (no stops, or no ACTIVE stop-pinned students) can't be scheduled.
+  // In edit mode this only bites when the route is actually being CHANGED to an
+  // empty one — editing time/driver on an existing trip is never blocked.
+  const originalRouteId = (editingTrip as any)?.routeId as string | undefined;
+  const blockEmptyRoute = !!routeId && rosterCount === 0 && (!isEdit || routeId !== originalRouteId);
+
   const startWindow = (() => {
     const h = Math.min(23, Math.max(0, parseInt(startHour, 10) || 0));
     const m = Math.min(59, Math.max(0, parseInt(startMin, 10) || 0));
@@ -384,10 +391,18 @@ export default function ScheduleTripScreen() {
         </Text>
       </Card>
 
+      {blockEmptyRoute ? (
+        <Text style={styles.blockWarn}>
+          ⚠ This route has no eligible riders. Add stops and assign active students to a stop on it
+          before scheduling — a driver can’t be given an empty route.
+        </Text>
+      ) : null}
+
       <Button
         title={isEdit ? 'Save Changes' : sortedDays.length > 1 ? `Schedule ${sortedDays.length} Trips` : 'Schedule Trip'}
         onPress={isEdit ? handleUpdate : handleCreate}
         loading={isEdit ? updateTrip.isPending : submitting}
+        disabled={blockEmptyRoute}
         fullWidth
         style={styles.saveBtn}
       />
@@ -431,5 +446,6 @@ const styles = StyleSheet.create({
   previewLabel: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
   previewCount: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.extrabold, color: colors.primary },
   previewHint: { fontSize: fontSizes.xs, color: colors.textMuted, textAlign: 'center', lineHeight: 16 },
+  blockWarn: { fontSize: fontSizes.sm, color: colors.warningDark, lineHeight: 18 },
   saveBtn: { marginTop: spacing[2] },
 });

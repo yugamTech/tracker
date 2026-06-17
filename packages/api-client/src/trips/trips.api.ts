@@ -97,6 +97,17 @@ export interface UpdateTripDto {
   scheduledStart?: string;
 }
 
+/**
+ * A still-SCHEDULED trip that's overdue to start (>12h past its planned start),
+ * as returned by the never-started alarm feed, with how overdue it is.
+ */
+export type OverdueTrip = Trip & {
+  overdueMinutes: number;
+  route?: { id: string; name: string } | null;
+  driver?: { id: string; name: string } | null;
+  vehicle?: { id: string; regNumber: string } | null;
+};
+
 /** A trip-start exception with its trip context, as returned by the alarm panel. */
 export type TripStartExceptionWithTrip = TripStartException & {
   trip?: {
@@ -150,6 +161,12 @@ export const tripsApi = {
   updateTrip: async (tripId: string, dto: UpdateTripDto) => {
     const { data } = await apiClient.patch(`/trips/${tripId}`, dto);
     return data.data as Trip;
+  },
+
+  /** Never-started alarm feed: trips still SCHEDULED >12h past their planned start. */
+  getOverdueTrips: async () => {
+    const { data } = await apiClient.get('/trips/overdue');
+    return data.data as OverdueTrip[];
   },
 
   /** Cheap calendar-dot feed: the `YYYY-MM-DD` days in [from, to] that have trips. */

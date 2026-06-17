@@ -18,9 +18,21 @@ import { SUBNAV } from '../../../lib/nav';
 
 const WEEKDAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-const STATUS_OPTIONS = [
-  'ALL', 'SCHEDULED', 'STARTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'ABORTED',
+/**
+ * Quick status filter groups. Several map to multiple raw statuses (Live =
+ * STARTED + IN_PROGRESS, Closed = CANCELLED + ABORTED), which the single-value
+ * `?status=` query can't express — so grouping is applied client-side over the
+ * day's (small) trip list. `statuses: null` = no status filter ("All").
+ */
+const STATUS_GROUPS = [
+  { key: 'ALL', label: 'All', statuses: null },
+  { key: 'SCHEDULED', label: 'Scheduled', statuses: ['SCHEDULED'] },
+  { key: 'LIVE', label: 'Live', statuses: ['STARTED', 'IN_PROGRESS'] },
+  { key: 'COMPLETED', label: 'Completed', statuses: ['COMPLETED'] },
+  { key: 'CLOSED', label: 'Closed', statuses: ['CANCELLED', 'ABORTED'] },
 ] as const;
+
+type StatusGroupKey = typeof STATUS_GROUPS[number]['key'];
 
 function tripStatus(status: string): { label: string; variant: BadgeVariant } {
   switch (status) {
@@ -30,10 +42,6 @@ function tripStatus(status: string): { label: string; variant: BadgeVariant } {
     case 'CANCELLED': return { label: 'Cancelled', variant: 'cancelled' };
     default: return { label: 'Scheduled', variant: 'warning' };
   }
-}
-
-function prettyStatus(s: string): string {
-  return s.charAt(0) + s.slice(1).toLowerCase().replace('_', ' ');
 }
 
 function TripCard({ item }: { item: any }) {
@@ -159,9 +167,10 @@ export default function TripScheduleScreen() {
   // The month the expanded calendar is showing — drives the trip-dot fetch range.
   const [visibleMonthKey, setVisibleMonthKey] = useState(() => ymdKey(startOfMonth(today)));
 
-  // Combinable filters (status / route / driver) layered on the date selection.
+  // Quick status group (All / Scheduled / Live / Completed / Closed) — always
+  // visible. Route + driver live in the collapsible panel below.
+  const [statusGroup, setStatusGroup] = useState<StatusGroupKey>('ALL');
   const [showFilters, setShowFilters] = useState(false);
-  const [status, setStatus] = useState('');
   const [routeId, setRouteId] = useState('');
   const [driverId, setDriverId] = useState('');
 
@@ -187,17 +196,47 @@ export default function TripScheduleScreen() {
   const { data: routes = [] } = useRoutes();
   const { data: drivers = [] } = useMembers('DRIVER');
 
+  // Status grouping is applied client-side (groups can span several raw statuses);
+  // route/driver/date stay server-side so the query only ever narrows the result.
   const { data: trips, isLoading, isError } = useFilteredTrips({
     date: selectedKey,
-    status: status || undefined,
     route: routeId || undefined,
     driver: driverId || undefined,
   });
-  const dayTrips = trips ?? [];
+  const activeGroup = STATUS_GROUPS.find((g) => g.key === statusGroup) ?? STATUS_GROUPS[0];
+  const dayTrips = useMemo(() => {
+    const all = trips ?? [];
+    if (!activeGroup.statuses) return all;
+    const set = new Set<string>(activeGroup.statuses);
+    return all.filter((t) => set.has(t.status));
+  }, [trips, activeGroup]);
 
   const selectedSet = useMemo(() => new Set([selectedKey]), [selectedKey]);
-  const activeFilterCount = (status ? 1 : 0) + (routeId ? 1 : 0) + (driverId ? 1 : 0);
-  const clearFilters = () => { setStatus(''); setRouteId(''); setDriverId(''); };
+  // Panel badge counts only the panel's own filters (route + driver); the status
+  // group has its own always-visible chip row.
+  const activeFilterCount = (routeId ? 1 : 0) + (driverId ? 1 : 0);
+  const anyFilterActive = activeFilterCount > 0 || statusGroup !== 'ALL';
+  const clearFilters = () => { setRouteId(''); setDriverId(''); };
+  const resetAll = () => { setStatusGroup('ALL'); setRouteId(''); setDriverId(''); };
+
+  // Always-visible quick status row — the primary status control.
+  const statusQuickRow = (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.quickRow}
+    >
+      {STATUS_GROUPS.map((g) => (
+        <Chip
+          key={g.key}
+          label={g.label}
+          selected={statusGroup === g.key}
+          onPress={() => setStatusGroup(g.key)}
+          size="sm"
+        />
+      ))}
+    </ScrollView>
+  );
 
   const filterPanel = showFilters ? (
     <Card shadow="sm" style={styles.filterCard}>
@@ -210,13 +249,6 @@ export default function TripScheduleScreen() {
         ) : null}
       </View>
 
-      <ChipFilterRow
-        label="Status"
-        options={STATUS_OPTIONS as unknown as string[]}
-        labelFor={(o) => (o === 'ALL' ? 'All' : prettyStatus(o))}
-        value={status}
-        onChange={setStatus}
-      />
       <ChipFilterRow
         label="Route"
         options={['ALL', ...routes.map((r) => r.id)]}
@@ -231,6 +263,9 @@ export default function TripScheduleScreen() {
         value={driverId}
         onChange={setDriverId}
       />
+
+      {/* Collapse without re-tapping the header "Filters" button. */}
+      <Button title="Done" variant="secondary" onPress={() => setShowFilters(false)} fullWidth style={styles.filterDone} />
     </Card>
   ) : null;
 
@@ -310,14 +345,14 @@ export default function TripScheduleScreen() {
         <View style={styles.emptyWrap}>
           <EmptyState
             icon={<Text style={{ fontSize: 40 }}>🗓️</Text>}
-            title={activeFilterCount > 0 ? 'No trips match' : 'No trips scheduled'}
-            description={activeFilterCount > 0
+            title={anyFilterActive ? 'No trips match' : 'No trips scheduled'}
+            description={anyFilterActive
               ? 'Try clearing or adjusting the filters.'
               : selectedKey === todayKey
                 ? 'Nothing is scheduled for today.'
                 : `Nothing is scheduled for ${formatDayLabel(selectedKey)}.`}
-            action={activeFilterCount > 0
-              ? <Button title="Clear filters" variant="secondary" onPress={clearFilters} />
+            action={anyFilterActive
+              ? <Button title="Clear filters" variant="secondary" onPress={resetAll} />
               : <Button title="Schedule a trip" onPress={() => router.push('/(app)/trips/new' as never)} />}
           />
         </View>
@@ -336,7 +371,8 @@ export default function TripScheduleScreen() {
       headerRight={
         <View style={styles.headerActions}>
           <HeaderAction
-            label={activeFilterCount > 0 ? `Filters · ${activeFilterCount}` : 'Filters'}
+            // Collapsed: surface the active route/driver filter count. Expanded: plain.
+            label={!showFilters && activeFilterCount > 0 ? `Filters · ${activeFilterCount}` : 'Filters'}
             tone={activeFilterCount > 0 ? 'primary' : 'subtle'}
             onPress={() => setShowFilters((v) => !v)}
           />
@@ -351,6 +387,7 @@ export default function TripScheduleScreen() {
             {filterPanel}
           </View>
           <ScrollView style={styles.listCol} contentContainerStyle={styles.listColContent} showsVerticalScrollIndicator={false}>
+            {statusQuickRow}
             {list}
           </ScrollView>
         </View>
@@ -358,6 +395,7 @@ export default function TripScheduleScreen() {
         <ScrollView contentContainerStyle={styles.phoneContent} showsVerticalScrollIndicator={false}>
           {calendar}
           {filterPanel}
+          {statusQuickRow}
           {list}
         </ScrollView>
       )}
@@ -431,8 +469,12 @@ const styles = StyleSheet.create({
   weekArrowGlyph: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
   weekArrowGlyphDisabled: { color: colors.textMuted },
 
+  // Quick status row (always visible, above the day list)
+  quickRow: { gap: spacing[2], paddingVertical: spacing[1] },
+
   // Filters
   filterCard: { gap: spacing[1] },
+  filterDone: { marginTop: spacing[2] },
   filterHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing[1] },
   filterHeadTitle: { fontSize: fontSizes.md, fontWeight: fontWeights.bold, color: colors.textPrimary },
   clearText: { fontSize: fontSizes.sm, color: colors.error, fontWeight: fontWeights.semibold },

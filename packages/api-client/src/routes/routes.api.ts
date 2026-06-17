@@ -9,6 +9,15 @@ export interface Stop {
   geofenceRadius?: number;
 }
 
+/** A student as embedded in a route detail payload (subset used by the UI). */
+export interface RouteStudent {
+  id: string;
+  name: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  stopId?: string | null;
+  stop?: Stop | null;
+}
+
 export interface Route {
   id: string;
   tenantId: string;
@@ -17,6 +26,10 @@ export interface Route {
   status: 'ACTIVE' | 'INACTIVE';
   stops: Array<{ sequence: number; stop: Stop }>;
   _count?: { students: number };
+  /** ACTIVE students pinned to a stop on this route — the roster a trip would carry (list payload). */
+  eligibleRiderCount?: number;
+  /** Full student list (route detail payload only). */
+  students?: RouteStudent[];
 }
 
 export const routesApi = {

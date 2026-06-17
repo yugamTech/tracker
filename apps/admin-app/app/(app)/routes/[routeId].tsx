@@ -124,6 +124,12 @@ export default function RouteDetailScreen() {
 
   const routeStops: Array<{ sequence: number; stop: Stop }> = route?.stops ?? [];
 
+  // Empty-route guard surface: a route can only be scheduled if it has stops AND
+  // active students pinned to one of them (the roster a trip would carry).
+  const eligibleRiders = (route?.students ?? []).filter((s) => s.status === 'ACTIVE' && !!s.stopId).length;
+  const noStops = !isNew && !!route && routeStops.length === 0;
+  const noRiders = !isNew && !!route && routeStops.length > 0 && eligibleRiders === 0;
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {!isNew && route && (
@@ -144,6 +150,19 @@ export default function RouteDetailScreen() {
           </TouchableOpacity>
         </Card>
       )}
+
+      {(noStops || noRiders) ? (
+        <Card style={styles.warnBanner}>
+          <Text style={styles.warnBannerTitle}>
+            {noStops ? '⚠ No stops on this route' : '⚠ No riders on this route'}
+          </Text>
+          <Text style={styles.warnBannerText}>
+            {noStops
+              ? 'Add at least one stop, then assign active students to it. A trip can’t be scheduled on a route with no stops.'
+              : 'No active students are pinned to a stop on this route. Assign students to a stop before scheduling — a driver can’t be given an empty route.'}
+          </Text>
+        </Card>
+      ) : null}
 
       <Card style={styles.section}>
         <Text style={styles.sectionTitle}>{isNew ? 'New Route' : 'Route Info'}</Text>
@@ -291,4 +310,7 @@ const styles = StyleSheet.create({
   stopName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   stopCoord: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: 2 },
   emptyText: { fontSize: fontSizes.sm, color: colors.textSecondary, textAlign: 'center', paddingVertical: spacing[4] },
+  warnBanner: { backgroundColor: colors.warningBg, borderWidth: 1, borderColor: colors.warning, gap: spacing[1] },
+  warnBannerTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.warningDark },
+  warnBannerText: { fontSize: fontSizes.sm, color: colors.warningDark, lineHeight: 18 },
 });

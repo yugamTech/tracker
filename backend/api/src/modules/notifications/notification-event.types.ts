@@ -86,6 +86,21 @@ export const NOTIFICATION_EVENT_SPECS: Record<NotifCategory, NotificationEventSp
     body: (vars) =>
       `A trip started outside the rules${v(vars, 'reason') ? ` — ${v(vars, 'reason')}` : ''}.`,
   },
+  // Never-started anomaly: a trip still SCHEDULED >12h past its planned start.
+  // Targets tenant admins. The dedup window is a full day so a trip that stays
+  // overdue (read-computed on each alarm-panel load) pings admins at most once
+  // per day rather than on every read.
+  [NotifCategory.TRIP_NOT_STARTED]: {
+    eventType: NotifCategory.TRIP_NOT_STARTED,
+    channels: [NotifChannel.PUSH],
+    dedupWindowMs: 86_400_000,
+    priority: NotifPriority.HIGH,
+    templateId: 'trip-not-started.v1',
+    recipients: 'tenant admins',
+    title: () => 'Trip never started',
+    body: (vars) =>
+      `${v(vars, 'routeName', 'A trip')} is still scheduled ${v(vars, 'overdueHours') ? `${v(vars, 'overdueHours')}h ` : ''}past its start time.`,
+  },
   [NotifCategory.TRIP_END]: {
     eventType: NotifCategory.TRIP_END,
     channels: [NotifChannel.PUSH],

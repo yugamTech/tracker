@@ -103,6 +103,16 @@ export class TripsController {
     });
   }
 
+  /** Never-started anomaly feed: trips still SCHEDULED >12h past their planned start
+   *  (computed on read, tenant + actor scoped). Admin alarm panel. Declared before
+   *  the `:id` route so "overdue" isn't captured as a trip id. */
+  @Get('overdue')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  overdue(@ActiveMembershipDec() actor: ActiveMembership) {
+    return this.tripsService.listOverdueScheduled(actor);
+  }
+
   /** List trip-start exceptions for the admin alarm panel (default: open only).
    *  Declared before the `:id` route so "exceptions" isn't captured as a trip id. */
   @Get('exceptions')
