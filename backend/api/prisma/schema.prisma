@@ -352,6 +352,7 @@ model Trip {
   rideRatings         RideRating[]
   structuredMessages  StructuredMessage[]
   startExceptions     TripStartException[]
+  completionExceptions TripCompletionException[]
 
   @@index([tenantId, date])
   @@index([tenantId, status])
@@ -405,6 +406,30 @@ model TripStartException {
   resolvedById   String?
   resolvedAt     DateTime?
   createdAt      DateTime  @default(now())
+
+  trip Trip @relation(fields: [tripId], references: [id])
+
+  @@index([tenantId, resolvedAt])
+  @@index([tripId])
+}
+
+// Raised when a driver completes a trip BEFORE reaching its final stop. Mirrors
+// TripStartException: the driver's reason note is mandatory, admins are notified
+// and resolve it from the same alarm panel (records resolver + timestamp).
+// tenant-scoped for isolation.
+model TripCompletionException {
+  id            String    @id @default(uuid())
+  tenantId      String
+  tripId        String
+  completedAt   DateTime
+  stoppedAtSeq  Int // 1-based sequence of the last stop serviced when completed
+  totalStops    Int
+  boarded       Int
+  totalRiders   Int
+  reason        String
+  resolvedById  String?
+  resolvedAt    DateTime?
+  createdAt     DateTime  @default(now())
 
   trip Trip @relation(fields: [tripId], references: [id])
 

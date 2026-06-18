@@ -23,7 +23,8 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION"
+        "FOREGROUND_SERVICE_LOCATION",
+        "CAMERA"
       ]
     },
     "plugins": [
@@ -33,6 +34,12 @@
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Yaanam needs background location to track your bus route."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Yaanam uses the camera to take a boarding photo when you mark a student present."
         }
       ]
     ],

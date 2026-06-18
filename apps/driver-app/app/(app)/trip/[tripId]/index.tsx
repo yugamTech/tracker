@@ -3,13 +3,30 @@ import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, radius, letterSpacing,
-  AppHeader, Button, Skeleton, EmptyState, SectionHeader, ScreenContainer,
+  AppHeader, Badge, Button, Skeleton, EmptyState, SectionHeader, ScreenContainer,
 } from '@saarthi/ui';
-import { useTripById } from '@saarthi/api-client';
+import { useTripById, useDailyChecks, checkWindowInfo, formatTripTime } from '@saarthi/api-client';
+
+/** Today's calendar day in the tenant timezone (Asia/Kolkata), as `YYYY-MM-DD`. */
+function istToday(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+}
 
 export default function TripPreScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const { data: trip, isLoading, isError } = useTripById(tripId);
+
+  // Has this trip's vehicle already had a daily check today? Match on tripId
+  // (definitive once a check is linked to the trip) or vehicleId + same day.
+  const vehicleId = (trip as any)?.vehicleId as string | undefined;
+  const { data: checks } = useDailyChecks({ vehicleId, date: istToday() });
+  const checkDone = (checks ?? []).some(
+    (c) => c.tripId === tripId || (!!vehicleId && c.vehicleId === vehicleId),
+  );
+
+  // The vehicle check only opens within 2h before scheduledStart. Computed here so
+  // the "Do vehicle check now" button is gated to match the check screen + backend.
+  const checkWindow = checkWindowInfo(trip as any);
 
   if (isLoading) {
     return (
@@ -88,12 +105,38 @@ export default function TripPreScreen() {
       />
 
       <View style={styles.footer}>
-        <Button
-          title="Start Trip"
-          onPress={() => router.replace(`/(app)/trip/${tripId}/active` as never)}
-          fullWidth
-          size="lg"
-        />
+        <View style={styles.checkStatus}>
+          <Badge
+            label={checkDone ? '✓ Vehicle checked' : '⚠ Vehicle check required'}
+            variant={checkDone ? 'success' : 'warning'}
+            size="sm"
+          />
+        </View>
+        {checkDone ? (
+          <Button
+            title="Start Trip"
+            onPress={() => router.replace(`/(app)/trip/${tripId}/active` as never)}
+            fullWidth
+            size="lg"
+          />
+        ) : (
+          <Button
+            title={
+              checkWindow.canSubmit
+                ? 'Do vehicle check now'
+                : `Check available from ${formatTripTime(checkWindow.opensAt)}`
+            }
+            disabled={!checkWindow.canSubmit}
+            onPress={() =>
+              router.push({
+                pathname: '/(app)/vehicle-check',
+                params: { tripId, ...(vehicleId ? { vehicleId } : {}) },
+              } as never)
+            }
+            fullWidth
+            size="lg"
+          />
+        )}
       </View>
     </ScreenContainer>
   );
@@ -124,4 +167,5 @@ const styles = StyleSheet.create({
     padding: spacing[5], backgroundColor: colors.background,
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border,
   },
+  checkStatus: { alignItems: 'center', marginBottom: spacing[3] },
 });

@@ -4,7 +4,9 @@ import type { AttendanceEvent } from '@saarthi/types';
 export interface MarkAttendanceDto {
   tripId: string;
   studentId: string;
-  type: 'BOARDED' | 'ALIGHTED';
+  // NOT_BOARDED persists the rider's absence (flips boardStatus); it is not an
+  // AttendanceEvent type, so no photo is attached to it.
+  type: 'BOARDED' | 'ALIGHTED' | 'NOT_BOARDED';
   photoUrl?: string;
 }
 
@@ -50,5 +52,5 @@ export interface RosterRider {
 export interface RosterResponse {
   tripId: string;
   summary: { total: number; boarded: number; notBoarded: number; cancelled: number; expected: number };
-  stops: { stopId: string; stopName: string; riders: RosterRider[] }[];
+  stops: { stopId: string; stopName: string; sequence: number; riders: RosterRider[] }[];
 }

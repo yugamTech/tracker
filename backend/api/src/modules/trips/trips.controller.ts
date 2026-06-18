@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import { IsString, IsOptional, IsEnum, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsDateString, IsInt, Min } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -39,6 +39,13 @@ class UpdateTripDto {
 class StartTripDto {
   /** Mandatory only when the trip starts off-protocol (no daily check / outside window). */
   @IsOptional() @IsString() reason?: string;
+}
+
+class CompleteTripDto {
+  /** Mandatory only when completing before the final stop (early completion). */
+  @IsOptional() @IsString() reason?: string;
+  /** 1-based sequence of the last stop serviced; defaults to "final stop" when omitted. */
+  @IsOptional() @IsInt() @Min(1) stoppedAtSeq?: number;
 }
 
 /** Parse a `YYYY-MM-DD` calendar-day string into a local-time midnight Date. */
@@ -124,9 +131,27 @@ export class TripsController {
     return this.tripsService.listStartExceptions(tenantId, filter);
   }
 
+  /** List trip-completion (early-end) exceptions for the admin alarm panel (default: open
+   *  only). Declared before the `:id` route so the path isn't captured as a trip id. */
+  @Get('completion-exceptions')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  listCompletionExceptions(@TenantId() tenantId: string, @Query('resolved') resolved?: string) {
+    const filter =
+      resolved === 'true' ? { resolved: true } : resolved === 'all' ? {} : { resolved: false };
+    return this.tripsService.listCompletionExceptions(tenantId, filter);
+  }
+
+  /** Driver ride history + efficiency summary, scoped to the caller. Declared
+   *  before the `:id` route so "history" isn't captured as a trip id. */
+  @Get('history')
+  history(@ActiveMembershipDec() actor: ActiveMembership) {
+    return this.tripsService.getDriverHistory(actor);
+  }
+
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.tripsService.findById(id);
+  findOne(@Param('id') id: string, @ActiveMembershipDec() actor: ActiveMembership) {
+    return this.tripsService.findById(id, actor);
   }
 
   /**
@@ -177,14 +202,26 @@ export class TripsController {
     return this.tripsService.resolveStartException(id, tenantId, actor.personId);
   }
 
+  /** Resolve a trip-completion exception — records resolver + timestamp. Admin only. */
+  @Post('completion-exceptions/:id/resolve')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  resolveCompletionException(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+    @ActiveMembershipDec() actor: ActiveMembership,
+  ) {
+    return this.tripsService.resolveCompletionException(id, tenantId, actor.personId);
+  }
+
   @Post(':id/start')
   start(@Param('id') id: string, @Body() dto: StartTripDto) {
     return this.tripsService.start(id, { reason: dto.reason });
   }
 
   @Post(':id/complete')
-  complete(@Param('id') id: string) {
-    return this.tripsService.complete(id);
+  complete(@Param('id') id: string, @Body() dto: CompleteTripDto) {
+    return this.tripsService.complete(id, { reason: dto.reason, stoppedAtSeq: dto.stoppedAtSeq });
   }
 
   /** Cancel a SCHEDULED trip (before departure). Admin only, tenant-scoped. */

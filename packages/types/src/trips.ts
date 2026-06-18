@@ -52,6 +52,23 @@ export interface TripStartException {
   createdAt: string;
 }
 
+// Raised when a trip is completed before its final serviceable stop (3-rule §5).
+// The driver's reason note is mandatory; admins resolve from the alarm panel.
+export interface TripCompletionException {
+  id: string;
+  tenantId: string;
+  tripId: string;
+  completedAt: string;
+  stoppedAtSeq: number;
+  totalStops: number;
+  boarded: number;
+  totalRiders: number;
+  reason: string;
+  resolvedById?: string | null;
+  resolvedAt?: string | null;
+  createdAt: string;
+}
+
 export interface TripRider {
   id: string;
   tripId: string;

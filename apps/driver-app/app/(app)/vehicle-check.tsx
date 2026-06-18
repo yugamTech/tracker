@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button } from '@saarthi/ui';
-import { useTodayTrips, useSubmitDailyCheck } from '@saarthi/api-client';
+import {
+  useTodayTrips, useSubmitDailyCheck, useDailyChecks,
+  checkWindowInfo, formatTripTime,
+} from '@saarthi/api-client';
+
+/** Today's calendar day in IST (`YYYY-MM-DD`) — matches the daily-checks list filter. */
+function istToday(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+}
 
 const CHECKS = [
   { id: 'tyres', label: 'Tyres inflated properly', icon: '🛞' },
@@ -18,19 +26,40 @@ export default function VehicleCheckScreen() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [note, setNote] = useState('');
 
+  // When opened from the pre-trip flow, the trip + vehicle arrive as params.
+  // Opened standalone (from home), we fall back to the driver's assigned vehicle.
+  const params = useLocalSearchParams<{ tripId?: string; vehicleId?: string }>();
+  const fromTrip = !!params.tripId;
+
   // The driver's assigned vehicle for today comes from their (scoped) trips.
   const { data: trips } = useTodayTrips();
   const submitCheck = useSubmitDailyCheck();
 
+  // Resolve the trip this check is for: the explicit param trip if given, else
+  // the driver's first trip with an assigned vehicle today.
   const tripWithVehicle = (trips ?? []).find((t) => !!t.vehicleId);
-  const vehicleId = tripWithVehicle?.vehicleId;
-  const tripId = tripWithVehicle?.id;
+  const trip = params.tripId
+    ? (trips ?? []).find((t) => t.id === params.tripId) ?? tripWithVehicle
+    : tripWithVehicle;
+  const vehicleId = params.vehicleId ?? trip?.vehicleId;
+  const tripId = params.tripId ?? trip?.id;
+
+  // FIX C — has this trip/vehicle already been checked today? Match on tripId
+  // (definitive once linked) or vehicleId + same IST day.
+  const { data: checks } = useDailyChecks({ vehicleId, date: istToday() });
+  const existingCheck = (checks ?? []).find(
+    (c) => (!!tripId && c.tripId === tripId) || (!!vehicleId && c.vehicleId === vehicleId),
+  );
+
+  // FIX B — a check may only be submitted within 2h before scheduledStart.
+  const window = checkWindowInfo(trip);
 
   const toggle = (id: string) => setChecked((s) => ({ ...s, [id]: !s[id] }));
   const allDone = CHECKS.every((c) => checked[c.id]);
 
   const handleSubmit = () => {
     if (!allDone) { Alert.alert('Complete all checks first'); return; }
+    if (!window.canSubmit) { Alert.alert('Too early', window.reason ?? 'Check not yet available.'); return; }
     if (!vehicleId) {
       Alert.alert('No vehicle assigned', 'You have no trip with an assigned vehicle today, so this check can’t be linked to a bus.');
       return;
@@ -44,7 +73,18 @@ export default function VehicleCheckScreen() {
     submitCheck.mutate(
       { vehicleId, tripId, items, note: note.trim() || undefined },
       {
-        onSuccess: () => Alert.alert('Check Complete', 'Vehicle check submitted.', [{ text: 'OK', onPress: () => router.back() }]),
+        onSuccess: () =>
+          Alert.alert('Check Complete', 'Vehicle check submitted.', [
+            {
+              text: 'OK',
+              // From the pre-trip flow, return to that screen so its query
+              // re-fetches and "Start Trip" unlocks; otherwise go back.
+              onPress: () =>
+                fromTrip
+                  ? router.replace(`/(app)/trip/${params.tripId}` as never)
+                  : router.back(),
+            },
+          ]),
         onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to submit check'),
       },
     );
@@ -60,42 +100,89 @@ export default function VehicleCheckScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.subtitle}>Complete daily pre-trip checklist</Text>
-        {CHECKS.map((c) => (
-          <TouchableOpacity key={c.id} style={styles.checkItem} onPress={() => toggle(c.id)} activeOpacity={0.8}>
-            <Text style={{ fontSize: 28 }}>{c.icon}</Text>
-            <Text style={styles.checkLabel}>{c.label}</Text>
-            <View style={[styles.checkbox, checked[c.id] && styles.checkboxChecked]}>
-              {checked[c.id] && <Text style={{ color: colors.white, fontSize: 14, fontWeight: '700' }}>✓</Text>}
-            </View>
-          </TouchableOpacity>
-        ))}
+      {existingCheck ? (
+        // FIX C — already checked: show the result read-only, no resubmit.
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.doneBanner}>
+            <Text style={styles.doneTitle}>
+              Checked at {formatTripTime(existingCheck.createdAt)} ✓
+            </Text>
+            <Text style={styles.doneSub}>This vehicle has already been checked for this trip.</Text>
+          </View>
+          {CHECKS.map((c) => {
+            const ok = existingCheck.items?.[c.id];
+            return (
+              <View key={c.id} style={styles.checkItem}>
+                <Text style={{ fontSize: 28 }}>{c.icon}</Text>
+                <Text style={styles.checkLabel}>{c.label}</Text>
+                <Text style={[styles.resultMark, { color: ok ? colors.success : colors.error }]}>
+                  {ok ? '✓' : '✗'}
+                </Text>
+              </View>
+            );
+          })}
+          {!!existingCheck.note && (
+            <>
+              <Text style={styles.label}>Note</Text>
+              <Text style={styles.noteReadonly}>{existingCheck.note}</Text>
+            </>
+          )}
+          <Button
+            title="Back"
+            variant="outline"
+            onPress={() => router.back()}
+            fullWidth
+            size="lg"
+            style={{ marginTop: spacing[4] }}
+          />
+        </ScrollView>
+      ) : (
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Text style={styles.subtitle}>Complete daily pre-trip checklist</Text>
+          {CHECKS.map((c) => (
+            <TouchableOpacity key={c.id} style={styles.checkItem} onPress={() => toggle(c.id)} activeOpacity={0.8}>
+              <Text style={{ fontSize: 28 }}>{c.icon}</Text>
+              <Text style={styles.checkLabel}>{c.label}</Text>
+              <View style={[styles.checkbox, checked[c.id] && styles.checkboxChecked]}>
+                {checked[c.id] && <Text style={{ color: colors.white, fontSize: 14, fontWeight: '700' }}>✓</Text>}
+              </View>
+            </TouchableOpacity>
+          ))}
 
-        <Text style={styles.label}>Note (optional)</Text>
-        <TextInput
-          style={styles.noteInput}
-          value={note}
-          onChangeText={setNote}
-          placeholder="Anything to flag? e.g. low tyre pressure on rear-left"
-          placeholderTextColor={colors.gray400}
-          multiline
-        />
+          <Text style={styles.label}>Note (optional)</Text>
+          <TextInput
+            style={styles.noteInput}
+            value={note}
+            onChangeText={setNote}
+            placeholder="Anything to flag? e.g. low tyre pressure on rear-left"
+            placeholderTextColor={colors.gray400}
+            multiline
+          />
 
-        {!vehicleId && (
-          <Text style={styles.warn}>No trip with an assigned vehicle today — submit will be disabled.</Text>
-        )}
+          {!vehicleId && (
+            <Text style={styles.warn}>No trip with an assigned vehicle today — submit will be disabled.</Text>
+          )}
+          {vehicleId && !window.canSubmit && (
+            <Text style={styles.warn}>{window.reason}</Text>
+          )}
 
-        <Button
-          title={allDone ? '✅ Submit Check' : `${Object.values(checked).filter(Boolean).length}/${CHECKS.length} Done`}
-          onPress={handleSubmit}
-          loading={submitCheck.isPending}
-          fullWidth
-          size="lg"
-          style={{ marginTop: spacing[4] }}
-          disabled={!allDone || !vehicleId}
-        />
-      </ScrollView>
+          <Button
+            title={
+              !window.canSubmit && window.opensAt
+                ? `Available from ${formatTripTime(window.opensAt)}`
+                : allDone
+                  ? '✅ Submit Check'
+                  : `${Object.values(checked).filter(Boolean).length}/${CHECKS.length} Done`
+            }
+            onPress={handleSubmit}
+            loading={submitCheck.isPending}
+            fullWidth
+            size="lg"
+            style={{ marginTop: spacing[4] }}
+            disabled={!allDone || !vehicleId || !window.canSubmit}
+          />
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -128,4 +215,15 @@ const styles = StyleSheet.create({
     padding: spacing[3], fontSize: fontSizes.base, color: colors.textPrimary, minHeight: 64, textAlignVertical: 'top',
   },
   warn: { fontSize: fontSizes.xs, color: colors.error, marginTop: spacing[1] },
+  doneBanner: {
+    padding: spacing[4], borderRadius: radius.lg,
+    backgroundColor: colors.successBg, marginBottom: spacing[2],
+  },
+  doneTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.success },
+  doneSub: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: spacing[1] },
+  resultMark: { fontSize: 20, fontWeight: '700' },
+  noteReadonly: {
+    backgroundColor: colors.gray50, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
+    padding: spacing[3], fontSize: fontSizes.base, color: colors.textPrimary,
+  },
 });

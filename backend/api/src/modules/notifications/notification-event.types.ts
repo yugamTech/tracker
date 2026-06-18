@@ -86,6 +86,19 @@ export const NOTIFICATION_EVENT_SPECS: Record<NotifCategory, NotificationEventSp
     body: (vars) =>
       `A trip started outside the rules${v(vars, 'reason') ? ` — ${v(vars, 'reason')}` : ''}.`,
   },
+  // Early-completion exception: a driver completed a trip before its final stop.
+  // Targets tenant admins so they review/resolve the alarm from the same panel.
+  [NotifCategory.TRIP_EARLY_COMPLETE]: {
+    eventType: NotifCategory.TRIP_EARLY_COMPLETE,
+    channels: [NotifChannel.PUSH],
+    dedupWindowMs: 60_000,
+    priority: NotifPriority.HIGH,
+    templateId: 'trip-early-complete.v1',
+    recipients: 'tenant admins',
+    title: () => 'Trip completed early',
+    body: (vars) =>
+      `A trip was completed before its final stop${v(vars, 'reason') ? ` — ${v(vars, 'reason')}` : ''}.`,
+  },
   // Never-started anomaly: a trip still SCHEDULED >12h past its planned start.
   // Targets tenant admins. The dedup window is a full day so a trip that stays
   // overdue (read-computed on each alarm-panel load) pings admins at most once

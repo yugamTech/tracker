@@ -11,7 +11,10 @@ import type { ActiveMembership } from '@saarthi/types';
 class MarkAttendanceDto {
   @IsString() tripId!: string;
   @IsString() studentId!: string;
-  @IsEnum(['BOARDED', 'ALIGHTED']) type!: 'BOARDED' | 'ALIGHTED';
+  // BOARDED / ALIGHTED are recorded as AttendanceEvents; NOT_BOARDED only flips
+  // the rider's boardStatus (there is no NOT_BOARDED attendance event type).
+  @IsEnum(['BOARDED', 'ALIGHTED', 'NOT_BOARDED'])
+  type!: 'BOARDED' | 'ALIGHTED' | 'NOT_BOARDED';
   @IsOptional() @IsString() photoUrl?: string;
 }
 

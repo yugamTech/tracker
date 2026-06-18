@@ -20,6 +20,7 @@ export default function AppLayout() {
     <Stack screenOptions={{ headerShown: false, ...transitions.slideFromRight }}>
       <Stack.Screen name="home" />
       <Stack.Screen name="profile" />
+      <Stack.Screen name="history" />
       <Stack.Screen name="kyc" />
       <Stack.Screen name="trip/[tripId]/index" />
       <Stack.Screen name="trip/[tripId]/active" />

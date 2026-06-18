@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, Text, Image, FlatList, StyleSheet, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, radius,
@@ -13,27 +13,36 @@ export default function AttendanceScreen() {
   const { data: rosterData, isLoading, isError } = useRoster(tripId);
   const markAttendance = useMarkAttendance();
 
-  // Local override map: studentId → 'BOARDED' | 'NOT_BOARDED' for optimistic UI on NOT_BOARDED
-  const [localOverrides, setLocalOverrides] = useState<Record<string, 'BOARDED' | 'NOT_BOARDED'>>({});
-
   const stopRoster = rosterData?.stops.find((s) => s.stopId === stopId);
   const riders: RosterRider[] = stopRoster?.riders ?? [];
 
   const getStatus = (rider: RosterRider): 'BOARDED' | 'NOT_BOARDED' | 'EXPECTED' | 'CANCELLED' => {
-    if (localOverrides[rider.studentId]) return localOverrides[rider.studentId];
     if (rider.boardStatus === 'BOARDED') return 'BOARDED';
     if (rider.boardStatus === 'NOT_BOARDED') return 'NOT_BOARDED';
     if (rider.boardStatus === 'CANCELLED') return 'CANCELLED';
     return 'EXPECTED';
   };
 
-  const handleMark = (rider: RosterRider, type: 'BOARDED' | 'NOT_BOARDED') => {
-    if (type === 'BOARDED') {
-      markAttendance.mutate({ tripId, studentId: rider.studentId, type: 'BOARDED' });
-    } else {
-      // NOT_BOARDED is local-only until Phase 4 adds the endpoint
-      setLocalOverrides((prev) => ({ ...prev, [rider.studentId]: 'NOT_BOARDED' }));
-    }
+  // Boarding goes through the per-child photo screen (capture → board with the
+  // photo attached, or board without one). Marking absent persists immediately.
+  const handleBoard = (rider: RosterRider) => {
+    router.push(
+      `/(app)/trip/attendance/photo?stopId=${stopId}&tripId=${tripId}` +
+        `&studentId=${rider.studentId}&studentName=${encodeURIComponent(rider.studentName)}` as never,
+    );
+  };
+
+  const handleAbsent = (rider: RosterRider) => {
+    markAttendance.mutate(
+      { tripId, studentId: rider.studentId, type: 'NOT_BOARDED' },
+      {
+        onError: (e: any) =>
+          Alert.alert(
+            'Could not mark absent',
+            e?.response?.data?.message ?? e?.message ?? 'Please try again.',
+          ),
+      },
+    );
   };
 
   const markedCount = riders.filter((r) => {
@@ -41,17 +50,6 @@ export default function AttendanceScreen() {
     return s === 'BOARDED' || s === 'NOT_BOARDED';
   }).length;
   const allMarked = riders.length > 0 && markedCount === riders.length;
-
-  const photoAction = (
-    <AnimatedPressable
-      onPress={() => router.push(`/(app)/trip/attendance/photo?stopId=${stopId}&tripId=${tripId}` as never)}
-      hitSlop={8}
-      accessibilityRole="button"
-      accessibilityLabel="Take photo"
-    >
-      <Text style={styles.photoLink}>Photo</Text>
-    </AnimatedPressable>
-  );
 
   if (isLoading) {
     return (
@@ -74,7 +72,7 @@ export default function AttendanceScreen() {
   if (isError) {
     return (
       <ScreenContainer bg={colors.backgroundMuted}>
-        <AppHeader title="Stop Attendance" onBack={() => router.back()} right={photoAction} />
+        <AppHeader title="Stop Attendance" onBack={() => router.back()} />
         <EmptyState title="Could not load roster" description="Check your connection and try again" />
       </ScreenContainer>
     );
@@ -86,7 +84,6 @@ export default function AttendanceScreen() {
         title={stopRoster?.stopName ?? 'Stop Attendance'}
         subtitle={`${markedCount}/${riders.length} marked`}
         onBack={() => router.back()}
-        right={photoAction}
       />
 
       <FlatList
@@ -101,11 +98,17 @@ export default function AttendanceScreen() {
           return (
             <Card shadow="sm">
               <View style={styles.cardRow}>
-                <Avatar name={item.studentName} size={40} />
+                {status === 'BOARDED' && item.photoUrl ? (
+                  <Image source={{ uri: item.photoUrl }} style={styles.thumb} />
+                ) : (
+                  <Avatar name={item.studentName} size={40} />
+                )}
                 <View style={styles.info}>
                   <Text style={styles.name} numberOfLines={1}>{item.studentName}</Text>
                   {status === 'CANCELLED' && <Text style={styles.cancelled}>Pickup cancelled</Text>}
-                  {status === 'BOARDED' && <Text style={styles.boardedHint}>Boarded</Text>}
+                  {status === 'BOARDED' && (
+                    <Text style={styles.boardedHint}>{item.photoUrl ? 'Boarded · photo' : 'Boarded'}</Text>
+                  )}
                   {status === 'NOT_BOARDED' && <Text style={styles.absentHint}>Absent</Text>}
                 </View>
                 {status !== 'CANCELLED' && (
@@ -113,7 +116,7 @@ export default function AttendanceScreen() {
                     <AnimatedPressable
                       scaleTo={0.9}
                       style={[styles.markBtn, status === 'BOARDED' && styles.boardedActive]}
-                      onPress={() => handleMark(item, 'BOARDED')}
+                      onPress={() => handleBoard(item)}
                       disabled={markAttendance.isPending}
                       accessibilityRole="button"
                       accessibilityLabel={`Mark ${item.studentName} boarded`}
@@ -123,7 +126,8 @@ export default function AttendanceScreen() {
                     <AnimatedPressable
                       scaleTo={0.9}
                       style={[styles.markBtn, status === 'NOT_BOARDED' && styles.absentActive]}
-                      onPress={() => handleMark(item, 'NOT_BOARDED')}
+                      onPress={() => handleAbsent(item)}
+                      disabled={markAttendance.isPending}
                       accessibilityRole="button"
                       accessibilityLabel={`Mark ${item.studentName} absent`}
                     >
@@ -150,7 +154,7 @@ export default function AttendanceScreen() {
 }
 
 const styles = StyleSheet.create({
-  photoLink: { fontSize: fontSizes.base, color: colors.primary, fontWeight: fontWeights.semibold },
+  thumb: { width: 40, height: 40, borderRadius: radius.full, backgroundColor: colors.gray100 },
   list: { padding: spacing[4], gap: spacing[3], flexGrow: 1 },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   info: { flex: 1 },

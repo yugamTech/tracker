@@ -7,10 +7,17 @@ import {
   Card, Badge, Avatar, Skeleton, EmptyState, AnimatedPressable, Button,
 } from '@saarthi/ui';
 import { useAuthStore } from '../../store/auth.store';
-import { useTodayTrips } from '@saarthi/api-client';
+import { useTodayTrips, useDailyChecks, formatTripWhen } from '@saarthi/api-client';
 import type { BadgeVariant } from '@saarthi/ui';
 
 const LIVE = ['STARTED', 'IN_PROGRESS'];
+
+/** A trip's effective scheduled start (scheduledStart, else date), as epoch ms. */
+function tripStartMs(t: any): number {
+  const src = t?.scheduledStart ?? t?.date;
+  const ms = src ? new Date(src).getTime() : NaN;
+  return Number.isNaN(ms) ? Number.POSITIVE_INFINITY : ms;
+}
 
 function tripStatusVariant(status: string): BadgeVariant {
   switch (status) {
@@ -41,6 +48,20 @@ export default function DriverHomeScreen() {
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' });
   const { data: trips, isLoading, isError } = useTodayTrips();
 
+  // Cross-reference today's trips against today's vehicle checks so each past
+  // trip can show whether it was checked. `en-CA` yields the IST `YYYY-MM-DD`.
+  const todayKey = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const { data: checks } = useDailyChecks({ date: todayKey });
+  const checkedTripIds = new Set((checks ?? []).map((c) => c.tripId).filter(Boolean));
+  const checkedVehicleIds = new Set((checks ?? []).map((c) => c.vehicleId));
+
+  // Today's trips sorted by scheduled time. The next actionable one (earliest
+  // not-yet-completed/cancelled) is emphasised so the driver knows which ride to start.
+  const sortedTrips = [...(trips ?? [])].sort((a, b) => tripStartMs(a) - tripStartMs(b));
+  const nextActionableId = sortedTrips.find(
+    (t) => !['COMPLETED', 'CANCELLED', 'ABORTED'].includes(t.status),
+  )?.id;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -49,6 +70,14 @@ export default function DriverHomeScreen() {
           <Text style={styles.date}>{today}</Text>
         </View>
         <View style={styles.headerActions}>
+          <AnimatedPressable
+            onPress={() => router.push('/(app)/history' as never)}
+            style={styles.checkBtn}
+            accessibilityRole="button"
+            accessibilityLabel="My trips and history"
+          >
+            <Text style={styles.checkLabel}>My Trips</Text>
+          </AnimatedPressable>
           <AnimatedPressable
             onPress={() => router.push('/(app)/vehicle-check' as never)}
             style={styles.checkBtn}
@@ -85,7 +114,7 @@ export default function DriverHomeScreen() {
         />
       ) : (
         <FlatList
-          data={trips ?? []}
+          data={sortedTrips}
           keyExtractor={(t) => t.id}
           contentContainerStyle={styles.list}
           ListHeaderComponent={
@@ -101,15 +130,18 @@ export default function DriverHomeScreen() {
             const live = LIVE.includes(item.status);
             const done = item.status === 'COMPLETED';
             const routeName = t?.route?.name ?? item.routeId;
+            const isNext = item.id === nextActionableId;
+            const when = formatTripWhen(t?.scheduledStart ?? t?.date);
             return (
-              <Card style={styles.card} shadow="sm">
+              <Card style={[styles.card, isNext && styles.cardNext]} shadow={isNext ? 'md' : 'sm'}>
+                {isNext && <Text style={styles.nextTag}>NEXT UP</Text>}
                 <View style={styles.cardTop}>
                   <View style={styles.cardTitleWrap}>
                     <Text style={styles.route} numberOfLines={1}>{routeName}</Text>
                     <Text style={styles.meta}>
                       {item.direction === 'PICKUP' ? 'Pickup' : 'Drop'}
-                      {t?.scheduledTime ? ` · ${t.scheduledTime}` : ''}
                     </Text>
+                    {!!when && <Text style={styles.when}>{when}</Text>}
                   </View>
                   <Badge label={statusLabel(item.status)} variant={tripStatusVariant(item.status)} size="sm" />
                 </View>
@@ -119,6 +151,21 @@ export default function DriverHomeScreen() {
                     <Text style={styles.riderCount}>{t.riderCount} riders</Text>
                   </View>
                 )}
+
+                {done && (() => {
+                  const checked =
+                    checkedTripIds.has(item.id) ||
+                    (!!t?.vehicleId && checkedVehicleIds.has(t.vehicleId));
+                  return (
+                    <View style={styles.checkRow}>
+                      <Badge
+                        label={checked ? '✓ Checked' : '⚠ No check'}
+                        variant={checked ? 'success' : 'warning'}
+                        size="sm"
+                      />
+                    </View>
+                  );
+                })()}
 
                 {!done && (
                   <Button
@@ -168,10 +215,17 @@ const styles = StyleSheet.create({
   list: { padding: spacing[4], gap: spacing[3], flexGrow: 1 },
   skeletonCard: { gap: 0 },
   card: {},
+  cardNext: { borderWidth: 1.5, borderColor: colors.primary },
+  nextTag: {
+    fontSize: fontSizes.xs, fontWeight: fontWeights.bold, color: colors.primary,
+    letterSpacing: letterSpacing.wider, marginBottom: spacing[2],
+  },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing[3] },
   cardTitleWrap: { flex: 1 },
   route: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
   meta: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 4 },
+  when: { fontSize: fontSizes.sm, color: colors.textPrimary, fontWeight: fontWeights.semibold, marginTop: 2 },
   riderRow: { marginTop: spacing[3], paddingTop: spacing[3], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   riderCount: { fontSize: fontSizes.base, color: colors.textPrimary, fontWeight: fontWeights.medium },
+  checkRow: { marginTop: spacing[3] },
 });

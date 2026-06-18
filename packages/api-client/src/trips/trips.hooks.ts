@@ -7,8 +7,11 @@ export const tripKeys = {
   byDate: (date: string) => [...tripKeys.all, 'byDate', date] as const,
   list: (filters: TripFilters) => [...tripKeys.all, 'list', filters] as const,
   dates: (from: string, to: string) => [...tripKeys.all, 'dates', from, to] as const,
+  history: () => [...tripKeys.all, 'history'] as const,
   detail: (id: string) => [...tripKeys.all, id] as const,
   exceptions: (resolved?: string) => [...tripKeys.all, 'exceptions', resolved ?? 'open'] as const,
+  completionExceptions: (resolved?: string) =>
+    [...tripKeys.all, 'completion-exceptions', resolved ?? 'open'] as const,
   overdue: () => [...tripKeys.all, 'overdue'] as const,
 };
 
@@ -39,6 +42,13 @@ export const useTripDates = (from: string, to: string) =>
     queryKey: tripKeys.dates(from, to),
     queryFn: () => tripsApi.getTripDates(from, to),
     enabled: !!from && !!to,
+  });
+
+/** Driver ride history + efficiency summary (past trips, scoped to the caller). */
+export const useDriverHistory = () =>
+  useQuery({
+    queryKey: tripKeys.history(),
+    queryFn: tripsApi.getDriverHistory,
   });
 
 export const useTripById = (tripId: string) =>
@@ -106,10 +116,25 @@ export const useResolveStartException = () => {
   });
 };
 
+export const useTripCompletionExceptions = (resolved?: 'true' | 'all') =>
+  useQuery({
+    queryKey: tripKeys.completionExceptions(resolved),
+    queryFn: () => tripsApi.listCompletionExceptions(resolved),
+  });
+
+export const useResolveCompletionException = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (exceptionId: string) => tripsApi.resolveCompletionException(exceptionId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...tripKeys.all, 'completion-exceptions'] }),
+  });
+};
+
 export const useCompleteTrip = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: tripsApi.completeTrip,
+    mutationFn: ({ tripId, reason, stoppedAtSeq }: { tripId: string; reason?: string; stoppedAtSeq?: number }) =>
+      tripsApi.completeTrip(tripId, { reason, stoppedAtSeq }),
     onSuccess: () => qc.invalidateQueries({ queryKey: tripKeys.all }),
   });
 };

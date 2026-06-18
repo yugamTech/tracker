@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, Image, ScrollView, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
@@ -73,6 +73,15 @@ export default function TrackScreen() {
   const child = (myStudents ?? []).find((s) => s.id === myRider?.studentId);
   const childStopId: string | undefined = myRider?.stopId ?? myRider?.stop?.id;
   const childStopName: string | undefined = myRider?.stop?.name ?? child?.stop?.name;
+
+  // The child's own boarding event (the API is guardian-scoped, so attendanceEvents
+  // only ever carries this family's children). Latest BOARDED event wins.
+  const myBoarding = useMemo(() => {
+    const events: any[] = t?.attendanceEvents ?? [];
+    return [...events]
+      .filter((e) => e.studentId === myRider?.studentId && e.type === 'BOARDED')
+      .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())[0];
+  }, [t, myRider]);
 
   // Ordered route stops + progress. Departed stops are primed from the trip's
   // historical geofence events (so a reload keeps progress) and merged with
@@ -251,6 +260,14 @@ export default function TrackScreen() {
                 <Text style={styles.progressText}>{doneCount} of {totalStops} stops passed</Text>
               </View>
 
+              {myBoarding ? (
+                <BoardingCard
+                  childName={child?.name ?? myRider?.student?.name}
+                  photoUrl={myBoarding.photoUrl}
+                  ts={myBoarding.ts}
+                />
+              ) : null}
+
               {driverCard}
             </View>
           </ScrollView>
@@ -351,6 +368,14 @@ export default function TrackScreen() {
             </View>
           </Card>
 
+          {myBoarding ? (
+            <BoardingCard
+              childName={child?.name ?? myRider?.student?.name}
+              photoUrl={myBoarding.photoUrl}
+              ts={myBoarding.ts}
+            />
+          ) : null}
+
           {driverCard}
         </ScrollView>
       )}
@@ -382,8 +407,46 @@ function AlarmBanner({ level, stopName, onDismiss }: { level: AlarmLevel; stopNa
   );
 }
 
+/**
+ * The child's boarding confirmation — driver-captured photo (if any) + the time
+ * they boarded. Only ever rendered for the parent's own child (the API never
+ * sends another family's attendance event to this screen).
+ */
+function BoardingCard({ childName, photoUrl, ts }: { childName?: string; photoUrl?: string | null; ts?: string }) {
+  const time = fmtTime(ts);
+  const name = childName ?? 'Your child';
+  return (
+    <Card style={styles.boardingCard} shadow="none">
+      <View style={styles.boardingRow}>
+        {photoUrl ? (
+          <Image source={{ uri: photoUrl }} style={styles.boardingPhoto} resizeMode="cover" />
+        ) : (
+          <View style={[styles.boardingPhoto, styles.boardingPhotoEmpty]}>
+            <Text style={{ fontSize: 22 }}>🎒</Text>
+          </View>
+        )}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.boardingTitle}>✓ {name} boarded</Text>
+          <Text style={styles.boardingSub}>
+            {time ? `Boarded at ${time}` : 'Boarding confirmed by the driver'}
+          </Text>
+          {photoUrl ? <Text style={styles.boardingHint}>Photo taken by the driver</Text> : null}
+        </View>
+      </View>
+    </Card>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.backgroundMuted },
+
+  boardingCard: { backgroundColor: colors.successBg },
+  boardingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  boardingPhoto: { width: 64, height: 64, borderRadius: radius.lg, backgroundColor: colors.gray100 },
+  boardingPhotoEmpty: { alignItems: 'center', justifyContent: 'center' },
+  boardingTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.successDark },
+  boardingSub: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  boardingHint: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: 2 },
 
   loadingWrap: { padding: spacing[4] },
   scroll: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[8] },

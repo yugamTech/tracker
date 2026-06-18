@@ -142,8 +142,26 @@ export class TripsService {
     return [...days].sort();
   }
 
-  findById(id: string) {
-    return this.prisma.trip.findUniqueOrThrow({
+  /**
+   * Single trip, scoped to the actor (NFR-05). A PARENT receives only the
+   * riders and attendance events for the children they actually guard — never
+   * another family's boarding status or photo — and only if the trip carries
+   * one of their children at all (otherwise it 404s like any out-of-scope
+   * trip). DRIVER / CONDUCTOR / admins get the full trip within their tenant.
+   */
+  async findById(id: string, actor: ActiveMembership) {
+    // Resolve the parent's guarded students once, so we can both gate access
+    // and filter the rider/attendance payload to just those children.
+    let guardedStudentIds: Set<string> | null = null;
+    if (actor.role === Role.PARENT) {
+      const guardianships = await this.prisma.guardianship.findMany({
+        where: { personId: actor.personId, student: { tenantId: actor.tenantId } },
+        select: { studentId: true },
+      });
+      guardedStudentIds = new Set(guardianships.map((g) => g.studentId));
+    }
+
+    const trip = await this.prisma.trip.findUniqueOrThrow({
       where: { id },
       include: {
         route: { include: { stops: { include: { stop: true }, orderBy: { sequence: 'asc' } } } },
@@ -155,6 +173,29 @@ export class TripsService {
         geofenceEvents: { orderBy: { ts: 'asc' } },
       },
     });
+
+    // Tenant isolation for every role.
+    if (trip.tenantId !== actor.tenantId) {
+      throw new NotFoundException(`Trip ${id} not found`);
+    }
+
+    if (guardedStudentIds) {
+      const ownRiders = trip.riders.filter((r) => guardedStudentIds!.has(r.studentId));
+      // A parent has no business loading a trip that carries none of their
+      // children — surface it as not-found rather than an empty trip.
+      if (ownRiders.length === 0) {
+        throw new NotFoundException(`Trip ${id} not found`);
+      }
+      return {
+        ...trip,
+        riders: ownRiders,
+        // Strip every other child's attendance event (and thus their photoUrl)
+        // before the payload ever leaves the server.
+        attendanceEvents: trip.attendanceEvents.filter((e) => guardedStudentIds!.has(e.studentId)),
+      };
+    }
+
+    return trip;
   }
 
   getTodayTrips(actor: ActiveMembership) {
@@ -167,6 +208,144 @@ export class TripsService {
       include: { route: true, vehicle: true, driver: true, conductor: true, riders: true },
       orderBy: { date: 'asc' },
     });
+  }
+
+  /**
+   * Driver ride history + efficiency summary (scoped to the actor like every other
+   * trip read, NFR-05). "Past" trips are those that have finished their lifecycle
+   * (COMPLETED / CANCELLED / ABORTED) or whose calendar day is before today — so a
+   * still-SCHEDULED future trip never shows up as history.
+   *
+   * Each row carries the real, computed fields the history screen needs:
+   *  - boarded / total / expected rider counts (from the roster)
+   *  - duration in minutes (completedAt − startedAt) when both exist
+   *  - whether a vehicle check was done (a DailyCheck linked to the trip, or for the
+   *    trip's vehicle on the trip's calendar day — mirrors the home-screen logic)
+   *  - onTime: started, and NOT recorded as a start exception (off-protocol start)
+   *
+   * The summary aggregates these across the whole scoped history:
+   *  - tripsCompleted, totalTrips
+   *  - onTimeRate = on-time starts / trips that actually started
+   *  - avgBoardingRate = Σ boarded / Σ expected-to-board (boarded + not-boarded + still-expected)
+   */
+  async getDriverHistory(actor: ActiveMembership) {
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const trips = await this.prisma.trip.findMany({
+      where: {
+        AND: [
+          this.scopeForActor(actor),
+          {
+            OR: [
+              { status: { in: [TripStatus.COMPLETED, TripStatus.CANCELLED, TripStatus.ABORTED] } },
+              { date: { lt: todayEnd } },
+            ],
+          },
+        ],
+      },
+      include: {
+        route: { select: { id: true, name: true } },
+        vehicle: { select: { id: true, regNumber: true } },
+        riders: { select: { boardStatus: true } },
+        startExceptions: { select: { id: true } },
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    if (trips.length === 0) {
+      return {
+        trips: [],
+        summary: { totalTrips: 0, tripsCompleted: 0, onTimeRate: null, avgBoardingRate: null },
+      };
+    }
+
+    // Resolve vehicle checks for every vehicle referenced by these trips in one
+    // query, then match per-trip (linked tripId, or same vehicle on the trip's day).
+    const vehicleIds = [...new Set(trips.map((t) => t.vehicleId).filter((v): v is string => !!v))];
+    const checks = vehicleIds.length
+      ? await this.prisma.dailyCheck.findMany({
+          where: { tenantId: actor.tenantId, vehicleId: { in: vehicleIds } },
+          select: { tripId: true, vehicleId: true, createdAt: true },
+        })
+      : [];
+    const checkedTripIds = new Set(checks.map((c) => c.tripId).filter((id): id is string => !!id));
+    const dayKey = (d: Date) =>
+      `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const checkedVehicleDay = new Set(checks.map((c) => `${c.vehicleId}|${dayKey(c.createdAt)}`));
+
+    // A trip that ever started: STARTED / IN_PROGRESS / COMPLETED. Compared as
+    // strings so the Prisma enum and @saarthi/types enum interop cleanly.
+    const STARTED_STATUSES = new Set<string>([
+      TripStatus.STARTED,
+      TripStatus.IN_PROGRESS,
+      TripStatus.COMPLETED,
+    ]);
+
+    let startedCount = 0;
+    let onTimeCount = 0;
+    let boardedSum = 0;
+    let expectedSum = 0;
+    let completedCount = 0;
+
+    const rows = trips.map((t) => {
+      const boarded = t.riders.filter((r) => r.boardStatus === RiderStatus.BOARDED).length;
+      const notBoarded = t.riders.filter((r) => r.boardStatus === RiderStatus.NOT_BOARDED).length;
+      const expectedStill = t.riders.filter((r) => r.boardStatus === RiderStatus.EXPECTED).length;
+      const total = t.riders.length;
+      // Riders who were meant to board (excludes CANCELLED pickups).
+      const expectedToBoard = boarded + notBoarded + expectedStill;
+
+      const durationMinutes =
+        t.startedAt && t.completedAt
+          ? Math.max(0, Math.round((t.completedAt.getTime() - t.startedAt.getTime()) / 60_000))
+          : null;
+
+      const vehicleChecked =
+        checkedTripIds.has(t.id) ||
+        (!!t.vehicleId && checkedVehicleDay.has(`${t.vehicleId}|${dayKey(t.date)}`));
+
+      const started = STARTED_STATUSES.has(t.status);
+      // On-time = it started AND was not flagged as an off-protocol start.
+      const onTime = started ? t.startExceptions.length === 0 : null;
+
+      if (started) {
+        startedCount += 1;
+        if (onTime) onTimeCount += 1;
+      }
+      if (t.status === TripStatus.COMPLETED) completedCount += 1;
+      boardedSum += boarded;
+      expectedSum += expectedToBoard;
+
+      return {
+        id: t.id,
+        date: t.date,
+        scheduledStart: t.scheduledStart,
+        startedAt: t.startedAt,
+        completedAt: t.completedAt,
+        direction: t.direction,
+        status: t.status,
+        route: t.route,
+        vehicle: t.vehicle,
+        boarded,
+        notBoarded,
+        total,
+        expectedToBoard,
+        durationMinutes,
+        vehicleChecked,
+        onTime,
+      };
+    });
+
+    return {
+      trips: rows,
+      summary: {
+        totalTrips: trips.length,
+        tripsCompleted: completedCount,
+        onTimeRate: startedCount > 0 ? onTimeCount / startedCount : null,
+        avgBoardingRate: expectedSum > 0 ? boardedSum / expectedSum : null,
+      },
+    };
   }
 
   /** Validated status transition + trip:status fan-out. */
@@ -208,9 +387,29 @@ export class TripsService {
   async start(id: string, opts: { reason?: string } = {}) {
     const trip = await this.prisma.trip.findUnique({
       where: { id },
-      select: { id: true, tenantId: true, vehicleId: true, scheduledStart: true, date: true },
+      select: { id: true, tenantId: true, vehicleId: true, driverId: true, scheduledStart: true, date: true },
     });
     if (!trip) throw new NotFoundException(`Trip ${id} not found`);
+
+    // One live trip per driver (3-rule §2): a driver already running a
+    // STARTED/IN_PROGRESS trip cannot start another. Block it before the start
+    // governance gates so the message is unambiguous.
+    if (trip.driverId) {
+      const live = await this.prisma.trip.findFirst({
+        where: {
+          driverId: trip.driverId,
+          status: { in: [TripStatus.STARTED, TripStatus.IN_PROGRESS] },
+          id: { not: id },
+        },
+        select: { id: true },
+      });
+      if (live) {
+        throw new BadRequestException({
+          error: 'TRIP_ALREADY_LIVE',
+          message: 'You already have a trip under way. Complete it before starting another.',
+        });
+      }
+    }
 
     const now = new Date();
     const scheduledStart = trip.scheduledStart ?? trip.date;
@@ -361,6 +560,31 @@ export class TripsService {
     });
   }
 
+  /** Open (or all) trip-completion (early-end) exceptions for the alarm panel, tenant-scoped. */
+  listCompletionExceptions(tenantId: string, opts: { resolved?: boolean } = {}) {
+    const where: Prisma.TripCompletionExceptionWhereInput = { tenantId };
+    if (opts.resolved === true) where.resolvedAt = { not: null };
+    if (opts.resolved === false) where.resolvedAt = null;
+    return this.prisma.tripCompletionException.findMany({
+      where,
+      include: { trip: { include: { route: true, vehicle: true, driver: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /** Resolve a trip-completion exception — records the resolver + timestamp. Tenant-scoped. */
+  async resolveCompletionException(id: string, tenantId: string, resolvedById: string) {
+    const exception = await this.prisma.tripCompletionException.findFirst({
+      where: { id, tenantId },
+      select: { id: true },
+    });
+    if (!exception) throw new NotFoundException(`Trip-completion exception ${id} not found`);
+    return this.prisma.tripCompletionException.update({
+      where: { id },
+      data: { resolvedById, resolvedAt: new Date() },
+    });
+  }
+
   /**
    * Derive a trip's planned departure from the route's age-group pickup/drop time
    * (by direction), applied to the trip's calendar day. Note: the "HH:mm" times are
@@ -405,12 +629,112 @@ export class TripsService {
     });
   }
 
-  async complete(id: string) {
-    const updated = await this.transition(id, TripStatus.COMPLETED, { completedAt: new Date() });
+  /**
+   * Complete a trip (3-rule §1/§5/§6). A trip can only be completed once it is
+   * STARTED or IN_PROGRESS — the SCHEDULED→COMPLETED edge is absent from the
+   * state machine, and this re-checks it up front so the driver gets a clear
+   * message instead of the generic transition error.
+   *
+   * If the trip is completed BEFORE its final stop has been serviced, a `reason`
+   * note is MANDATORY (mirrors the start-governance pattern): completing early
+   * records a TripCompletionException and fires a fire-and-forget admin alarm so
+   * the ADMIN is notified. Reaching the final stop completes normally with no
+   * note required.
+   */
+  async complete(id: string, opts: { reason?: string; stoppedAtSeq?: number } = {}) {
+    const trip = await this.prisma.trip.findUnique({
+      where: { id },
+      select: { id: true, tenantId: true, status: true },
+    });
+    if (!trip) throw new NotFoundException(`Trip ${id} not found`);
+
+    // §1 — a trip must be under way before it can be completed.
+    if (trip.status !== TripStatus.STARTED && trip.status !== TripStatus.IN_PROGRESS) {
+      throw new BadRequestException({
+        error: 'TRIP_NOT_STARTED',
+        message: `Cannot complete a trip that is ${trip.status.toLowerCase()} — start it first.`,
+      });
+    }
+
+    // Total serviceable stops = distinct stops that actually carry riders, which is
+    // exactly what the driver app walks (the roster). Matching the client's notion
+    // of "stops" keeps `stoppedAtSeq` and the early/final decision consistent.
+    const riderStops = await this.prisma.tripRider.findMany({
+      where: { tripId: id },
+      select: { stopId: true },
+      distinct: ['stopId'],
+    });
+    const totalStops = riderStops.length;
+    // The driver reports which stop they stopped at (1-based). Without it we treat
+    // the completion as final (no early-completion alarm).
+    const stoppedAtSeq = opts.stoppedAtSeq ?? totalStops;
+    const isEarly = totalStops > 0 && stoppedAtSeq < totalStops;
+    const reason = opts.reason?.trim();
+
+    // §5 — completing before the final stop requires a reason note.
+    if (isEarly && !reason) {
+      throw new BadRequestException({
+        error: 'TRIP_COMPLETE_EARLY',
+        message: `This trip has ${totalStops} stops and you're completing at stop ${stoppedAtSeq}. Add a reason to complete early.`,
+      });
+    }
+
+    const now = new Date();
+    const updated = await this.transition(id, TripStatus.COMPLETED, { completedAt: now });
+
+    if (isEarly) {
+      // Off-protocol completion: persist the exception, then alert admins (fire-and-forget).
+      const roster = await this.getRosterSummary(id);
+      const exception = await this.prisma.tripCompletionException.create({
+        data: {
+          tenantId: trip.tenantId,
+          tripId: id,
+          completedAt: now,
+          stoppedAtSeq,
+          totalStops,
+          boarded: roster.boarded,
+          totalRiders: roster.total,
+          reason: reason as string,
+        },
+      });
+      this.notifyAdminsOfEarlyCompletion(trip.tenantId, id, exception.reason).catch((err) =>
+        this.logger.error(`TRIP_EARLY_COMPLETE dispatch failed: ${(err as Error).message}`),
+      );
+    }
+
     this.notifyGuardiansOnTrip(id, NotifCategory.TRIP_END).catch((err) =>
       this.logger.error(`TRIP_END dispatch failed: ${(err as Error).message}`),
     );
     return updated;
+  }
+
+  /** Lightweight boarded/total counts for a trip's riders (early-completion record). */
+  private async getRosterSummary(tripId: string): Promise<{ total: number; boarded: number }> {
+    const riders = await this.prisma.tripRider.findMany({
+      where: { tripId },
+      select: { boardStatus: true },
+    });
+    return {
+      total: riders.length,
+      boarded: riders.filter((r) => r.boardStatus === RiderStatus.BOARDED).length,
+    };
+  }
+
+  /** Resolve the tenant's ACTIVE admins and dispatch the TRIP_EARLY_COMPLETE alarm. */
+  private async notifyAdminsOfEarlyCompletion(tenantId: string, tripId: string, reason: string) {
+    const admins = await this.prisma.membership.findMany({
+      where: { tenantId, role: { in: ['ADMIN', 'TRANSPORT_MANAGER'] as never }, status: 'ACTIVE' },
+      select: { personId: true },
+    });
+    const recipientIds = [...new Set(admins.map((a) => a.personId))];
+    if (!recipientIds.length) return;
+    await this.notifications.dispatch({
+      eventType: NotifCategory.TRIP_EARLY_COMPLETE,
+      tenantId,
+      recipientIds,
+      variables: { tripId, reason, deepLink: '/trips/exceptions' },
+      entityId: tripId,
+    });
   }
 
   /**

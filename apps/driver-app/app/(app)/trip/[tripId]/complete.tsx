@@ -1,26 +1,58 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, Button } from '@saarthi/ui';
+import { router, useLocalSearchParams } from 'expo-router';
+import { colors, spacing, fontSizes, fontWeights, Button, Skeleton } from '@saarthi/ui';
+import { useTripById, useRoster } from '@saarthi/api-client';
+
+/** Whole minutes between two ISO timestamps, or null if either is missing. */
+function durationMinutes(startedAt?: string | null, completedAt?: string | null): number | null {
+  if (!startedAt || !completedAt) return null;
+  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  return Math.round(ms / 60_000);
+}
 
 export default function TripCompleteScreen() {
+  const { tripId } = useLocalSearchParams<{ tripId: string }>();
+  const { data: trip, isLoading: tripLoading } = useTripById(tripId);
+  const { data: roster, isLoading: rosterLoading } = useRoster(tripId);
+
+  const loading = tripLoading || rosterLoading;
+  const summary = roster?.summary;
+  const mins = durationMinutes((trip as any)?.startedAt, (trip as any)?.completedAt);
+
+  // Real stats for this trip — no placeholders.
+  const stats: { label: string; value: string }[] = [
+    { label: 'Total Riders', value: summary ? String(summary.total) : '—' },
+    { label: 'Boarded', value: summary ? String(summary.boarded) : '—' },
+    {
+      label: 'Not Boarded',
+      // Anyone never marked (still EXPECTED) counts as not boarded for the recap.
+      value: summary ? String(summary.notBoarded + summary.expected) : '—',
+    },
+    { label: 'Duration', value: mins != null ? `${mins} min` : '—' },
+  ];
+
+  const allCovered = summary ? summary.boarded + summary.notBoarded + summary.cancelled >= summary.total : false;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.emoji}>🎉</Text>
         <Text style={styles.title}>Trip Complete!</Text>
-        <Text style={styles.subtitle}>Great job. All stops covered successfully.</Text>
+        <Text style={styles.subtitle}>
+          {allCovered ? 'Great job. All riders accounted for.' : 'Trip ended. Recap below.'}
+        </Text>
 
         <View style={styles.stats}>
-          {[
-            { label: 'Total Riders', value: '22' },
-            { label: 'Boarded', value: '20' },
-            { label: 'Not Boarded', value: '2' },
-            { label: 'Duration', value: '48 min' },
-          ].map((s) => (
+          {stats.map((s) => (
             <View key={s.label} style={styles.statItem}>
-              <Text style={styles.statValue}>{s.value}</Text>
+              {loading ? (
+                <Skeleton width={48} height={28} />
+              ) : (
+                <Text style={styles.statValue}>{s.value}</Text>
+              )}
               <Text style={styles.statLabel}>{s.label}</Text>
             </View>
           ))}

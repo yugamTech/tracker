@@ -44,13 +44,14 @@ export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, use
 
 // Trips
 export { tripsApi, pickupCancelInfo, PICKUP_CANCEL_CUTOFF_MINUTES } from './trips/trips.api';
-export type { ScheduleTripDto, TripStartExceptionWithTrip, OverdueTrip, TripFilters, UpdateTripDto, PickupCancelInfo } from './trips/trips.api';
+export type { ScheduleTripDto, TripStartExceptionWithTrip, TripCompletionExceptionWithTrip, OverdueTrip, TripFilters, UpdateTripDto, PickupCancelInfo, HistoryTrip, DriverEfficiency, DriverHistoryResponse } from './trips/trips.api';
 export {
   tripKeys,
   useTodayTrips,
   useTripsByDate,
   useFilteredTrips,
   useTripDates,
+  useDriverHistory,
   useTripById,
   useOverdueTrips,
   useCreateTrip,
@@ -62,6 +63,8 @@ export {
   useCancelPickup,
   useTripStartExceptions,
   useResolveStartException,
+  useTripCompletionExceptions,
+  useResolveCompletionException,
 } from './trips/trips.hooks';
 
 // Tracking
@@ -78,6 +81,13 @@ export { attendanceKeys, useTripAttendance, useMarkAttendance, useRoster } from 
 export { dailyChecksApi } from './daily-checks/daily-checks.api';
 export type { DailyCheck, SubmitDailyCheckDto } from './daily-checks/daily-checks.api';
 export { dailyCheckKeys, useDailyChecks, useSubmitDailyCheck } from './daily-checks/daily-checks.hooks';
+export {
+  CHECK_WINDOW_HOURS,
+  checkWindowInfo,
+  formatTripWhen,
+  formatTripTime,
+} from './daily-checks/daily-checks.window';
+export type { CheckWindowInfo } from './daily-checks/daily-checks.window';
 
 // Driver KYC profiles
 export { driverProfilesApi } from './driver-profiles/driver-profiles.api';
@@ -89,6 +99,18 @@ export {
   useDriverProfile,
   useUpsertDriverProfile,
 } from './driver-profiles/driver-profiles.hooks';
+export {
+  ADDRESS_MIN_LENGTH,
+  normaliseAadhaar,
+  formatAadhaar,
+  normaliseLicense,
+  isValidAadhaar,
+  isValidLicense,
+  isValidDateString,
+  isFutureDate,
+  validateKyc,
+} from './driver-profiles/driver-profiles.validation';
+export type { KycInput, KycErrors } from './driver-profiles/driver-profiles.validation';
 
 // Complaints
 export { complaintsApi } from './complaints/complaints.api';

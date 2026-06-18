@@ -1,5 +1,5 @@
 import { apiClient } from '../axios';
-import type { Trip, TripStartException } from '@saarthi/types';
+import type { Trip, TripStartException, TripCompletionException } from '@saarthi/types';
 
 /**
  * Minutes before `scheduledStart` after which a parent can no longer skip a
@@ -119,6 +119,54 @@ export type TripStartExceptionWithTrip = TripStartException & {
   };
 };
 
+/** A trip-completion (early-end) exception with its trip context, for the alarm panel. */
+export type TripCompletionExceptionWithTrip = TripCompletionException & {
+  trip?: {
+    id: string;
+    direction: string;
+    route?: { name: string } | null;
+    vehicle?: { regNumber: string } | null;
+    driver?: { name: string } | null;
+  };
+};
+
+/** One past trip in the driver's history feed, with real computed fields. */
+export interface HistoryTrip {
+  id: string;
+  date: string;
+  scheduledStart: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  direction: 'PICKUP' | 'DROP';
+  status: string;
+  route: { id: string; name: string } | null;
+  vehicle: { id: string; regNumber: string } | null;
+  boarded: number;
+  notBoarded: number;
+  total: number;
+  /** Riders expected to board (excludes cancelled pickups). */
+  expectedToBoard: number;
+  /** Whole minutes between startedAt and completedAt, or null. */
+  durationMinutes: number | null;
+  /** Whether a vehicle check was done for this trip (linked, or same vehicle that day). */
+  vehicleChecked: boolean;
+  /** Started within the ±1h window (no start exception); null if it never started. */
+  onTime: boolean | null;
+}
+
+/** Aggregated driver efficiency across their whole ride history. Rates are 0–1, or null. */
+export interface DriverEfficiency {
+  totalTrips: number;
+  tripsCompleted: number;
+  onTimeRate: number | null;
+  avgBoardingRate: number | null;
+}
+
+export interface DriverHistoryResponse {
+  trips: HistoryTrip[];
+  summary: DriverEfficiency;
+}
+
 export const tripsApi = {
   getMyTrips: async (params?: { page?: number; limit?: number }) => {
     const { data } = await apiClient.get('/trips', { params });
@@ -138,6 +186,12 @@ export const tripsApi = {
   getTodayTrips: async () => {
     const { data } = await apiClient.get('/trips/today');
     return data.data as Trip[];
+  },
+
+  /** Driver ride history (past trips) + efficiency summary, scoped to the caller. */
+  getDriverHistory: async () => {
+    const { data } = await apiClient.get('/trips/history');
+    return data.data as DriverHistoryResponse;
   },
 
   /** Trips on a single calendar day (`YYYY-MM-DD`), morning→evening. */
@@ -192,8 +246,23 @@ export const tripsApi = {
     return data.data as TripStartException;
   },
 
-  completeTrip: async (tripId: string) => {
-    const { data } = await apiClient.post(`/trips/${tripId}/complete`);
+  listCompletionExceptions: async (resolved?: 'true' | 'all') => {
+    const { data } = await apiClient.get('/trips/completion-exceptions', {
+      params: resolved ? { resolved } : undefined,
+    });
+    return data.data as TripCompletionExceptionWithTrip[];
+  },
+
+  resolveCompletionException: async (exceptionId: string) => {
+    const { data } = await apiClient.post(`/trips/completion-exceptions/${exceptionId}/resolve`);
+    return data.data as TripCompletionException;
+  },
+
+  completeTrip: async (tripId: string, opts: { reason?: string; stoppedAtSeq?: number } = {}) => {
+    const body: { reason?: string; stoppedAtSeq?: number } = {};
+    if (opts.reason) body.reason = opts.reason;
+    if (opts.stoppedAtSeq != null) body.stoppedAtSeq = opts.stoppedAtSeq;
+    const { data } = await apiClient.post(`/trips/${tripId}/complete`, body);
     return data.data as Trip;
   },
 

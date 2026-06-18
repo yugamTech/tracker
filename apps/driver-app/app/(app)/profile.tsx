@@ -35,7 +35,7 @@ export default function DriverProfileScreen() {
   const menu = [
     { label: 'My KYC', onPress: () => router.push('/(app)/kyc' as never) },
     { label: 'Vehicle Check', onPress: () => router.push('/(app)/vehicle-check' as never) },
-    { label: 'Trip History', onPress: () => Alert.alert('Coming soon', 'Trip history coming in a later phase') },
+    { label: 'Trip History', onPress: () => router.push('/(app)/history' as never) },
   ];
 
   return (

@@ -1,13 +1,21 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { localStorageRoot, STORAGE_URL_PREFIX } from './infra/storage/storage.service';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { RedisIoAdapter } from './infra/socket/redis-io.adapter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Serve locally-stored uploads (attendance photos in Phase 3) as static files.
+  // Mounted as raw express middleware so it bypasses the global response
+  // interceptor — these are binary files, not JSON envelopes. Lives outside the
+  // `api/v1` prefix so the stored URL is stable when real object storage lands.
+  app.useStaticAssets(localStorageRoot(), { prefix: STORAGE_URL_PREFIX });
 
   // Socket.IO over Redis pub/sub so /tracking room fan-out spans instances.
   const redisAdapter = new RedisIoAdapter(app);
