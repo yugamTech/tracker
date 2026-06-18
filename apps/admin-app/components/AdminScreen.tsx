@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import React, { useRef, useCallback } from 'react';
+import { View, Text, Animated, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   colors,
@@ -50,6 +51,23 @@ export function AdminScreen({
   const insets = useSafeAreaInsets();
   const { isPhone, isDesktop } = useResponsive();
 
+  const slideAnim = useRef(new Animated.Value(subnav ? 14 : 0)).current;
+  const fadeAnim = useRef(new Animated.Value(subnav ? 0 : 1)).current;
+
+  // Re-run the slide-in every time this screen gains focus (fixes the
+  // "animation only works once" issue caused by Drawer caching screens).
+  useFocusEffect(
+    useCallback(() => {
+      if (!subnav) return;
+      slideAnim.setValue(14);
+      fadeAnim.setValue(0);
+      Animated.parallel([
+        Animated.timing(slideAnim, { toValue: 0, duration: 210, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 210, useNativeDriver: true }),
+      ]).start();
+    }, [!!subnav]),
+  );
+
   const centered: StyleProp<ViewStyle> = isDesktop
     ? { width: '100%', maxWidth, alignSelf: 'center' }
     : undefined;
@@ -71,9 +89,15 @@ export function AdminScreen({
         </View>
       ) : null}
 
-      <View style={[styles.content, contentStyle]}>
+      <Animated.View
+        style={[
+          styles.content,
+          contentStyle,
+          subnav ? { opacity: fadeAnim, transform: [{ translateX: slideAnim }] } : null,
+        ]}
+      >
         <View style={[styles.contentInner, centered]}>{children}</View>
-      </View>
+      </Animated.View>
     </View>
   );
 }

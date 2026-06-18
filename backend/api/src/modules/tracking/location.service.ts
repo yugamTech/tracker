@@ -289,7 +289,12 @@ export class LocationService {
         direction: trip.direction,
         vehicleReg: trip.vehicle?.regNumber ?? null,
         driverName: trip.driver?.name ?? null,
-        stops: trip.route.stops.map((rs) => ({ id: rs.stop.id, name: rs.stop.name })),
+        stops: trip.route.stops.map((rs) => ({
+          id: rs.stop.id,
+          name: rs.stop.name,
+          lat: rs.stop.lat,
+          lng: rs.stop.lng,
+        })),
         latest: await this.getLatest(trip.id),
       })),
     );

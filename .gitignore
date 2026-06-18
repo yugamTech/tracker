@@ -71,3 +71,6 @@ coverage/
 
 # Docker volumes (don't ignore the compose files themselves)
 docker/postgres/data/
+
+# Claude Code session/memory (local only)
+.claude/

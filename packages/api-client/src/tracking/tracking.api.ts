@@ -30,7 +30,7 @@ export interface FleetEntry {
   direction: string;
   vehicleReg: string | null;
   driverName: string | null;
-  stops: { id: string; name: string }[];
+  stops: { id: string; name: string; lat: number; lng: number }[];
   latest: LatestPosition | null;
 }
 

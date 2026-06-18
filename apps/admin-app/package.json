@@ -4,14 +4,15 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@react-navigation/drawer": "^7.0.0",
     "@saarthi/api-client": "*",
     "@saarthi/types": "*",
+    "@maplibre/maplibre-react-native": "^11.3.4",
     "@saarthi/ui": "*",
     "@tanstack/react-query": "^5.0.0",
     "axios": "^1.6.0",

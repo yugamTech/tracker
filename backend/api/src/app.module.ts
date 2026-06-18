@@ -1,6 +1,7 @@
 import { Module, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { validateEnv } from './config/env.validation';
 
 // Infra
 import { PrismaModule } from './infra/database/prisma.module';
@@ -25,8 +26,8 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
-    // Config — load .env
-    ConfigModule.forRoot({ isGlobal: true }),
+    // Config — load .env and fail fast on missing secrets in production
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
 
     // Scheduling (cron jobs)
     ScheduleModule.forRoot(),

@@ -1,13 +1,13 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking, RefreshControl, Alert,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
-  colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button, LoadingSpinner, EmptyState, MockBusMap,
+  colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button, LoadingSpinner, EmptyState, LiveBusMap,
 } from '@saarthi/ui';
 import type { BadgeVariant } from '@saarthi/ui';
-import { useTripById, useRoster, useCancelTrip } from '@saarthi/api-client';
+import { useTripById, useRoster, useCancelTrip, useLatestPosition, useFleetSocket } from '@saarthi/api-client';
 import type { RosterGuardian } from '@saarthi/api-client';
 import { goBackTo } from '../../../lib/nav';
 
@@ -53,7 +53,31 @@ export default function TripMonitorScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const { data: trip } = useTripById(tripId);
   const { data: roster, isLoading, isError, refetch, isRefetching } = useRoster(tripId);
+  const { data: primed } = useLatestPosition(tripId);
   const cancelTrip = useCancelTrip();
+
+  // Live bus position: primed from the REST snapshot, then advanced by the fleet socket.
+  const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
+  useFleetSocket(true, {
+    onLocation: (d) => {
+      if (d.tripId === tripId) setPos({ lat: d.lat, lng: d.lng });
+    },
+  });
+  const busPos = pos ?? (primed ? { lat: primed.lat, lng: primed.lng } : null);
+
+  // Ordered route stops with coords for the live map.
+  const routeStops = useMemo(
+    () =>
+      (((trip as any)?.route?.stops ?? []) as any[])
+        .map((rs: any) => ({
+          id: rs.stop?.id ?? rs.id,
+          name: rs.stop?.name ?? rs.name,
+          lat: rs.stop?.lat,
+          lng: rs.stop?.lng,
+        }))
+        .filter((s) => s.lat != null && s.lng != null),
+    [trip],
+  );
 
   const handleCancel = () => {
     Alert.alert(
@@ -96,11 +120,12 @@ export default function TripMonitorScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
     >
-      {/* Mock live map — shown when trip is started/in-progress */}
-      {(status === 'STARTED' || status === 'IN_PROGRESS') && (
-        <MockBusMap
-          stops={((t?.route?.stops ?? []) as any[]).map((rs: any) => ({ id: rs.stop?.id ?? rs.id, name: rs.stop?.name ?? rs.name }))}
-          live={true}
+      {/* Live route map — shown when trip is started/in-progress */}
+      {(status === 'STARTED' || status === 'IN_PROGRESS') && routeStops.length > 0 && (
+        <LiveBusMap
+          stops={routeStops}
+          busLat={busPos?.lat}
+          busLng={busPos?.lng}
           routeName={routeName}
           height={180}
         />

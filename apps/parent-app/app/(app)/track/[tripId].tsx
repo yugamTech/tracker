@@ -5,7 +5,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
   StatusDot, Card, Badge, Button, Divider, Skeleton, EmptyState,
-  MockBusMap, AppHeader, AnimatedPressable,
+  LiveBusMap, AppHeader, AnimatedPressable,
 } from '@saarthi/ui';
 import type { BadgeVariant } from '@saarthi/ui';
 import {
@@ -77,9 +77,14 @@ export default function TrackScreen() {
   // Ordered route stops + progress. Departed stops are primed from the trip's
   // historical geofence events (so a reload keeps progress) and merged with
   // live DEPARTED deltas from the socket.
-  const routeStops: { id: string; name: string }[] = useMemo(
-    () => (t?.route?.stops ?? []).map((rs: any) => ({ id: rs.stop.id, name: rs.stop.name })),
+  const routeStops: { id: string; name: string; lat?: number; lng?: number }[] = useMemo(
+    () => (t?.route?.stops ?? []).map((rs: any) => ({ id: rs.stop.id, name: rs.stop.name, lat: rs.stop.lat, lng: rs.stop.lng })),
     [t],
+  );
+  // Stops that carry coordinates — the live map needs lat/lng.
+  const mapStops = useMemo(
+    () => routeStops.filter((s): s is { id: string; name: string; lat: number; lng: number } => s.lat != null && s.lng != null),
+    [routeStops],
   );
   const baseDeparted = useMemo(
     () =>
@@ -211,10 +216,10 @@ export default function TrackScreen() {
         /* ─── LIVE: map + alarm + ETA + progress + driver ─── */
         <>
           <View style={styles.mapWrap}>
-            <MockBusMap
-              stops={routeStops}
-              currentIdx={currentIdx}
-              live={live}
+            <LiveBusMap
+              stops={mapStops}
+              busLat={latest?.lat}
+              busLng={latest?.lng}
               routeName={routeName}
               height={220}
             />

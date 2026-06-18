@@ -16,6 +16,8 @@ export { OtpInput } from './components/OtpInput';
 export { ScreenContainer } from './components/ScreenContainer';
 export { MockBusMap } from './components/MockBusMap';
 export type { MockBusMapStop } from './components/MockBusMap';
+export { LiveBusMap } from './components/LiveBusMap';
+export type { LiveBusMapStop, LiveBusMapProps } from './components/LiveBusMap';
 
 // Primitives
 export { AnimatedPressable, Pressable } from './components/Pressable';

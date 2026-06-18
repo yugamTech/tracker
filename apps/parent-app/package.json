@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@maplibre/maplibre-react-native": "^11.3.4",
     "@react-navigation/bottom-tabs": "^7.0.0",
     "@saarthi/api-client": "*",
     "@saarthi/types": "*",

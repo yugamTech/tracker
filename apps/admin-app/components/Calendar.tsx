@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import {
   colors, spacing, radius, fontSizes, fontWeights, letterSpacing, AnimatedPressable, Sheet,
 } from '@saarthi/ui';
@@ -212,38 +212,38 @@ export function MonthCalendar({
             const disabled =
               (!!minSelectable && key < minSelectable) || (!!maxSelectable && key > maxSelectable);
             return (
-              <View key={di} style={styles.cell}>
-                <AnimatedPressable
-                  scaleTo={disabled ? 1 : 0.9}
-                  disabled={disabled}
-                  onPress={() => onSelectDay(key)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isSelected, disabled }}
+              <Pressable
+                key={di}
+                disabled={disabled}
+                onPress={() => onSelectDay(key)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected, disabled }}
+                style={({ pressed }) => [
+                  styles.cell,
+                  styles.day,
+                  isToday && !isSelected && styles.dayToday,
+                  isSelected && styles.daySelected,
+                  pressed && !disabled && styles.dayPressed,
+                ]}
+              >
+                <Text
                   style={[
-                    styles.day,
-                    isToday && !isSelected && styles.dayToday,
-                    isSelected && styles.daySelected,
+                    styles.dayText,
+                    disabled && styles.dayTextDisabled,
+                    isToday && !isSelected && styles.dayTextToday,
+                    isSelected && styles.dayTextSelected,
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.dayText,
-                      disabled && styles.dayTextDisabled,
-                      isToday && !isSelected && styles.dayTextToday,
-                      isSelected && styles.dayTextSelected,
-                    ]}
-                  >
-                    {date.getDate()}
-                  </Text>
-                  <View
-                    style={[
-                      styles.dot,
-                      isMarked && !isSelected && styles.dotVisible,
-                      isMarked && isSelected && styles.dotOnSelected,
-                    ]}
-                  />
-                </AnimatedPressable>
-              </View>
+                  {date.getDate()}
+                </Text>
+                <View
+                  style={[
+                    styles.dot,
+                    isMarked && !isSelected && styles.dotVisible,
+                    isMarked && isSelected && styles.dotOnSelected,
+                  ]}
+                />
+              </Pressable>
             );
           })}
         </View>
@@ -370,12 +370,17 @@ const styles = StyleSheet.create({
   },
 
   // Fixed-height rows keep the grid compact and bounded — never a square balloon.
-  cell: { flex: 1, height: 44, padding: 2 },
+  // `cell` and `day` are merged onto the same Pressable so the height constraint
+  // is visible to the Pressable's own layout engine (RN Pressable applies style
+  // directly to itself, unlike AnimatedPressable which wraps in an inner View).
+  cell: { flex: 1, height: 44 },
   day: {
-    flex: 1, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', gap: 2,
+    flex: 1, height: 44, padding: 2,
+    borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', gap: 2,
   },
   dayToday: { borderWidth: 1.5, borderColor: colors.primary },
   daySelected: { backgroundColor: colors.primary },
+  dayPressed: { opacity: 0.75 },
   dayText: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   dayTextDisabled: { color: colors.textMuted, opacity: 0.45 },
   dayTextToday: { color: colors.primary, fontWeight: fontWeights.bold },

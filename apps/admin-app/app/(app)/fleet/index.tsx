@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
-  StatusDot, MockBusMap, Card, Skeleton, EmptyState, AnimatedPressable,
+  StatusDot, MockBusMap, LiveBusMap, Card, Skeleton, EmptyState, AnimatedPressable,
 } from '@saarthi/ui';
 import { useFleet, useFleetSocket } from '@saarthi/api-client';
 import { AdminScreen, HeaderAction } from '../../../components/AdminScreen';
@@ -20,7 +20,7 @@ interface Bus {
   lng: number | null;
   speed: number | null;
   updatedAt: number | null;
-  stops: { id: string; name: string }[];
+  stops: { id: string; name: string; lat?: number; lng?: number }[];
   direction?: string;
 }
 
@@ -125,10 +125,25 @@ export default function FleetMapScreen() {
           }
           renderItem={(b) => {
             const fresh = b.updatedAt != null && now - b.updatedAt < 30000;
+            // The fleet snapshot carries stop coords; socket-only buses (no snapshot
+            // yet) don't, so fall back to the timeline placeholder until they do.
+            const geoStops = b.stops.filter(
+              (s): s is { id: string; name: string; lat: number; lng: number } => s.lat != null && s.lng != null,
+            );
             return (
               <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/fleet/${b.tripId}` as never)}>
                 <Card padding={0} shadow="sm" style={styles.busCard}>
-                  <MockBusMap stops={b.stops} live={fresh} routeName={b.routeName} height={140} />
+                  {geoStops.length > 0 ? (
+                    <LiveBusMap
+                      stops={geoStops}
+                      busLat={b.lat}
+                      busLng={b.lng}
+                      routeName={b.routeName}
+                      height={140}
+                    />
+                  ) : (
+                    <MockBusMap stops={b.stops} live={fresh} routeName={b.routeName} height={140} />
+                  )}
                   <View style={styles.infoStrip}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.busNum} numberOfLines={1}>{b.vehicleReg ?? b.routeName}</Text>

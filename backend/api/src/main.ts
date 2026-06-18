@@ -59,7 +59,9 @@ async function bootstrap() {
   }
 
   const port = process.env.PORT ?? 3000;
-  await app.listen(port);
+  // Bind to all interfaces — cloud hosts (Railway/Render/Fly) route to 0.0.0.0,
+  // not localhost, so the container is otherwise unreachable.
+  await app.listen(port, '0.0.0.0');
   console.warn(`🚀 Saarthi API running on http://localhost:${port}/api/v1`);
   console.warn(`📖 Swagger docs: http://localhost:${port}/api/docs`);
 }
