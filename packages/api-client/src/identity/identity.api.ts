@@ -42,6 +42,28 @@ export interface Member {
   }>;
 }
 
+export interface ParentStudent {
+  id: string;
+  name: string;
+  status: string;
+  regId?: string;
+}
+
+export interface Parent {
+  id: string;
+  role: string;
+  status: string;
+  personId: string;
+  tenantId: string;
+  person: Person & {
+    guardianships: Array<{
+      id: string;
+      relation: string;
+      student: ParentStudent;
+    }>;
+  };
+}
+
 export const identityApi = {
   getMe: async (): Promise<Person & { memberships: Membership[] }> => {
     const { data } = await apiClient.get('/persons/me');
@@ -145,6 +167,15 @@ export const identityApi = {
 
   reactivateMember: async (id: string): Promise<Member> => {
     const { data } = await apiClient.post(`/members/${id}/reactivate`);
+    return data.data;
+  },
+
+  listParents: async (includeInactive?: boolean): Promise<Parent[]> => {
+    const params: Record<string, string> = {};
+    if (includeInactive) params.includeInactive = 'true';
+    const { data } = await apiClient.get('/members/parents', {
+      params: Object.keys(params).length ? params : undefined,
+    });
     return data.data;
   },
 

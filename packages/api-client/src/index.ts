@@ -9,7 +9,7 @@ export { useRequestOtp, useVerifyOtp, useMemberships, useSwitchContext, authKeys
 
 // Identity
 export { identityApi } from './identity/identity.api';
-export type { Person, Membership, Student, Member } from './identity/identity.api';
+export type { Person, Membership, Student, Member, Parent, ParentStudent } from './identity/identity.api';
 export {
   identityKeys,
   useMe,
@@ -27,6 +27,7 @@ export {
   useReactivateMember,
   useDeactivateStudent,
   useReactivateStudent,
+  useParents,
   useAgeGroups,
   useMyTenant,
 } from './identity/identity.hooks';

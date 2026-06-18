@@ -55,6 +55,36 @@ export class MembersService {
     });
   }
 
+  /**
+   * List parents for a tenant. Parents are managed via guardian linkage (not
+   * the staff endpoint) so they're returned separately here with their linked
+   * students so the admin can see who each parent belongs to.
+   */
+  listParents(tenantId: string, includeInactive = false) {
+    return this.prisma.membership.findMany({
+      where: {
+        tenantId,
+        role: Role.PARENT,
+        ...(includeInactive ? {} : { status: 'ACTIVE' }),
+      },
+      include: {
+        person: {
+          include: {
+            guardianships: {
+              where: { student: { tenantId } },
+              include: {
+                student: {
+                  select: { id: true, name: true, status: true, regId: true },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { person: { name: 'asc' } },
+    });
+  }
+
   async findById(id: string, tenantId: string) {
     const member = await this.prisma.membership.findFirst({
       where: { id, tenantId },

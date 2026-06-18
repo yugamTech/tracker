@@ -5,15 +5,16 @@ import {
   colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
   Card, Avatar, Badge, Button, Skeleton, EmptyState, AnimatedPressable, SegmentedControl,
 } from '@saarthi/ui';
-import { useStudents, useMembers } from '@saarthi/api-client';
+import { useStudents, useMembers, useParents } from '@saarthi/api-client';
 import { AdminScreen, HeaderAction } from '../../../components/AdminScreen';
 import { SearchField } from '../../../components/SearchField';
 import { GridList } from '../../../components/widgets';
 import { useResponsive } from '../../../hooks/useResponsive';
 
-type Tab = 'students' | 'staff' | 'import';
+type Tab = 'students' | 'parents' | 'staff' | 'import';
 const TABS = [
   { label: 'Students', value: 'students' as const },
+  { label: 'Parents', value: 'parents' as const },
   { label: 'Staff', value: 'staff' as const },
   { label: 'Import', value: 'import' as const },
 ];
@@ -42,11 +43,15 @@ export default function PeopleScreen() {
   const { gridColumns } = useResponsive();
 
   const { data: students, isLoading: studentsLoading } = useStudents();
+  const { data: parents, isLoading: parentsLoading } = useParents(true);
   const { data: staff, isLoading: staffLoading } = useMembers();
 
   const q = search.toLowerCase();
   const filteredStudents = (students ?? []).filter(
     (s) => !q || s.name.toLowerCase().includes(q) || (s.regId ?? '').toLowerCase().includes(q) || (s.route?.name ?? '').toLowerCase().includes(q),
+  );
+  const filteredParents = (parents ?? []).filter(
+    (p) => !q || p.person.name.toLowerCase().includes(q) || p.person.phone.includes(search),
   );
   const filteredStaff = (staff ?? []).filter(
     (m) => !q || m.person.name.toLowerCase().includes(q) || m.person.phone.includes(search),
@@ -56,6 +61,7 @@ export default function PeopleScreen() {
     tab === 'students' ? <HeaderAction label="+ Add" onPress={() => router.push('/(app)/people/students/new' as never)} />
     : tab === 'staff' ? <HeaderAction label="+ Add" onPress={() => router.push('/(app)/people/staff/new' as never)} />
     : undefined;
+    // Parents are always added via student creation (guardian linkage), so no standalone + Add button.
 
   return (
     <AdminScreen
@@ -70,7 +76,9 @@ export default function PeopleScreen() {
             <SearchField
               value={search}
               onChangeText={setSearch}
-              placeholder={tab === 'students' ? 'Search name, reg ID, route…' : 'Search name or phone…'}
+              placeholder={
+                tab === 'students' ? 'Search name, reg ID, route…' : 'Search name or phone…'
+              }
             />
           </View>
         ) : null}
@@ -110,7 +118,40 @@ export default function PeopleScreen() {
               )}
             />
           )
-        ) : (
+        ) : tab === 'parents' ? (
+          parentsLoading ? <SkeletonGrid /> : (
+            <GridList
+              data={filteredParents}
+              columns={gridColumns}
+              keyExtractor={(p) => p.id}
+              ListEmptyComponent={
+                <View style={styles.emptyWrap}>
+                  <EmptyState
+                    icon={<Text style={{ fontSize: 40 }}>👨‍👩‍👧</Text>}
+                    title={search ? 'No parents match' : 'No parents yet'}
+                    description={search ? 'Try a different search term.' : 'Parents are added automatically when a student is created with parent details.'}
+                  />
+                </View>
+              }
+              renderItem={(p) => (
+                <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/people/parents/${p.id}` as never)}>
+                  <Card shadow="sm">
+                    <View style={styles.row}>
+                      <Avatar name={p.person.name} size={44} />
+                      <View style={styles.info}>
+                        <Text style={styles.name} numberOfLines={1}>{p.person.name}</Text>
+                        <Text style={styles.meta} numberOfLines={1}>
+                          {p.person.guardianships.map((g) => g.student.name).join(', ') || p.person.phone}
+                        </Text>
+                      </View>
+                      <Badge label={p.status} variant={p.status === 'ACTIVE' ? 'active' : 'inactive'} size="sm" />
+                    </View>
+                  </Card>
+                </AnimatedPressable>
+              )}
+            />
+          )
+        ) : tab === 'staff' ? (
           staffLoading ? <SkeletonGrid /> : (
             <GridList
               data={filteredStaff}
@@ -141,7 +182,7 @@ export default function PeopleScreen() {
               )}
             />
           )
-        )}
+        ) : null}
       </View>
     </AdminScreen>
   );

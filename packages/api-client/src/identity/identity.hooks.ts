@@ -9,6 +9,7 @@ export const identityKeys = {
   members: (role?: string, includeInactive?: boolean) =>
     ['identity', 'members', role, includeInactive ?? false] as const,
   member: (id: string) => ['identity', 'members', id] as const,
+  parents: (includeInactive?: boolean) => ['identity', 'parents', includeInactive ?? false] as const,
   ageGroups: ['identity', 'age-groups'] as const,
   tenant: ['identity', 'tenant'] as const,
 };
@@ -125,6 +126,12 @@ export const useReactivateMember = () => {
     },
   });
 };
+
+export const useParents = (includeInactive?: boolean) =>
+  useQuery({
+    queryKey: identityKeys.parents(includeInactive),
+    queryFn: () => identityApi.listParents(includeInactive),
+  });
 
 export const useAgeGroups = () =>
   useQuery({ queryKey: identityKeys.ageGroups, queryFn: identityApi.listAgeGroups });

@@ -42,6 +42,14 @@ export class MembersController {
     return this.membersService.list(tenantId, role, includeInactive === 'true');
   }
 
+  @Get('parents')
+  listParents(
+    @TenantId() tenantId: string,
+    @Query('includeInactive') includeInactive?: string,
+  ) {
+    return this.membersService.listParents(tenantId, includeInactive === 'true');
+  }
+
   @Get(':id')
   findOne(@TenantId() tenantId: string, @Param('id') id: string) {
     return this.membersService.findById(id, tenantId);
