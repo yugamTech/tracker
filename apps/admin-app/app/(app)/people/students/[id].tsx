@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, ScrollView, StyleSheet,
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Avatar, Badge } from '@saarthi/ui';
 import {
   useStudentById, useUpdateStudent, useDeactivateStudent, useReactivateStudent, useAgeGroups, useRoutes, useStops,
@@ -38,12 +38,15 @@ export default function StudentDetailScreen() {
     }
   }, [student]);
 
-  const routeStops = routeId
-    ? stops.filter((s) => {
-        const route = routes.find((r) => r.id === routeId);
-        return route?.stops?.some((rs: any) => rs.stop.id === s.id) ?? true;
-      })
-    : stops;
+  // Stops on the selected route. If the route has none attached yet, fall back to
+  // ALL tenant stops so a boarding stop can still be assigned (otherwise the picker
+  // would be empty and the student could never get a stop).
+  const routeStops = (() => {
+    if (!routeId) return stops;
+    const route = routes.find((r) => r.id === routeId);
+    const onRoute = stops.filter((s) => route?.stops?.some((rs: any) => rs.stop.id === s.id));
+    return onRoute.length ? onRoute : stops;
+  })();
 
   const handleSave = () => {
     if (!name.trim()) { Alert.alert('Validation', 'Name is required'); return; }
@@ -116,6 +119,32 @@ export default function StudentDetailScreen() {
         <TouchableOpacity onPress={() => setEditing((e) => !e)} style={styles.editBtn}>
           <Text style={styles.editBtnText}>{editing ? 'Cancel' : 'Edit'}</Text>
         </TouchableOpacity>
+      </Card>
+
+      {/* Linked parents / guardians — tap to open the parent profile. */}
+      <Card style={styles.section}>
+        <Text style={styles.sectionTitle}>Parents / Guardians ({student.guardianships?.length ?? 0})</Text>
+        {!student.guardianships?.length ? (
+          <Text style={styles.hint}>No parent linked. Add one from the parent's profile or when creating the student.</Text>
+        ) : (
+          student.guardianships.map((g) => (
+            <TouchableOpacity
+              key={g.id}
+              style={styles.guardianRow}
+              onPress={() => router.push(`/(app)/people/parents/${g.person.id}` as never)}
+              activeOpacity={0.8}
+            >
+              <Avatar name={g.person.name} size={40} />
+              <View style={styles.guardianInfo}>
+                <Text style={styles.guardianName}>{g.person.name}</Text>
+                <Text style={styles.guardianMeta}>
+                  {g.relation}{g.person.phone ? ` · ${g.person.phone}` : ''}
+                </Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          ))
+        )}
       </Card>
 
       {/* Info / Edit */}
@@ -285,4 +314,12 @@ const styles = StyleSheet.create({
   chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
   chipTextActive: { color: colors.white },
   saveBtn: { marginTop: spacing[2] },
+  guardianRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing[3],
+    paddingVertical: spacing[3], borderTopWidth: 1, borderTopColor: colors.border,
+  },
+  guardianInfo: { flex: 1 },
+  guardianName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
+  guardianMeta: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  chevron: { fontSize: fontSizes.lg, color: colors.textMuted },
 });

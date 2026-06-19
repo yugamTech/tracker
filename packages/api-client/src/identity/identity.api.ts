@@ -27,6 +27,12 @@ export interface Student {
   ageGroup?: { id: string; name: string; pickupTime: string; dropTime: string };
   stop?: { id: string; name: string; lat: number; lng: number };
   route?: { id: string; name: string; direction: string };
+  guardianships?: Array<{
+    id: string;
+    relation: string;
+    isPrimary?: boolean;
+    person: { id: string; name: string; phone: string; email?: string };
+  }>;
 }
 
 export interface Member {

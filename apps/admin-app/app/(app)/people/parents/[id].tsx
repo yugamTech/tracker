@@ -1,21 +1,47 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet,
+  View, Text, TextInput, ScrollView, StyleSheet,
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, Button } from '@saarthi/ui';
-import { useParents, useDeactivateMember, useReactivateMember } from '@saarthi/api-client';
+import { useParents, useUpdateMember, useDeactivateMember, useReactivateMember } from '@saarthi/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
 export default function ParentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { data: parents, isLoading } = useParents(true);
-  const parent = parents?.find((p) => p.id === id);
+  // Reachable by membership id (People → Parents) OR personId (Student → guardian),
+  // so navigation from a student's parent link resolves the same record.
+  const parent = parents?.find((p) => p.id === id || p.personId === id);
 
+  const updateMember = useUpdateMember();
   const deactivateMember = useDeactivateMember();
   const reactivateMember = useReactivateMember();
+
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+
+  useEffect(() => {
+    if (parent) {
+      setName(parent.person.name);
+      setEmail(parent.person.email ?? '');
+    }
+  }, [parent?.id]);
+
+  const handleSave = () => {
+    if (!parent) return;
+    if (!name.trim()) { Alert.alert('Validation', 'Name is required'); return; }
+    updateMember.mutate(
+      { id: parent.id, name: name.trim(), email: email.trim() || undefined },
+      {
+        onSuccess: () => { Alert.alert('Saved', 'Parent details updated'); setEditing(false); },
+        onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Update failed'),
+      },
+    );
+  };
 
   const handleDeactivate = () => {
     if (!parent) return;
@@ -82,8 +108,37 @@ export default function ParentDetailScreen() {
           <Text style={styles.headerPhone}>{parent.person.phone}</Text>
           {parent.person.email ? <Text style={styles.headerEmail}>{parent.person.email}</Text> : null}
         </View>
-        <Badge label={parent.status} variant={isActive ? 'active' : 'inactive'} size="sm" />
+        <View style={styles.headerRight}>
+          <Badge label={parent.status} variant={isActive ? 'active' : 'inactive'} size="sm" />
+          <TouchableOpacity onPress={() => setEditing((e) => !e)} style={styles.editBtn}>
+            <Text style={styles.editBtnText}>{editing ? 'Cancel' : 'Edit'}</Text>
+          </TouchableOpacity>
+        </View>
       </Card>
+
+      {editing ? (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Edit details</Text>
+
+          <Text style={styles.label}>Full Name</Text>
+          <TextInput style={styles.input} value={name} onChangeText={setName} autoCapitalize="words" />
+
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Optional"
+            placeholderTextColor={colors.gray400}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+
+          <Text style={styles.hint}>Phone ({parent.person.phone}) is the login identity and can't be changed here.</Text>
+
+          <Button title="Save Changes" onPress={handleSave} loading={updateMember.isPending} fullWidth />
+        </Card>
+      ) : null}
 
       <Card style={styles.section}>
         <Text style={styles.sectionTitle}>Linked students ({parent.person.guardianships.length})</Text>
@@ -160,6 +215,16 @@ const styles = StyleSheet.create({
   headerName: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
   headerPhone: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
   headerEmail: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: 1 },
+  headerRight: { alignItems: 'flex-end', gap: spacing[2] },
+  editBtn: { paddingHorizontal: spacing[3], paddingVertical: spacing[1], borderRadius: radius.lg, borderWidth: 1, borderColor: colors.primary },
+  editBtnText: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.primary },
+  label: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary },
+  input: {
+    backgroundColor: colors.gray100, borderRadius: radius.lg,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    fontSize: fontSizes.base, color: colors.textPrimary,
+    borderWidth: 1, borderColor: colors.border,
+  },
   section: { gap: spacing[3] },
   sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary, marginBottom: spacing[1] },
   hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18 },

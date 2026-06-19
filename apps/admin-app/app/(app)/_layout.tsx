@@ -68,6 +68,7 @@ export default function AppLayout() {
       <Drawer.Screen name="people/students/index" options={{ title: 'Students' }} />
       <Drawer.Screen name="people/students/[id]" options={{ title: 'Student Detail' }} />
       <Drawer.Screen name="people/students/new" options={{ title: 'Add Student' }} />
+      <Drawer.Screen name="people/parents/[id]" options={{ title: 'Parent Detail' }} />
       <Drawer.Screen name="people/staff/index" options={{ title: 'Staff' }} />
       <Drawer.Screen name="people/staff/new" options={{ title: 'Add Staff' }} />
       <Drawer.Screen name="people/staff/[id]" options={{ title: 'Staff Detail' }} />

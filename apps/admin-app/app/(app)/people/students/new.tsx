@@ -21,13 +21,14 @@ export default function NewStudentScreen() {
   const { data: stops = [], isLoading: stopsLoading } = useStops();
   const createStudent = useCreateStudent();
 
-  const routeStops = stopId || routeId
-    ? stops.filter((s) => {
-        if (!routeId) return true;
-        const route = routes.find((r) => r.id === routeId);
-        return route?.stops?.some((rs: any) => rs.stop.id === s.id) ?? true;
-      })
-    : stops;
+  // Stops on the selected route; fall back to ALL tenant stops when the route has
+  // none attached yet, so a boarding stop can always be picked.
+  const routeStops = (() => {
+    if (!routeId) return stops;
+    const route = routes.find((r) => r.id === routeId);
+    const onRoute = stops.filter((s) => route?.stops?.some((rs: any) => rs.stop.id === s.id));
+    return onRoute.length ? onRoute : stops;
+  })();
 
   const isLoading = agLoading || routesLoading || stopsLoading;
 
