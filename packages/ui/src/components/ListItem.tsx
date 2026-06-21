@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   chevron: {
-    fontSize: 24,
+    fontSize: fontSizes['2xl'],
     lineHeight: 24,
     color: colors.textMuted,
     fontWeight: fontWeights.medium,

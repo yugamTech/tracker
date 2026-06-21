@@ -1,8 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '../theme/colors';
-import { fontSizes, fontWeights } from '../theme/typography';
-import { radius } from '../theme/spacing';
+import { fontWeights } from '../theme/typography';
 
 interface AvatarProps {
   name: string;
@@ -39,7 +38,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   initials: {
-    color: colors.white,
+    color: colors.textInverse,
     fontWeight: fontWeights.bold,
   },
 });

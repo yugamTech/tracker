@@ -89,11 +89,11 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   inputEmpty: {
-    borderColor: colors.gray300,
-    backgroundColor: colors.gray50,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.backgroundMuted,
   },
   inputFilled: {
     borderColor: colors.primary,
-    backgroundColor: colors.white,
+    backgroundColor: colors.background,
   },
 });

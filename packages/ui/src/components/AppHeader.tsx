@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     marginLeft: -spacing[1],
   },
   backChevron: {
-    fontSize: 30,
+    fontSize: fontSizes['3xl'],
     lineHeight: 30,
     color: colors.textPrimary,
     fontWeight: fontWeights.medium,

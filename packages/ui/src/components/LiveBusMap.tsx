@@ -217,7 +217,7 @@ export function LiveBusMap({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surface,
     borderRadius: radius.xl,
     overflow: 'hidden',
   },
@@ -232,16 +232,16 @@ const styles = StyleSheet.create({
   },
   livePill: {
     flexDirection: 'row', alignItems: 'center', gap: spacing[1],
-    backgroundColor: 'rgba(15,23,42,0.85)',
+    backgroundColor: colors.overlayStrong,
     paddingHorizontal: spacing[2], paddingVertical: 3, borderRadius: radius.full,
   },
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.gray500 },
-  liveDotActive: { backgroundColor: '#22C55E' },
+  liveDotActive: { backgroundColor: colors.trackingLive },
   liveText: { fontSize: fontSizes.xs, color: colors.gray400, fontWeight: fontWeights.bold, letterSpacing: 1 },
-  liveTextActive: { color: '#22C55E' },
+  liveTextActive: { color: colors.trackingLive },
   routeName: {
     flex: 1, fontSize: fontSizes.xs, color: colors.white, fontWeight: fontWeights.semibold,
-    backgroundColor: 'rgba(15,23,42,0.85)',
+    backgroundColor: colors.overlayStrong,
     paddingHorizontal: spacing[2], paddingVertical: 3, borderRadius: radius.full,
     overflow: 'hidden',
   },
@@ -257,11 +257,11 @@ const styles = StyleSheet.create({
   schoolPin: { fontSize: 26 },
   busMarker: {
     width: 30, height: 30, borderRadius: 15,
-    backgroundColor: '#FACC15',
+    backgroundColor: colors.trackingBus,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 2, borderColor: colors.white,
-    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 3, shadowOffset: { width: 0, height: 1 },
+    shadowColor: colors.black, shadowOpacity: 0.3, shadowRadius: 3, shadowOffset: { width: 0, height: 1 },
     elevation: 4,
   },
-  busEmoji: { fontSize: 16 },
+  busEmoji: { fontSize: fontSizes.md },
 });

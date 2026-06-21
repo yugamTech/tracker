@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: radius.full,
-    backgroundColor: colors.gray300,
+    backgroundColor: colors.borderStrong,
     marginBottom: spacing[3],
   },
   title: {

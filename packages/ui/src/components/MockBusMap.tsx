@@ -123,7 +123,7 @@ export function MockBusMap({ stops, currentIdx, live = false, routeName, height 
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surface,
     borderRadius: radius.xl,
     overflow: 'hidden',
     justifyContent: 'space-between',
@@ -134,11 +134,11 @@ const styles = StyleSheet.create({
   },
   livePill: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.gray600 },
-  liveDotActive: { backgroundColor: '#22C55E' },
+  liveDotActive: { backgroundColor: colors.trackingLive },
   liveText: { fontSize: fontSizes.xs, color: colors.gray500, fontWeight: fontWeights.bold, letterSpacing: 1 },
-  liveTextActive: { color: '#22C55E' },
+  liveTextActive: { color: colors.trackingLive },
   routeName: { flex: 1, fontSize: fontSizes.sm, color: colors.gray300, fontWeight: fontWeights.medium },
-  busIcon: { fontSize: 18 },
+  busIcon: { fontSize: fontSizes.lg },
   timeline: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: spacing[4], paddingVertical: spacing[3],
@@ -148,13 +148,13 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 16, left: -40, right: 40, height: 3,
     zIndex: 0,
   },
-  connectorDone: { backgroundColor: '#22C55E' },
+  connectorDone: { backgroundColor: colors.trackingLive },
   connectorPending: { backgroundColor: colors.gray700 },
   dotWrap: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
   busMarker: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
-  busEmoji: { fontSize: 20 },
+  busEmoji: { fontSize: fontSizes.xl },
   stopDot: { width: 12, height: 12, borderRadius: 6 },
-  stopDotDone: { backgroundColor: '#22C55E' },
+  stopDotDone: { backgroundColor: colors.trackingLive },
   stopDotPending: { backgroundColor: colors.gray600 },
   stopLabel: {
     fontSize: 9, color: colors.gray500, textAlign: 'center',
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row', alignItems: 'center', gap: spacing[2],
     paddingHorizontal: spacing[4], paddingBottom: spacing[3],
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: colors.scrim,
   },
   footerSub: { fontSize: fontSizes.xs, color: colors.gray500 },
   footerMain: { flex: 1, fontSize: fontSizes.sm, color: colors.white, fontWeight: fontWeights.semibold },

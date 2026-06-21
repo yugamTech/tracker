@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, View, StyleSheet, Text } from 'react-native';
 import { colors } from '../theme/colors';
 import { fontSizes } from '../theme/typography';
+import { spacing } from '../theme/spacing';
 
 interface LoadingSpinnerProps {
   size?: 'small' | 'large';
@@ -28,8 +29,8 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
-    gap: 12,
+    padding: spacing[6],
+    gap: spacing[3],
   },
   fullScreen: {
     flex: 1,

@@ -15,7 +15,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   children,
   style,
   edges = 'all',
-  bg = colors.white,
+  bg = colors.background,
 }) => {
   const insets = useSafeAreaInsets();
 

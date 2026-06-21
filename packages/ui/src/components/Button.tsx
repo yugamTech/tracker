@@ -62,7 +62,7 @@ export const Button: React.FC<ButtonProps> = ({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'outline' || variant === 'ghost' ? colors.primary : colors.white}
+          color={variant === 'outline' || variant === 'ghost' ? colors.primary : colors.textInverse}
         />
       ) : (
         <>
@@ -115,9 +115,9 @@ const styles = StyleSheet.create({
   text_lg: { fontSize: fontSizes.lg },
 
   // Text variants
-  text_primary: { color: colors.white },
-  text_secondary: { color: colors.white },
+  text_primary: { color: colors.textInverse },
+  text_secondary: { color: colors.textInverse },
   text_outline: { color: colors.primary },
   text_ghost: { color: colors.primary },
-  text_danger: { color: colors.white },
+  text_danger: { color: colors.textInverse },
 });

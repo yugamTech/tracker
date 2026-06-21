@@ -93,6 +93,14 @@ export const colors = {
   // ── Transparent overlays ──────────────────────────────────────────────────
   overlay: 'rgba(15, 23, 42, 0.55)',
   overlayLight: 'rgba(15, 23, 42, 0.2)',
+  overlayStrong: 'rgba(15, 23, 42, 0.85)', // opaque slate scrim for pills/labels on maps
+  scrim: 'rgba(0, 0, 0, 0.3)',             // neutral darkening scrim (e.g. map footer gradient)
+
+  // ── Live-tracking accents ──────────────────────────────────────────────────
+  // Fixed colors that always sit on the dark map canvas (`surface`), so they do
+  // not follow the light/dark text ramp — they read on a dark surface by design.
+  trackingLive: '#22C55E', // bright GPS-live / completed-stop green
+  trackingBus: '#FACC15',  // bus marker amber-yellow
 } as const;
 
 export type ColorKey = keyof typeof colors;
