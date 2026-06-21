@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
-  Card, Avatar, Badge, Button, Chip, Skeleton, EmptyState, AnimatedPressable, SegmentedControl,
+  Card, Avatar, Badge, Button, Chip, Skeleton, EmptyState, AnimatedPressable, SegmentedControl, SlideIn,
 } from '@saarthi/ui';
 import { useStudents, useMembers, useParents } from '@saarthi/api-client';
 import { AdminScreen, HeaderAction } from '../../../components/AdminScreen';
@@ -25,6 +25,9 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'active', label: 'Active' },
   { key: 'inactive', label: 'Inactive' },
 ];
+/** Per-card entrance delay for the grid stagger, capped so long lists stay snappy. */
+const cardDelay = (i: number) => Math.min(i, 8) * 45;
+
 /** Active iff the record's status is exactly ACTIVE; everything else is inactive. */
 function matchesStatus(status: string, filter: StatusFilter): boolean {
   if (filter === 'all') return true;
@@ -122,21 +125,23 @@ export default function PeopleScreen() {
                   />
                 </View>
               }
-              renderItem={(item) => (
-                <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/people/students/${item.id}` as never)}>
-                  <Card shadow="sm">
-                    <View style={styles.row}>
-                      <Avatar name={item.name} size={44} />
-                      <View style={styles.info}>
-                        <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
-                        <Text style={styles.meta} numberOfLines={1}>
-                          {item.regId ? `${item.regId} · ` : ''}{item.route?.name ?? 'No route assigned'}
-                        </Text>
+              renderItem={(item, i) => (
+                <SlideIn delay={cardDelay(i)}>
+                  <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/people/students/${item.id}` as never)}>
+                    <Card shadow="sm">
+                      <View style={styles.row}>
+                        <Avatar name={item.name} size={44} />
+                        <View style={styles.info}>
+                          <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+                          <Text style={styles.meta} numberOfLines={1}>
+                            {item.regId ? `${item.regId} · ` : ''}{item.route?.name ?? 'No route assigned'}
+                          </Text>
+                        </View>
+                        <Badge label={item.status} variant={item.status === 'ACTIVE' ? 'active' : 'inactive'} size="sm" />
                       </View>
-                      <Badge label={item.status} variant={item.status === 'ACTIVE' ? 'active' : 'inactive'} size="sm" />
-                    </View>
-                  </Card>
-                </AnimatedPressable>
+                    </Card>
+                  </AnimatedPressable>
+                </SlideIn>
               )}
             />
           )
@@ -155,21 +160,23 @@ export default function PeopleScreen() {
                   />
                 </View>
               }
-              renderItem={(p) => (
-                <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/people/parents/${p.id}` as never)}>
-                  <Card shadow="sm">
-                    <View style={styles.row}>
-                      <Avatar name={p.person.name} size={44} />
-                      <View style={styles.info}>
-                        <Text style={styles.name} numberOfLines={1}>{p.person.name}</Text>
-                        <Text style={styles.meta} numberOfLines={1}>
-                          {p.person.guardianships.map((g) => g.student.name).join(', ') || p.person.phone}
-                        </Text>
+              renderItem={(p, i) => (
+                <SlideIn delay={cardDelay(i)}>
+                  <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/people/parents/${p.id}` as never)}>
+                    <Card shadow="sm">
+                      <View style={styles.row}>
+                        <Avatar name={p.person.name} size={44} />
+                        <View style={styles.info}>
+                          <Text style={styles.name} numberOfLines={1}>{p.person.name}</Text>
+                          <Text style={styles.meta} numberOfLines={1}>
+                            {p.person.guardianships.map((g) => g.student.name).join(', ') || p.person.phone}
+                          </Text>
+                        </View>
+                        <Badge label={p.status} variant={p.status === 'ACTIVE' ? 'active' : 'inactive'} size="sm" />
                       </View>
-                      <Badge label={p.status} variant={p.status === 'ACTIVE' ? 'active' : 'inactive'} size="sm" />
-                    </View>
-                  </Card>
-                </AnimatedPressable>
+                    </Card>
+                  </AnimatedPressable>
+                </SlideIn>
               )}
             />
           )
@@ -188,19 +195,21 @@ export default function PeopleScreen() {
                   />
                 </View>
               }
-              renderItem={(m) => (
-                <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/people/staff/${m.id}` as never)}>
-                  <Card shadow="sm">
-                    <View style={styles.row}>
-                      <Avatar name={m.person.name} size={44} />
-                      <View style={styles.info}>
-                        <Text style={styles.name} numberOfLines={1}>{m.person.name}</Text>
-                        <Text style={styles.meta} numberOfLines={1}>{m.person.phone}</Text>
+              renderItem={(m, i) => (
+                <SlideIn delay={cardDelay(i)}>
+                  <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/people/staff/${m.id}` as never)}>
+                    <Card shadow="sm">
+                      <View style={styles.row}>
+                        <Avatar name={m.person.name} size={44} />
+                        <View style={styles.info}>
+                          <Text style={styles.name} numberOfLines={1}>{m.person.name}</Text>
+                          <Text style={styles.meta} numberOfLines={1}>{m.person.phone}</Text>
+                        </View>
+                        <Badge label={m.role} variant="active" size="sm" />
                       </View>
-                      <Badge label={m.role} variant="active" size="sm" />
-                    </View>
-                  </Card>
-                </AnimatedPressable>
+                    </Card>
+                  </AnimatedPressable>
+                </SlideIn>
               )}
             />
           )

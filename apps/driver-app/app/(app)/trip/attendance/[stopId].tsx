@@ -3,7 +3,7 @@ import { View, Text, Image, FlatList, StyleSheet, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, radius,
-  Card, Button, Avatar, Skeleton, EmptyState, AppHeader, AnimatedPressable, ScreenContainer,
+  Card, Button, Avatar, Skeleton, EmptyState, AppHeader, AnimatedPressable, ScreenContainer, SlideIn,
 } from '@saarthi/ui';
 import { useRoster, useMarkAttendance } from '@saarthi/api-client';
 import type { RosterRider } from '@saarthi/api-client';
@@ -93,9 +93,10 @@ export default function AttendanceScreen() {
         ListEmptyComponent={
           <EmptyState title="No riders at this stop" description="No students are expected at this stop" />
         }
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const status = getStatus(item);
           return (
+            <SlideIn delay={Math.min(index, 8) * 45}>
             <Card shadow="sm">
               <View style={styles.cardRow}>
                 {status === 'BOARDED' && item.photoUrl ? (
@@ -137,6 +138,7 @@ export default function AttendanceScreen() {
                 )}
               </View>
             </Card>
+            </SlideIn>
           );
         }}
       />

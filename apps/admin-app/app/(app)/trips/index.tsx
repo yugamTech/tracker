@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
-  Card, Badge, Button, Chip, Skeleton, EmptyState, AnimatedPressable,
+  Card, Badge, Button, Chip, Skeleton, EmptyState, AnimatedPressable, Stagger,
 } from '@saarthi/ui';
 import type { BadgeVariant } from '@saarthi/ui';
 import { useFilteredTrips, useTripDates, useRoutes, useMembers } from '@saarthi/api-client';
@@ -358,7 +358,9 @@ export default function TripScheduleScreen() {
         </View>
       ) : (
         <View style={styles.cardList}>
-          {dayTrips.map((t) => <TripCard key={t.id} item={t} />)}
+          <Stagger>
+            {dayTrips.map((t) => <TripCard key={t.id} item={t} />)}
+          </Stagger>
         </View>
       )}
     </View>

@@ -3,7 +3,7 @@ import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, radius, letterSpacing,
-  AppHeader, Badge, Button, Skeleton, EmptyState, SectionHeader, ScreenContainer,
+  AppHeader, Badge, Button, Skeleton, EmptyState, SectionHeader, ScreenContainer, FadeIn, SlideIn,
 } from '@saarthi/ui';
 import { useTripById, useDailyChecks, checkWindowInfo, formatTripTime } from '@saarthi/api-client';
 
@@ -74,12 +74,14 @@ export default function TripPreScreen() {
     <ScreenContainer bg={colors.backgroundMuted}>
       <AppHeader title="Pre-Trip Check" onBack={() => router.back()} />
 
-      <View style={styles.summary}>
-        <Text style={styles.summaryTitle}>{routeName}</Text>
-        <Text style={styles.summaryMeta}>
-          {trip.direction} · {stops.length} stop{stops.length !== 1 ? 's' : ''} · {totalRiders} rider{totalRiders !== 1 ? 's' : ''}
-        </Text>
-      </View>
+      <FadeIn>
+        <View style={styles.summary}>
+          <Text style={styles.summaryTitle}>{routeName}</Text>
+          <Text style={styles.summaryMeta}>
+            {trip.direction} · {stops.length} stop{stops.length !== 1 ? 's' : ''} · {totalRiders} rider{totalRiders !== 1 ? 's' : ''}
+          </Text>
+        </View>
+      </FadeIn>
 
       <FlatList
         data={stops}
@@ -91,16 +93,18 @@ export default function TripPreScreen() {
             <Text style={styles.noStopsText}>No stops found for this route</Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <View style={styles.stopRow}>
-            <View style={styles.stopNumber}>
-              <Text style={styles.stopNum}>{item.sequence}</Text>
+        renderItem={({ item, index }) => (
+          <SlideIn delay={Math.min(index, 8) * 40}>
+            <View style={styles.stopRow}>
+              <View style={styles.stopNumber}>
+                <Text style={styles.stopNum}>{item.sequence}</Text>
+              </View>
+              <View style={styles.stopInfo}>
+                <Text style={styles.stopName}>{item.name}</Text>
+                <Text style={styles.stopRiders}>{item.riderCount} rider{item.riderCount !== 1 ? 's' : ''}</Text>
+              </View>
             </View>
-            <View style={styles.stopInfo}>
-              <Text style={styles.stopName}>{item.name}</Text>
-              <Text style={styles.stopRiders}>{item.riderCount} rider{item.riderCount !== 1 ? 's' : ''}</Text>
-            </View>
-          </View>
+          </SlideIn>
         )}
       />
 

@@ -19,6 +19,12 @@ export type { MockBusMapStop } from './components/MockBusMap';
 export { LiveBusMap } from './components/LiveBusMap';
 export type { LiveBusMapStop, LiveBusMapProps } from './components/LiveBusMap';
 
+// Animation primitives
+export { FadeIn } from './components/FadeIn';
+export { SlideIn } from './components/SlideIn';
+export type { SlideDirection } from './components/SlideIn';
+export { Stagger } from './components/Stagger';
+
 // Primitives
 export { AnimatedPressable, Pressable } from './components/Pressable';
 export { AppHeader, HEADER_HEIGHT } from './components/AppHeader';

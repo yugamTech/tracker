@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
-  Card, Badge, Avatar, Skeleton, EmptyState, AnimatedPressable, Button, Divider,
+  Card, Badge, Avatar, Skeleton, EmptyState, AnimatedPressable, Button, Divider, SlideIn,
 } from '@saarthi/ui';
 import type { BadgeVariant } from '@saarthi/ui';
 import { useAuthStore } from '../../../store/auth.store';
@@ -173,6 +173,7 @@ export default function HomeScreen() {
           <>
             {/* Active child hero */}
             <Text style={styles.sectionTitle}>TODAY</Text>
+            <SlideIn>
             <Card style={styles.heroCard} shadow="md">
               <View style={styles.heroTop}>
                 <Avatar name={activeChild.name} size={48} />
@@ -234,24 +235,27 @@ export default function HomeScreen() {
                 )
               ) : null}
             </Card>
+            </SlideIn>
           </>
         ) : null}
 
         {/* Quick actions */}
         <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
-        <View style={styles.quickActions}>
-          {[
-            { icon: '🚌', label: 'Trips', onPress: () => router.push('/(app)/trips' as never) },
-            { icon: '💬', label: 'Raise Issue', onPress: () => router.push('/(app)/complaints/new' as never) },
-            { icon: '💳', label: 'Pay Fees', onPress: () => router.push('/(app)/payments' as never) },
-            { icon: '👤', label: 'Profile', onPress: () => router.push('/(app)/profile' as never) },
-          ].map((a) => (
-            <AnimatedPressable key={a.label} onPress={a.onPress} scaleTo={0.95} style={styles.quickAction}>
-              <Text style={{ fontSize: 26 }}>{a.icon}</Text>
-              <Text style={styles.quickLabel}>{a.label}</Text>
-            </AnimatedPressable>
-          ))}
-        </View>
+        <SlideIn delay={80}>
+          <View style={styles.quickActions}>
+            {[
+              { icon: '🚌', label: 'Trips', onPress: () => router.push('/(app)/trips' as never) },
+              { icon: '💬', label: 'Raise Issue', onPress: () => router.push('/(app)/complaints/new' as never) },
+              { icon: '💳', label: 'Pay Fees', onPress: () => router.push('/(app)/payments' as never) },
+              { icon: '👤', label: 'Profile', onPress: () => router.push('/(app)/profile' as never) },
+            ].map((a) => (
+              <AnimatedPressable key={a.label} onPress={a.onPress} scaleTo={0.95} style={styles.quickAction}>
+                <Text style={{ fontSize: 26 }}>{a.icon}</Text>
+                <Text style={styles.quickLabel}>{a.label}</Text>
+              </AnimatedPressable>
+            ))}
+          </View>
+        </SlideIn>
       </ScrollView>
     </SafeAreaView>
   );

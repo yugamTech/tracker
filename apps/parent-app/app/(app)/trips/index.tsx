@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
-  AppHeader, Card, Badge, Skeleton, EmptyState, AnimatedPressable,
+  AppHeader, Card, Badge, Skeleton, EmptyState, AnimatedPressable, SlideIn,
 } from '@saarthi/ui';
 import { useTodayTrips, useMyStudents } from '@saarthi/api-client';
 import type { BadgeVariant } from '@saarthi/ui';
@@ -68,13 +68,14 @@ export default function TripsScreen() {
               />
             </View>
           }
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
             const routeName = (item as any)?.route?.name ?? item.routeId;
             const completed = item.status === 'COMPLETED';
             const skipped = ((item as any)?.riders ?? []).some(
               (r: any) => myIds.has(r.studentId) && r.boardStatus === 'CANCELLED',
             );
             return (
+              <SlideIn delay={Math.min(index, 8) * 45}>
               <AnimatedPressable
                 onPress={() => router.push(`/(app)/trips/${item.id}` as never)}
                 scaleTo={0.985}
@@ -104,6 +105,7 @@ export default function TripsScreen() {
                   )}
                 </Card>
               </AnimatedPressable>
+              </SlideIn>
             );
           }}
         />

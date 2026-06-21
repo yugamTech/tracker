@@ -11,6 +11,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useReducedMotion } from 'react-native-reanimated';
 import { colors } from '../theme/colors';
 import { fontSizes, fontWeights, letterSpacing } from '../theme/typography';
 import { radius, spacing, shadows } from '../theme/spacing';
@@ -41,31 +42,36 @@ export const Sheet: React.FC<SheetProps> = ({
   contentStyle,
 }) => {
   const insets = useSafeAreaInsets();
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const reduceMotion = useReducedMotion();
+  // Reduce-motion: the panel cross-fades in place instead of sliding the full screen up.
+  const closedY = reduceMotion ? 0 : SCREEN_HEIGHT;
+  const translateY = useRef(new Animated.Value(closedY)).current;
   const backdrop = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.spring(translateY, {
-          toValue: 0,
-          useNativeDriver: true,
-          speed: 18,
-          bounciness: 2,
-        }),
+        reduceMotion
+          ? Animated.timing(translateY, { toValue: 0, duration: 0, useNativeDriver: true })
+          : Animated.spring(translateY, {
+              toValue: 0,
+              useNativeDriver: true,
+              speed: 18,
+              bounciness: 2,
+            }),
         Animated.timing(backdrop, { toValue: 1, duration: 180, useNativeDriver: true }),
       ]).start();
     } else {
       Animated.parallel([
         Animated.timing(translateY, {
-          toValue: SCREEN_HEIGHT,
-          duration: 200,
+          toValue: closedY,
+          duration: reduceMotion ? 0 : 200,
           useNativeDriver: true,
         }),
         Animated.timing(backdrop, { toValue: 0, duration: 160, useNativeDriver: true }),
       ]).start();
     }
-  }, [visible, translateY, backdrop]);
+  }, [visible, translateY, backdrop, reduceMotion, closedY]);
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>

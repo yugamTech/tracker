@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
-  StatusDot, MockBusMap, LiveBusMap, Card, Skeleton, EmptyState, AnimatedPressable,
+  StatusDot, MockBusMap, LiveBusMap, Card, Skeleton, EmptyState, AnimatedPressable, SlideIn,
 } from '@saarthi/ui';
 import { useFleet, useFleetSocket } from '@saarthi/api-client';
 import { AdminScreen, HeaderAction } from '../../../components/AdminScreen';
@@ -123,7 +123,7 @@ export default function FleetMapScreen() {
               />
             </View>
           }
-          renderItem={(b) => {
+          renderItem={(b, i) => {
             const fresh = b.updatedAt != null && now - b.updatedAt < 30000;
             // The fleet snapshot carries stop coords; socket-only buses (no snapshot
             // yet) don't, so fall back to the timeline placeholder until they do.
@@ -131,6 +131,7 @@ export default function FleetMapScreen() {
               (s): s is { id: string; name: string; lat: number; lng: number } => s.lat != null && s.lng != null,
             );
             return (
+              <SlideIn delay={Math.min(i, 8) * 45}>
               <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/fleet/${b.tripId}` as never)}>
                 <Card padding={0} shadow="sm" style={styles.busCard}>
                   {geoStops.length > 0 ? (
@@ -161,6 +162,7 @@ export default function FleetMapScreen() {
                   </View>
                 </Card>
               </AnimatedPressable>
+              </SlideIn>
             );
           }}
         />

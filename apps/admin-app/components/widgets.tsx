@@ -29,7 +29,7 @@ const GHOST = Symbol('ghost');
 interface GridListProps<T> {
   data: T[];
   columns: number;
-  renderItem: (item: T) => React.ReactNode;
+  renderItem: (item: T, index: number) => React.ReactNode;
   keyExtractor: (item: T) => string;
   gap?: number;
   ListHeaderComponent?: React.ComponentProps<typeof FlatList>['ListHeaderComponent'];
@@ -67,11 +67,11 @@ export function GridList<T>({
       ListHeaderComponent={ListHeaderComponent}
       ListEmptyComponent={ListEmptyComponent}
       showsVerticalScrollIndicator={false}
-      renderItem={({ item }) =>
+      renderItem={({ item, index }) =>
         item === (GHOST as unknown) ? (
           <View style={styles.ghost} />
         ) : (
-          <View style={multi ? styles.cell : undefined}>{renderItem(item)}</View>
+          <View style={multi ? styles.cell : undefined}>{renderItem(item, index)}</View>
         )
       }
     />

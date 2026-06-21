@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Alert, Modal, TextInput, Linking } 
 import { useLocalSearchParams, router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, fontFamilies, radius, letterSpacing,
-  StatusDot, Button, AnimatedPressable, ScreenContainer, AppHeader,
+  StatusDot, Button, AnimatedPressable, ScreenContainer, AppHeader, Stagger,
 } from '@saarthi/ui';
 import { useTripById, useStartTrip, useCompleteTrip, useDriverPing, useRoster } from '@saarthi/api-client';
 import type { RosterRider } from '@saarthi/api-client';
@@ -335,6 +335,7 @@ export default function ActiveTripScreen() {
             <Text style={styles.allStopsTitle}>Route progress ({stops.length} stops)</Text>
           </View>
 
+          <Stagger interval={40} maxStagger={6}>
           {stops.map((s, i) => {
             const done = stopDone(s.riders);
             const isCurrent = i === currentIdx && !allStopsDone;
@@ -374,6 +375,7 @@ export default function ActiveTripScreen() {
               </View>
             );
           })}
+          </Stagger>
         </View>
       </ScrollView>
 

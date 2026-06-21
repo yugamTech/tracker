@@ -7,6 +7,7 @@ import {
   type ViewStyle,
   type StyleProp,
 } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 interface AnimatedPressableProps extends Omit<PressableProps, 'style' | 'children'> {
   children?: React.ReactNode;
@@ -34,8 +35,11 @@ export const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
 }) => {
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(1)).current;
+  // When the OS reduce-motion setting is on, hold the scale at 1 so taps don't move.
+  const reduceMotion = useReducedMotion();
 
   const animateTo = (toScale: number, toOpacity: number) => {
+    if (reduceMotion) toScale = 1;
     Animated.parallel([
       Animated.spring(scale, {
         toValue: toScale,
