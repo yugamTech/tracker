@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, ScrollView, StyleSheet,
-  TouchableOpacity, Alert,
+  TouchableOpacity,
 } from 'react-native';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, useToast } from '@saarthi/ui';
 import { useCreateMember } from '@saarthi/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
@@ -22,15 +22,16 @@ export default function NewStaffScreen() {
   const [email, setEmail] = useState('');
 
   const createMember = useCreateMember();
+  const toast = useToast();
 
   const handleSave = () => {
-    if (!name.trim()) { Alert.alert('Validation', 'Name is required'); return; }
+    if (!name.trim()) { toast.error('Name is required'); return; }
     const phoneDigits = phone.replace(/\D/g, '');
     if (phoneDigits.length !== 10) {
-      Alert.alert('Validation', 'Mobile number must be 10 digits');
+      toast.error('Mobile number must be 10 digits');
       return;
     }
-    if (!role) { Alert.alert('Validation', 'Please select a role'); return; }
+    if (!role) { toast.error('Please select a role'); return; }
 
     createMember.mutate(
       {
@@ -40,8 +41,8 @@ export default function NewStaffScreen() {
         email: email.trim() || undefined,
       },
       {
-        onSuccess: () => { Alert.alert('Success', 'Staff member added'); goBackTo('people/staff/new'); },
-        onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to add staff member'),
+        onSuccess: () => { toast.success('Staff member added'); goBackTo('people/staff/new'); },
+        onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to add staff member'),
       },
     );
   };

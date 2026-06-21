@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, useToast } from '@saarthi/ui';
 import {
   useImportTemplates, useValidateImport, type ImportEntityType, type PickedFile,
 } from '@saarthi/api-client';
@@ -13,6 +13,7 @@ import { useImportStore } from '../../../../store/import.store';
 export default function ImportScreen() {
   const { data: templates = [], isLoading } = useImportTemplates();
   const validate = useValidateImport();
+  const toast = useToast();
   const setImport = useImportStore((s) => s.set);
   const reset = useImportStore((s) => s.reset);
 
@@ -28,7 +29,7 @@ export default function ImportScreen() {
     try {
       await downloadTemplate(type);
     } catch (e: any) {
-      Alert.alert('Download failed', e?.message ?? 'Could not download the template');
+      toast.error(e?.message ?? 'Could not download the template', 'Download failed');
     } finally {
       setDownloading(false);
     }
@@ -39,7 +40,7 @@ export default function ImportScreen() {
       const picked = await pickSpreadsheet();
       if (picked) setFile(picked);
     } catch (e: any) {
-      Alert.alert('Could not open file', e?.message ?? 'File picker error');
+      toast.error(e?.message ?? 'File picker error', 'Could not open file');
     }
   };
 
@@ -54,7 +55,7 @@ export default function ImportScreen() {
           router.push('/(app)/people/import/preview' as never);
         },
         onError: (e: any) =>
-          Alert.alert('Validation failed', e?.response?.data?.message ?? 'Could not validate the file'),
+          toast.error(e?.response?.data?.message ?? 'Could not validate the file', 'Validation failed'),
       },
     );
   };

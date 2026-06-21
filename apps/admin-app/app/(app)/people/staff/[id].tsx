@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { PoliceVerificationStatus } from '@saarthi/types';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, Button } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, Button, useToast } from '@saarthi/ui';
 import {
   useMemberById,
   useUpdateMember,
@@ -37,6 +37,7 @@ export default function StaffDetailScreen() {
   const updateMember = useUpdateMember();
   const deactivateMember = useDeactivateMember();
   const reactivateMember = useReactivateMember();
+  const toast = useToast();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -62,12 +63,12 @@ export default function StaffDetailScreen() {
   const isActive = member.status === 'ACTIVE';
 
   const handleSave = () => {
-    if (!name.trim()) { Alert.alert('Validation', 'Name is required'); return; }
+    if (!name.trim()) { toast.error('Name is required'); return; }
     updateMember.mutate(
       { id, name: name.trim(), email: email.trim() || undefined, role },
       {
-        onSuccess: () => Alert.alert('Saved', 'Staff member updated'),
-        onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to update'),
+        onSuccess: () => toast.success('Staff member updated'),
+        onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to update'),
       },
     );
   };
@@ -82,8 +83,8 @@ export default function StaffDetailScreen() {
           text: 'Reactivate',
           onPress: () =>
             reactivateMember.mutate(id, {
-              onSuccess: () => { Alert.alert('Done', 'Staff member reactivated'); goBackTo('people/staff/[id]'); },
-              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to reactivate'),
+              onSuccess: () => { toast.success('Staff member reactivated'); goBackTo('people/staff/[id]'); },
+              onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to reactivate'),
             }),
         },
       ],
@@ -101,8 +102,8 @@ export default function StaffDetailScreen() {
           style: 'destructive',
           onPress: () =>
             deactivateMember.mutate(id, {
-              onSuccess: () => { Alert.alert('Done', 'Staff member deactivated'); goBackTo('people/staff/[id]'); },
-              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to deactivate'),
+              onSuccess: () => { toast.success('Staff member deactivated'); goBackTo('people/staff/[id]'); },
+              onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to deactivate'),
             }),
         },
       ],
@@ -222,6 +223,7 @@ export default function StaffDetailScreen() {
 function DriverKycSection({ membershipId }: { membershipId: string }) {
   const { data: profile, isLoading } = useDriverProfile(membershipId);
   const upsert = useUpsertDriverProfile();
+  const toast = useToast();
 
   const [aadhaar, setAadhaar] = useState('');
   const [address, setAddress] = useState('');
@@ -255,8 +257,8 @@ function DriverKycSection({ membershipId }: { membershipId: string }) {
         },
       },
       {
-        onSuccess: () => Alert.alert('Saved', 'Driver KYC updated'),
-        onError: (e: any) => Alert.alert('Error', e?.response?.data?.error?.message ?? 'Failed to save KYC'),
+        onSuccess: () => toast.success('Driver KYC updated'),
+        onError: (e: any) => toast.error(e?.response?.data?.error?.message ?? 'Failed to save KYC'),
       },
     );
   };

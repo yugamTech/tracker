@@ -4,7 +4,7 @@ import {
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Avatar, Badge } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Avatar, Badge, useToast } from '@saarthi/ui';
 import {
   useStudentById, useUpdateStudent, useDeactivateStudent, useReactivateStudent, useAgeGroups, useRoutes, useStops,
 } from '@saarthi/api-client';
@@ -20,6 +20,7 @@ export default function StudentDetailScreen() {
   const updateStudent = useUpdateStudent();
   const deactivateStudent = useDeactivateStudent();
   const reactivateStudent = useReactivateStudent();
+  const toast = useToast();
 
   const [name, setName] = useState('');
   const [regId, setRegId] = useState('');
@@ -49,12 +50,12 @@ export default function StudentDetailScreen() {
   })();
 
   const handleSave = () => {
-    if (!name.trim()) { Alert.alert('Validation', 'Name is required'); return; }
+    if (!name.trim()) { toast.error('Name is required'); return; }
     updateStudent.mutate(
       { id, name: name.trim(), regId: regId.trim() || undefined, ageGroupId, routeId: routeId || undefined, stopId: stopId || undefined },
       {
-        onSuccess: () => { Alert.alert('Saved', 'Student updated'); setEditing(false); },
-        onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Update failed'),
+        onSuccess: () => { toast.success('Student updated'); setEditing(false); },
+        onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Update failed'),
       },
     );
   };
@@ -70,8 +71,8 @@ export default function StudentDetailScreen() {
           text: 'Reactivate',
           onPress: () =>
             reactivateStudent.mutate(id, {
-              onSuccess: () => { Alert.alert('Done', 'Student reactivated'); goBackTo('people/students/[id]'); },
-              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to reactivate'),
+              onSuccess: () => { toast.success('Student reactivated'); goBackTo('people/students/[id]'); },
+              onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to reactivate'),
             }),
         },
       ],
@@ -90,8 +91,8 @@ export default function StudentDetailScreen() {
           style: 'destructive',
           onPress: () =>
             deactivateStudent.mutate(id, {
-              onSuccess: () => { Alert.alert('Done', 'Student deactivated'); goBackTo('people/students/[id]'); },
-              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to deactivate'),
+              onSuccess: () => { toast.success('Student deactivated'); goBackTo('people/students/[id]'); },
+              onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to deactivate'),
             }),
         },
       ],

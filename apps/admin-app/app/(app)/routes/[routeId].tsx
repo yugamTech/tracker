@@ -4,7 +4,7 @@ import {
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge, useToast } from '@saarthi/ui';
 import {
   useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useReactivateRoute,
   useStops, useCreateStop, useAddStop,
@@ -26,6 +26,7 @@ export default function RouteDetailScreen() {
   const reactivateRoute = useReactivateRoute();
   const createStop = useCreateStop();
   const addStop = useAddStop();
+  const toast = useToast();
 
   const [name, setName] = useState('');
   const [direction, setDirection] = useState<typeof DIRECTIONS[number]>('PICKUP');
@@ -45,24 +46,24 @@ export default function RouteDetailScreen() {
   }, [route]);
 
   const handleSave = () => {
-    if (!name.trim()) { Alert.alert('Validation', 'Route name is required'); return; }
+    if (!name.trim()) { toast.error('Route name is required'); return; }
     if (isNew) {
       createRoute.mutate(
         { name: name.trim(), direction },
         {
           onSuccess: (created) => {
-            Alert.alert('Success', 'Route created');
+            toast.success('Route created');
             router.replace(`/(app)/routes/${created.id}` as never);
           },
-          onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed'),
+          onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed'),
         },
       );
     } else {
       updateRoute.mutate(
         { id: routeId, name: name.trim() },
         {
-          onSuccess: () => { Alert.alert('Saved', 'Route updated'); setEditing(false); },
-          onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed'),
+          onSuccess: () => { toast.success('Route updated'); setEditing(false); },
+          onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed'),
         },
       );
     }
@@ -80,8 +81,8 @@ export default function RouteDetailScreen() {
           style: 'destructive',
           onPress: () =>
             deactivateRoute.mutate(routeId, {
-              onSuccess: () => { Alert.alert('Done', 'Route deactivated'); goBackTo('routes/[routeId]'); },
-              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to deactivate'),
+              onSuccess: () => { toast.success('Route deactivated'); goBackTo('routes/[routeId]'); },
+              onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to deactivate'),
             }),
         },
       ],
@@ -99,8 +100,8 @@ export default function RouteDetailScreen() {
           text: 'Reactivate',
           onPress: () =>
             reactivateRoute.mutate(routeId, {
-              onSuccess: () => { Alert.alert('Done', 'Route reactivated'); goBackTo('routes/[routeId]'); },
-              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to reactivate'),
+              onSuccess: () => { toast.success('Route reactivated'); goBackTo('routes/[routeId]'); },
+              onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to reactivate'),
             }),
         },
       ],
@@ -110,8 +111,8 @@ export default function RouteDetailScreen() {
   const handleAddStop = () => {
     const lat = parseFloat(newStopLat);
     const lng = parseFloat(newStopLng);
-    if (!newStopName.trim()) { Alert.alert('Validation', 'Stop name is required'); return; }
-    if (isNaN(lat) || isNaN(lng)) { Alert.alert('Validation', 'Enter valid lat/lng'); return; }
+    if (!newStopName.trim()) { toast.error('Stop name is required'); return; }
+    if (isNaN(lat) || isNaN(lng)) { toast.error('Enter valid lat/lng'); return; }
     const existing = route?.stops ?? [];
     const nextSeq = existing.length ? Math.max(...existing.map((rs) => rs.sequence)) + 1 : 1;
     createStop.mutate(
@@ -127,11 +128,11 @@ export default function RouteDetailScreen() {
                 setNewStopName(''); setNewStopLat(''); setNewStopLng('');
                 setShowStopForm(false);
               },
-              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to add stop to route'),
+              onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to add stop to route'),
             },
           );
         },
-        onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed'),
+        onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed'),
       },
     );
   };

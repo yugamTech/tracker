@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, ActivityIndicator, Alert, TouchableOpacity,
+  View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, useToast } from '@saarthi/ui';
 import { useCommitImport } from '@saarthi/api-client';
 import { useImportStore } from '../../../../store/import.store';
 import { downloadErrorReport } from '../../../../lib/import-files';
@@ -13,6 +13,7 @@ export default function ImportPreviewScreen() {
   const { type, file, validation } = useImportStore();
   const setImport = useImportStore((s) => s.set);
   const commit = useCommitImport();
+  const toast = useToast();
 
   // Reached directly without a validation in flight — bounce back.
   useEffect(() => {
@@ -35,7 +36,7 @@ export default function ImportPreviewScreen() {
           router.replace('/(app)/people/import/result' as never);
         },
         onError: (e: any) =>
-          Alert.alert('Import failed', e?.response?.data?.message ?? 'The batch was rolled back — nothing was saved.'),
+          toast.error(e?.response?.data?.message ?? 'The batch was rolled back — nothing was saved.', 'Import failed'),
       },
     );
   };

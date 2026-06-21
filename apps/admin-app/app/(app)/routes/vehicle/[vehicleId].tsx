@@ -4,7 +4,7 @@ import {
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge, useToast } from '@saarthi/ui';
 import { useVehicleById, useCreateVehicle, useUpdateVehicle, useDeactivateVehicle, useReactivateVehicle } from '@saarthi/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
@@ -20,6 +20,7 @@ export default function VehicleDetailScreen() {
   const updateVehicle = useUpdateVehicle();
   const deactivateVehicle = useDeactivateVehicle();
   const reactivateVehicle = useReactivateVehicle();
+  const toast = useToast();
 
   const [regNumber, setRegNumber] = useState('');
   const [capacity, setCapacity] = useState('');
@@ -38,23 +39,23 @@ export default function VehicleDetailScreen() {
 
   const handleSave = () => {
     const cap = parseInt(capacity, 10);
-    if (!regNumber.trim()) { Alert.alert('Validation', 'Registration number is required'); return; }
-    if (isNaN(cap) || cap < 1) { Alert.alert('Validation', 'Enter a valid capacity'); return; }
+    if (!regNumber.trim()) { toast.error('Registration number is required'); return; }
+    if (isNaN(cap) || cap < 1) { toast.error('Enter a valid capacity'); return; }
 
     if (isNew) {
       createVehicle.mutate(
         { regNumber: regNumber.trim().toUpperCase(), capacity: cap, type },
         {
-          onSuccess: () => { Alert.alert('Success', 'Vehicle added'); goBackTo('routes/vehicle/[vehicleId]'); },
-          onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to add vehicle'),
+          onSuccess: () => { toast.success('Vehicle added'); goBackTo('routes/vehicle/[vehicleId]'); },
+          onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to add vehicle'),
         },
       );
     } else {
       updateVehicle.mutate(
         { id: vehicleId, regNumber: regNumber.trim().toUpperCase(), capacity: cap, type, status },
         {
-          onSuccess: () => { Alert.alert('Saved', 'Vehicle updated'); setEditing(false); },
-          onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Update failed'),
+          onSuccess: () => { toast.success('Vehicle updated'); setEditing(false); },
+          onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Update failed'),
         },
       );
     }
@@ -72,8 +73,8 @@ export default function VehicleDetailScreen() {
           style: 'destructive',
           onPress: () =>
             deactivateVehicle.mutate(vehicleId, {
-              onSuccess: () => { Alert.alert('Done', 'Vehicle deactivated'); goBackTo('routes/vehicle/[vehicleId]'); },
-              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to deactivate'),
+              onSuccess: () => { toast.success('Vehicle deactivated'); goBackTo('routes/vehicle/[vehicleId]'); },
+              onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to deactivate'),
             }),
         },
       ],
@@ -91,8 +92,8 @@ export default function VehicleDetailScreen() {
           text: 'Reactivate',
           onPress: () =>
             reactivateVehicle.mutate(vehicleId, {
-              onSuccess: () => { Alert.alert('Done', 'Vehicle reactivated'); goBackTo('routes/vehicle/[vehicleId]'); },
-              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to reactivate'),
+              onSuccess: () => { toast.success('Vehicle reactivated'); goBackTo('routes/vehicle/[vehicleId]'); },
+              onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to reactivate'),
             }),
         },
       ],

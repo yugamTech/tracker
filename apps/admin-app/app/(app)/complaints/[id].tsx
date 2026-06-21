@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, useToast } from '@saarthi/ui';
 import { useComplaintById, useUpdateComplaintStatus } from '@saarthi/api-client';
 
 const STATUS_FLOW = ['RECEIVED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'] as const;
@@ -23,6 +23,7 @@ export default function AdminComplaintDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: complaint, isLoading, isError } = useComplaintById(id ?? '');
   const { mutate: updateStatus, isPending } = useUpdateComplaintStatus();
+  const toast = useToast();
 
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [resolveNote, setResolveNote] = useState('');
@@ -69,7 +70,7 @@ export default function AdminComplaintDetailScreen() {
           onPress: () =>
             updateStatus(
               { id: complaint.id, status: toStatus },
-              { onError: () => Alert.alert('Error', 'Failed to update status.') },
+              { onError: () => toast.error('Failed to update status.') },
             ),
         },
       ],
@@ -83,7 +84,7 @@ export default function AdminComplaintDetailScreen() {
       { id: complaint.id, status: 'RESOLVED', note },
       {
         onSuccess: () => { setPendingStatus(null); setResolveNote(''); },
-        onError: () => Alert.alert('Error', 'Failed to resolve complaint.'),
+        onError: () => toast.error('Failed to resolve complaint.'),
       },
     );
   };

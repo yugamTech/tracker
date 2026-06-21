@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
-  colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button, LoadingSpinner, EmptyState, LiveBusMap,
+  colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button, LoadingSpinner, EmptyState, LiveBusMap, useToast,
 } from '@saarthi/ui';
 import type { BadgeVariant } from '@saarthi/ui';
 import { useTripById, useRoster, useCancelTrip, useLatestPosition, useFleetSocket } from '@saarthi/api-client';
@@ -55,6 +55,7 @@ export default function TripMonitorScreen() {
   const { data: roster, isLoading, isError, refetch, isRefetching } = useRoster(tripId);
   const { data: primed } = useLatestPosition(tripId);
   const cancelTrip = useCancelTrip();
+  const toast = useToast();
 
   // Live bus position: primed from the REST snapshot, then advanced by the fleet socket.
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -90,8 +91,8 @@ export default function TripMonitorScreen() {
           style: 'destructive',
           onPress: () =>
             cancelTrip.mutate(tripId, {
-              onSuccess: () => { Alert.alert('Cancelled', 'The trip has been cancelled.'); goBackTo('fleet/[tripId]'); },
-              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to cancel trip'),
+              onSuccess: () => { toast.success('The trip has been cancelled.', 'Cancelled'); goBackTo('fleet/[tripId]'); },
+              onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to cancel trip'),
             }),
         },
       ],

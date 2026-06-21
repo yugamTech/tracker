@@ -4,7 +4,7 @@ import {
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, Button } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, Button, useToast } from '@saarthi/ui';
 import { useParents, useUpdateMember, useDeactivateMember, useReactivateMember } from '@saarthi/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
@@ -19,6 +19,7 @@ export default function ParentDetailScreen() {
   const updateMember = useUpdateMember();
   const deactivateMember = useDeactivateMember();
   const reactivateMember = useReactivateMember();
+  const toast = useToast();
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
@@ -33,12 +34,12 @@ export default function ParentDetailScreen() {
 
   const handleSave = () => {
     if (!parent) return;
-    if (!name.trim()) { Alert.alert('Validation', 'Name is required'); return; }
+    if (!name.trim()) { toast.error('Name is required'); return; }
     updateMember.mutate(
       { id: parent.id, name: name.trim(), email: email.trim() || undefined },
       {
-        onSuccess: () => { Alert.alert('Saved', 'Parent details updated'); setEditing(false); },
-        onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Update failed'),
+        onSuccess: () => { toast.success('Parent details updated'); setEditing(false); },
+        onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Update failed'),
       },
     );
   };
@@ -55,8 +56,8 @@ export default function ParentDetailScreen() {
           style: 'destructive',
           onPress: () =>
             deactivateMember.mutate(id, {
-              onSuccess: () => Alert.alert('Done', 'Parent access deactivated'),
-              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to deactivate'),
+              onSuccess: () => toast.success('Parent access deactivated'),
+              onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to deactivate'),
             }),
         },
       ],
@@ -74,8 +75,8 @@ export default function ParentDetailScreen() {
           text: 'Reactivate',
           onPress: () =>
             reactivateMember.mutate(id, {
-              onSuccess: () => Alert.alert('Done', 'Parent access reactivated'),
-              onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to reactivate'),
+              onSuccess: () => toast.success('Parent access reactivated'),
+              onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to reactivate'),
             }),
         },
       ],

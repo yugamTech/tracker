@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, TextInput,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput,
 } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, LoadingSpinner } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, LoadingSpinner, useToast } from '@saarthi/ui';
 import {
   useRoutes, useVehicles, useMembers, useStudents, useCreateTrip,
   useTripById, useUpdateTrip,
@@ -35,6 +35,7 @@ export default function ScheduleTripScreen() {
   const { data: students = [] } = useStudents();
   const createTrip = useCreateTrip();
   const updateTrip = useUpdateTrip();
+  const toast = useToast();
   const setScheduleResult = useScheduleResultStore((s) => s.set);
 
   // Edit mode: `/(app)/trips/new?tripId=…` reuses this form to PATCH one trip.
@@ -151,10 +152,10 @@ export default function ScheduleTripScreen() {
   })();
 
   const handleCreate = async () => {
-    if (!routeId) { Alert.alert('Validation', 'Please select a route'); return; }
-    if (!vehicleId) { Alert.alert('Validation', 'Please select a vehicle'); return; }
-    if (!driverId) { Alert.alert('Validation', 'Please select a driver'); return; }
-    if (sortedDays.length === 0) { Alert.alert('Validation', 'Please select at least one date'); return; }
+    if (!routeId) { toast.error('Please select a route'); return; }
+    if (!vehicleId) { toast.error('Please select a vehicle'); return; }
+    if (!driverId) { toast.error('Please select a driver'); return; }
+    if (sortedDays.length === 0) { toast.error('Please select at least one date'); return; }
 
     const h = Math.min(23, Math.max(0, parseInt(startHour, 10) || 0));
     const m = Math.min(59, Math.max(0, parseInt(startMin, 10) || 0));
@@ -176,9 +177,9 @@ export default function ScheduleTripScreen() {
     });
 
     if (plan.every((p) => p.reason)) {
-      Alert.alert(
-        'Outside the schedulable window',
+      toast.error(
         `Trips can be scheduled from about ${SCHEDULE_BUFFER_MIN} min from now up to one month ahead. Adjust the time or dates.`,
+        'Outside the schedulable window',
       );
       return;
     }
@@ -209,9 +210,9 @@ export default function ScheduleTripScreen() {
 
   // Edit mode: a single PATCH of the SCHEDULED trip, then back to its detail.
   const handleUpdate = () => {
-    if (!routeId) { Alert.alert('Validation', 'Please select a route'); return; }
-    if (!vehicleId) { Alert.alert('Validation', 'Please select a vehicle'); return; }
-    if (!driverId) { Alert.alert('Validation', 'Please select a driver'); return; }
+    if (!routeId) { toast.error('Please select a route'); return; }
+    if (!vehicleId) { toast.error('Please select a vehicle'); return; }
+    if (!driverId) { toast.error('Please select a driver'); return; }
     const h = Math.min(23, Math.max(0, parseInt(startHour, 10) || 0));
     const m = Math.min(59, Math.max(0, parseInt(startMin, 10) || 0));
     const dayKey = sortedDays[0] ?? todayKey;
@@ -219,8 +220,8 @@ export default function ScheduleTripScreen() {
     updateTrip.mutate(
       { tripId: editTripId as string, routeId, vehicleId, driverId, conductorId, direction, scheduledStart: iso },
       {
-        onSuccess: () => { Alert.alert('Saved', 'Trip updated'); router.replace(`/(app)/fleet/${editTripId}` as never); },
-        onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to update trip'),
+        onSuccess: () => { toast.success('Trip updated'); router.replace(`/(app)/fleet/${editTripId}` as never); },
+        onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to update trip'),
       },
     );
   };

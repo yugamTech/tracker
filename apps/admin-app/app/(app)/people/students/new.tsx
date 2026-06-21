@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, ScrollView, StyleSheet,
-  TouchableOpacity, ActivityIndicator, Alert,
+  TouchableOpacity, ActivityIndicator,
 } from 'react-native';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, useToast } from '@saarthi/ui';
 import { useCreateStudent, useAgeGroups, useRoutes, useStops } from '@saarthi/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
@@ -20,6 +20,7 @@ export default function NewStudentScreen() {
   const { data: routes = [], isLoading: routesLoading } = useRoutes();
   const { data: stops = [], isLoading: stopsLoading } = useStops();
   const createStudent = useCreateStudent();
+  const toast = useToast();
 
   // Stops on the selected route; fall back to ALL tenant stops when the route has
   // none attached yet, so a boarding stop can always be picked.
@@ -33,11 +34,11 @@ export default function NewStudentScreen() {
   const isLoading = agLoading || routesLoading || stopsLoading;
 
   const handleSave = () => {
-    if (!name.trim()) { Alert.alert('Validation', 'Student name is required'); return; }
-    if (!ageGroupId) { Alert.alert('Validation', 'Please select an age group'); return; }
+    if (!name.trim()) { toast.error('Student name is required'); return; }
+    if (!ageGroupId) { toast.error('Please select an age group'); return; }
     const phoneDigits = parentPhone.replace(/\D/g, '');
     if (phoneDigits && phoneDigits.length !== 10) {
-      Alert.alert('Validation', "Parent's mobile number must be 10 digits");
+      toast.error("Parent's mobile number must be 10 digits");
       return;
     }
     createStudent.mutate(
@@ -51,8 +52,8 @@ export default function NewStudentScreen() {
         parentPhone: phoneDigits || undefined,
       },
       {
-        onSuccess: () => { Alert.alert('Success', 'Student added'); goBackTo('people/students/new'); },
-        onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to create student'),
+        onSuccess: () => { toast.success('Student added'); goBackTo('people/students/new'); },
+        onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to create student'),
       },
     );
   };

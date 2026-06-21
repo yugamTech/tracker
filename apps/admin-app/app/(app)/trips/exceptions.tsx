@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Alert } from 'react-native';
 import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights,
-  Card, Badge, Button, Chip, Skeleton, EmptyState, AnimatedPressable,
+  Card, Badge, Button, Chip, Skeleton, EmptyState, AnimatedPressable, useToast,
 } from '@saarthi/ui';
 import {
   useTripStartExceptions, useResolveStartException, useOverdueTrips,
@@ -104,6 +104,7 @@ export default function TripStartAlarmsScreen() {
   const { data: completionExceptions = [] } = useTripCompletionExceptions(filter === 'all' ? 'all' : undefined);
   const resolve = useResolveStartException();
   const resolveCompletion = useResolveCompletionException();
+  const toast = useToast();
   const { gridColumns } = useResponsive();
 
   const onResolveCompletion = (item: TripCompletionExceptionWithTrip) => {
@@ -113,7 +114,7 @@ export default function TripStartAlarmsScreen() {
         text: 'Resolve',
         onPress: () =>
           resolveCompletion.mutate(item.id, {
-            onError: (e: any) => Alert.alert('Error', e?.response?.data?.error?.message ?? 'Failed to resolve'),
+            onError: (e: any) => toast.error(e?.response?.data?.error?.message ?? 'Failed to resolve'),
           }),
       },
     ]);
@@ -164,7 +165,7 @@ export default function TripStartAlarmsScreen() {
         text: 'Resolve',
         onPress: () =>
           resolve.mutate(item.id, {
-            onError: (e: any) => Alert.alert('Error', e?.response?.data?.error?.message ?? 'Failed to resolve'),
+            onError: (e: any) => toast.error(e?.response?.data?.error?.message ?? 'Failed to resolve'),
           }),
       },
     ]);
