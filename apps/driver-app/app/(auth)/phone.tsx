@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@saarthi/ui';
 import { useRequestOtp } from '@saarthi/api-client';
 
 export default function DriverPhoneScreen() {
   const [phone, setPhone] = useState('');
   const requestOtp = useRequestOtp();
+  const toast = useToast();
 
   const handleContinue = async () => {
     if (phone.length < 10) return;
@@ -14,7 +15,7 @@ export default function DriverPhoneScreen() {
       await requestOtp.mutateAsync({ phone: `+91${phone}` });
       router.push({ pathname: '/(auth)/otp', params: { phone: `+91${phone}` } });
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.message ?? 'Failed to send OTP');
+      toast.error(err?.response?.data?.message ?? 'Failed to send OTP');
     }
   };
 

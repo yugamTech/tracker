@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { colors, spacing, fontSizes, fontWeights, radius, Button } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@saarthi/ui';
 import { attendanceApi, useMarkAttendance } from '@saarthi/api-client';
 
 type Shot = { uri: string; base64: string };
@@ -29,6 +29,7 @@ export default function AttendancePhotoScreen() {
   const [busy, setBusy] = useState(false);
 
   const markAttendance = useMarkAttendance();
+  const toast = useToast();
 
   const name = studentName || 'this student';
 
@@ -39,7 +40,7 @@ export default function AttendancePhotoScreen() {
       const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.6 });
       if (photo?.base64) setShot({ uri: photo.uri, base64: photo.base64 });
     } catch {
-      Alert.alert('Camera error', 'Could not capture the photo. Please try again.');
+      toast.error('Could not capture the photo. Please try again.', 'Camera error');
     } finally {
       setBusy(false);
     }
@@ -58,7 +59,7 @@ export default function AttendancePhotoScreen() {
       await markAttendance.mutateAsync({ tripId, studentId, type: 'BOARDED', photoUrl });
       router.back();
     } catch (e: any) {
-      Alert.alert('Could not board', e?.response?.data?.message ?? e?.message ?? 'Please try again.');
+      toast.error(e?.response?.data?.message ?? e?.message ?? 'Please try again.', 'Could not board');
     } finally {
       setBusy(false);
     }

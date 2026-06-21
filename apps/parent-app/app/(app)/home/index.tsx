@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
-  Card, Badge, Avatar, Skeleton, EmptyState, AnimatedPressable, Button, Divider, SlideIn,
+  Card, Badge, Avatar, Skeleton, EmptyState, AnimatedPressable, Button, Divider, SlideIn, useToast,
 } from '@saarthi/ui';
 import type { BadgeVariant } from '@saarthi/ui';
 import { useAuthStore } from '../../../store/auth.store';
@@ -32,6 +32,7 @@ export default function HomeScreen() {
   const { data: students, isLoading, refetch, isRefetching } = useMyStudents();
   const { data: todayTrips } = useTodayTrips();
   const cancelPickup = useCancelPickup();
+  const toast = useToast();
 
   const multiple = (students?.length ?? 0) > 1;
   const activeChild =
@@ -99,9 +100,9 @@ export default function HomeScreen() {
           cancelPickup.mutate(
             { tripId: activeTrip.id, studentId: activeChild.id, reason: 'Skipped by parent' },
             {
-              onSuccess: () => Alert.alert('Pickup skipped', 'The driver roster has been updated.'),
+              onSuccess: () => toast.success('The driver roster has been updated.', 'Pickup skipped'),
               onError: (e: any) =>
-                Alert.alert('Could not skip pickup', e?.response?.data?.message ?? e?.message ?? 'Please try again.'),
+                toast.error(e?.response?.data?.message ?? e?.message ?? 'Please try again.', 'Could not skip pickup'),
             },
           ),
       },

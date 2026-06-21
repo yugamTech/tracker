@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button, useToast } from '@saarthi/ui';
 import { useInvoiceById } from '@saarthi/api-client';
 
 const STATUS_V: Record<string, 'warning' | 'success' | 'error'> = {
@@ -12,6 +12,7 @@ const STATUS_V: Record<string, 'warning' | 'success' | 'error'> = {
 export default function PayScreen() {
   const { invoiceId } = useLocalSearchParams<{ invoiceId: string }>();
   const { data: invoice, isLoading, isError } = useInvoiceById(invoiceId ?? '');
+  const toast = useToast();
 
   if (isLoading) {
     return (
@@ -89,7 +90,7 @@ export default function PayScreen() {
 
         <Button
           title={invoice.status === 'PAID' ? 'Back to Payments' : 'Payment Coming Soon'}
-          onPress={() => invoice.status === 'PAID' ? router.back() : Alert.alert('Coming Soon', 'Payment gateway will be available in the next update.')}
+          onPress={() => invoice.status === 'PAID' ? router.back() : toast.info('Payment gateway will be available in the next update.', 'Coming soon')}
           variant={invoice.status === 'PAID' ? 'primary' : 'outline'}
           fullWidth
           size="lg"

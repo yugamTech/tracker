@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Modal, TextInput, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Modal, TextInput, Linking } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, fontFamilies, radius, letterSpacing,
-  StatusDot, Button, AnimatedPressable, ScreenContainer, AppHeader, Stagger,
+  StatusDot, Button, AnimatedPressable, ScreenContainer, AppHeader, Stagger, useToast,
 } from '@saarthi/ui';
 import { useTripById, useStartTrip, useCompleteTrip, useDriverPing, useRoster } from '@saarthi/api-client';
 import type { RosterRider } from '@saarthi/api-client';
@@ -43,6 +43,7 @@ export default function ActiveTripScreen() {
   const completeTrip = useCompleteTrip();
   const sendPing = useDriverPing();
   const membership = useAuthStore((s) => s.activeMembership);
+  const toast = useToast();
 
   const [broadcasting, setBroadcasting] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -171,14 +172,14 @@ export default function ActiveTripScreen() {
           const code = errCode(e);
           if (code === 'TRIP_ALREADY_LIVE') {
             // Another trip is live — can't start a second one.
-            Alert.alert('Finish your current trip first', errMsg(e));
+            toast.error(errMsg(e), 'Finish your current trip first');
           } else if (code === 'TRIP_START_BLOCKED') {
             // Blocked: show why + open the "start anyway, add reason" path.
             setBlockedWhy(errMsg(e) || 'This trip cannot start cleanly.');
           } else if (errMsg(e).includes('STARTED')) {
             setBroadcasting(true); // already started — broadcast anyway.
           } else {
-            Alert.alert('Could not start trip', errMsg(e) || 'Try again');
+            toast.error(errMsg(e) || 'Try again', 'Could not start trip');
           }
         },
       },
@@ -196,7 +197,7 @@ export default function ActiveTripScreen() {
           setReasonNote('');
           setBroadcasting(true);
         },
-        onError: (e: any) => Alert.alert('Could not start trip', errMsg(e) || 'Try again'),
+        onError: (e: any) => toast.error(errMsg(e) || 'Try again', 'Could not start trip'),
       },
     );
   };
@@ -232,7 +233,7 @@ export default function ActiveTripScreen() {
   const onNavigate = () => {
     if (!currentStop) return;
     const url = `https://www.google.com/maps/dir/?api=1&destination=${currentStop.lat},${currentStop.lng}&travelmode=driving`;
-    Linking.openURL(url).catch(() => Alert.alert('Error', 'Could not open Google Maps.'));
+    Linking.openURL(url).catch(() => toast.error('Could not open Google Maps.'));
   };
 
   const onMarkAttendance = () => {

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@saarthi/ui';
 import {
   useTodayTrips, useSubmitDailyCheck, useDailyChecks,
   checkWindowInfo, formatTripTime,
@@ -34,6 +34,7 @@ export default function VehicleCheckScreen() {
   // The driver's assigned vehicle for today comes from their (scoped) trips.
   const { data: trips } = useTodayTrips();
   const submitCheck = useSubmitDailyCheck();
+  const toast = useToast();
 
   // Resolve the trip this check is for: the explicit param trip if given, else
   // the driver's first trip with an assigned vehicle today.
@@ -58,10 +59,10 @@ export default function VehicleCheckScreen() {
   const allDone = CHECKS.every((c) => checked[c.id]);
 
   const handleSubmit = () => {
-    if (!allDone) { Alert.alert('Complete all checks first'); return; }
-    if (!window.canSubmit) { Alert.alert('Too early', window.reason ?? 'Check not yet available.'); return; }
+    if (!allDone) { toast.error('Complete all checks first'); return; }
+    if (!window.canSubmit) { toast.error(window.reason ?? 'Check not yet available.', 'Too early'); return; }
     if (!vehicleId) {
-      Alert.alert('No vehicle assigned', 'You have no trip with an assigned vehicle today, so this check can’t be linked to a bus.');
+      toast.error('You have no trip with an assigned vehicle today, so this check can’t be linked to a bus.', 'No vehicle assigned');
       return;
     }
     // Persist the full checklist result (every item true/false), not just toggles.
@@ -73,19 +74,17 @@ export default function VehicleCheckScreen() {
     submitCheck.mutate(
       { vehicleId, tripId, items, note: note.trim() || undefined },
       {
-        onSuccess: () =>
-          Alert.alert('Check Complete', 'Vehicle check submitted.', [
-            {
-              text: 'OK',
-              // From the pre-trip flow, return to that screen so its query
-              // re-fetches and "Start Trip" unlocks; otherwise go back.
-              onPress: () =>
-                fromTrip
-                  ? router.replace(`/(app)/trip/${params.tripId}` as never)
-                  : router.back(),
-            },
-          ]),
-        onError: (e: any) => Alert.alert('Error', e?.response?.data?.message ?? 'Failed to submit check'),
+        onSuccess: () => {
+          toast.success('Vehicle check submitted.', 'Check complete');
+          // From the pre-trip flow, return to that screen so its query
+          // re-fetches and "Start Trip" unlocks; otherwise go back.
+          if (fromTrip) {
+            router.replace(`/(app)/trip/${params.tripId}` as never);
+          } else {
+            router.back();
+          }
+        },
+        onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to submit check'),
       },
     );
   };

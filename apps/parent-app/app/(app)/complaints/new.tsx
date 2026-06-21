@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@saarthi/ui';
 import { useCreateComplaint, useFilteredTrips } from '@saarthi/api-client';
 
 const CATEGORIES = [
@@ -22,6 +22,7 @@ export default function NewComplaintScreen() {
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
   const [tripId, setTripId] = useState<string | null>(null);
+  const toast = useToast();
   const { mutate: createComplaint, isPending } = useCreateComplaint();
   // The parent's own scoped trips (all statuses, newest-first) — lets them point
   // the complaint at a specific ride, including ones that already COMPLETED.
@@ -29,17 +30,16 @@ export default function NewComplaintScreen() {
   const recentTrips = (trips as any[]).slice(0, RECENT_TRIP_LIMIT);
 
   const handleSubmit = () => {
-    if (!category) { Alert.alert('Select a category'); return; }
+    if (!category) { toast.error('Please select a category'); return; }
     createComplaint(
       { category: category as never, description: description || undefined, tripId: tripId ?? undefined },
       {
         onSuccess: () => {
-          Alert.alert('Complaint Raised', "We'll review and get back to you within 24 hours.", [
-            { text: 'OK', onPress: () => router.back() },
-          ]);
+          toast.success("We'll review and get back to you within 24 hours.", 'Complaint raised');
+          router.back();
         },
         onError: () => {
-          Alert.alert('Error', 'Failed to submit complaint. Please try again.');
+          toast.error('Failed to submit complaint. Please try again.');
         },
       },
     );

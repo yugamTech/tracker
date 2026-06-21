@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, Image, FlatList, StyleSheet, Alert } from 'react-native';
+import { View, Text, Image, FlatList, StyleSheet } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, radius,
-  Card, Button, Avatar, Skeleton, EmptyState, AppHeader, AnimatedPressable, ScreenContainer, SlideIn,
+  Card, Button, Avatar, Skeleton, EmptyState, AppHeader, AnimatedPressable, ScreenContainer, SlideIn, useToast,
 } from '@saarthi/ui';
 import { useRoster, useMarkAttendance } from '@saarthi/api-client';
 import type { RosterRider } from '@saarthi/api-client';
@@ -12,6 +12,7 @@ export default function AttendanceScreen() {
   const { stopId, tripId } = useLocalSearchParams<{ stopId: string; tripId: string }>();
   const { data: rosterData, isLoading, isError } = useRoster(tripId);
   const markAttendance = useMarkAttendance();
+  const toast = useToast();
 
   const stopRoster = rosterData?.stops.find((s) => s.stopId === stopId);
   const riders: RosterRider[] = stopRoster?.riders ?? [];
@@ -37,9 +38,9 @@ export default function AttendanceScreen() {
       { tripId, studentId: rider.studentId, type: 'NOT_BOARDED' },
       {
         onError: (e: any) =>
-          Alert.alert(
-            'Could not mark absent',
+          toast.error(
             e?.response?.data?.message ?? e?.message ?? 'Please try again.',
+            'Could not mark absent',
           ),
       },
     );

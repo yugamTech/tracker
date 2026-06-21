@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
-  AppHeader, Avatar, Card, Badge, Button, ListItem, Divider, SectionHeader,
+  AppHeader, Avatar, Card, Badge, Button, ListItem, Divider, SectionHeader, useToast,
 } from '@saarthi/ui';
 import { useAuthStore } from '../../../store/auth.store';
 import { useMyStudents } from '@saarthi/api-client';
@@ -12,6 +12,7 @@ import { useMyStudents } from '@saarthi/api-client';
 export default function ProfileScreen() {
   const { person, activeMembership, logout } = useAuthStore();
   const { data: students } = useMyStudents();
+  const toast = useToast();
   const childCount = students?.length ?? 0;
   const multiple = childCount > 1;
 
@@ -26,7 +27,7 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const soon = () => Alert.alert('Coming soon', 'This feature is being built');
+  const soon = () => toast.info('This feature is being built', 'Coming soon');
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

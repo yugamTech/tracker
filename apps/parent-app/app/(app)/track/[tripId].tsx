@@ -5,7 +5,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
   StatusDot, Card, Badge, Button, Divider, Skeleton, EmptyState,
-  LiveBusMap, AppHeader, AnimatedPressable,
+  LiveBusMap, AppHeader, AnimatedPressable, useToast,
 } from '@saarthi/ui';
 import type { BadgeVariant } from '@saarthi/ui';
 import {
@@ -50,6 +50,7 @@ export default function TrackScreen() {
   const { data: myStudents } = useMyStudents();
   const activeChildId = useChildStore((s) => s.activeChildId);
   const cancelPickup = useCancelPickup();
+  const toast = useToast();
 
   const [pos, setPos] = useState<{ lat: number; lng: number; speed: number | null } | null>(null);
   const [eta, setEta] = useState<{ stopName: string; minutes: number } | null>(null);
@@ -148,9 +149,9 @@ export default function TrackScreen() {
           cancelPickup.mutate(
             { tripId, studentId: myRider.studentId, reason: 'Skipped by parent' },
             {
-              onSuccess: () => Alert.alert('Pickup skipped', 'The driver roster has been updated.'),
+              onSuccess: () => toast.success('The driver roster has been updated.', 'Pickup skipped'),
               onError: (e: any) =>
-                Alert.alert('Could not skip pickup', e?.response?.data?.message ?? e?.message ?? 'Please try again.'),
+                toast.error(e?.response?.data?.message ?? e?.message ?? 'Please try again.', 'Could not skip pickup'),
             },
           ),
       },

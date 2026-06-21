@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, OtpInput } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, OtpInput, useToast } from '@saarthi/ui';
 import { Button } from '@saarthi/ui';
 import { useAuthStore } from '../../store/auth.store';
 import { useVerifyOtp } from '@saarthi/api-client';
@@ -18,6 +18,7 @@ export default function OtpScreen() {
   const [inactive, setInactive] = useState(false);
   const setAuth = useAuthStore((s) => s.setAuth);
   const verifyOtp = useVerifyOtp();
+  const toast = useToast();
 
   const handleComplete = (code: string) => {
     setOtp(code);
@@ -45,12 +46,12 @@ export default function OtpScreen() {
       if (err?.response?.data?.error?.code === 'MEMBERSHIP_INACTIVE') {
         setInactive(true);
       } else if (err?.response?.status === 403) {
-        Alert.alert(
-          'Not a parent account',
+        toast.error(
           "This number isn't registered as a parent or teacher-rider. If you're a driver, please use the Yaanam Driver app, or contact your school admin.",
+          'Not a parent account',
         );
       } else {
-        Alert.alert('Could not sign in', err?.response?.data?.message ?? 'Invalid or expired OTP');
+        toast.error(err?.response?.data?.message ?? 'Invalid or expired OTP', 'Could not sign in');
       }
     }
   };

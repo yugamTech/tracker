@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, radius, letterSpacing,
-  Button, Badge, Skeleton, AppHeader, ScreenContainer,
+  Button, Badge, Skeleton, AppHeader, ScreenContainer, useToast,
 } from '@saarthi/ui';
 import type { BadgeVariant } from '@saarthi/ui';
 import {
@@ -21,6 +21,7 @@ const PV_META: Record<string, { label: string; variant: BadgeVariant }> = {
 export default function DriverKycScreen() {
   const { data: profile, isLoading } = useMyDriverProfile();
   const update = useUpdateMyDriverProfile();
+  const toast = useToast();
 
   const [aadhaar, setAadhaar] = useState('');
   const [address, setAddress] = useState('');
@@ -73,8 +74,8 @@ export default function DriverKycScreen() {
         licenseExpiry: input.licenseExpiry,
       },
       {
-        onSuccess: () => Alert.alert('Saved', 'Your KYC details were updated.'),
-        onError: (e: any) => Alert.alert('Error', e?.response?.data?.error?.message ?? 'Failed to save'),
+        onSuccess: () => toast.success('Your KYC details were updated.', 'Saved'),
+        onError: (e: any) => toast.error(e?.response?.data?.error?.message ?? 'Failed to save'),
       },
     );
   };
