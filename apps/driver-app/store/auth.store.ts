@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { queryClient } from '@saarthi/api-client';
+import { queryClient, setUnauthorizedHandler } from '@saarthi/api-client';
 import type { ActiveMembership, Role } from '@saarthi/types';
 
 interface Person { id: string; phone: string; name: string; }
@@ -39,3 +39,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ person: null, activeMembership: null, memberships: [], isAuthenticated: false });
   },
 }));
+
+// A hard 401 (missing/expired refresh token) clears the stored tokens inside the
+// api-client; mirror that here so the (app) layout's auth guard redirects to login.
+setUnauthorizedHandler(() => useAuthStore.getState().logout());

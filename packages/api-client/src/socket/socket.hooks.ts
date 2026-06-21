@@ -18,7 +18,11 @@ import type {
   DriverPingPayload,
 } from '@saarthi/types';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+// Socket connects to the bare host (the gateway namespace is appended in
+// socket.client). Prefer an explicit socket URL, else reuse the API host — both
+// are baked in at build time from the EAS profile's env.
+const BASE_URL =
+  process.env.EXPO_PUBLIC_SOCKET_URL ?? process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
 export interface TripSocketHandlers {
   onLocation?: (data: LocationPingPayload) => void;

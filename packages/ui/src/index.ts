@@ -80,6 +80,9 @@ export type { ConfirmDialogProps } from './components/ConfirmDialog';
 export { ToastProvider, useToast } from './components/Toast';
 export type { ToastProviderProps, ToastApi, ToastOptions, ToastVariant } from './components/Toast';
 
+export { ErrorBoundary } from './components/ErrorBoundary';
+export type { ErrorBoundaryProps } from './components/ErrorBoundary';
+
 // ── Maps ─────────────────────────────────────────────────────────────────────
 export { MockBusMap } from './components/MockBusMap';
 export type { MockBusMapStop, MockBusMapProps } from './components/MockBusMap';

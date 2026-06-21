@@ -151,7 +151,7 @@ export default function FleetMapScreen() {
                       <Text style={styles.busRoute} numberOfLines={1}>{b.routeName} · {b.direction ?? b.status}</Text>
                       {b.driverName ? <Text style={styles.driverLine} numberOfLines={1}>🧑‍✈️ {b.driverName}</Text> : null}
                       <Text style={styles.busCords} numberOfLines={1}>
-                        {b.lat != null ? `${b.lat.toFixed(4)}, ${b.lng!.toFixed(4)}` : 'Awaiting GPS…'}
+                        {b.lat != null && b.lng != null ? `${b.lat.toFixed(4)}, ${b.lng.toFixed(4)}` : 'Awaiting GPS…'}
                         {b.speed != null ? `  ·  ${Math.round(b.speed * 3.6)} km/h` : ''}
                       </Text>
                     </View>

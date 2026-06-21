@@ -1,5 +1,5 @@
 // Axios + Query Client
-export { apiClient, createApiClient, TOKEN_KEY, REFRESH_KEY } from './axios';
+export { apiClient, createApiClient, TOKEN_KEY, REFRESH_KEY, setUnauthorizedHandler } from './axios';
 export { queryClient } from './query-client';
 
 // Auth

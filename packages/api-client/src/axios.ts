@@ -4,6 +4,28 @@ import * as SecureStore from 'expo-secure-store';
 export const TOKEN_KEY = 'saarthi_access_token';
 export const REFRESH_KEY = 'saarthi_refresh_token';
 
+/**
+ * Called once when the session can no longer be recovered (refresh token is
+ * missing, expired, or itself rejected with a 401). Apps register a handler that
+ * drops auth state so the UI falls back to the login screen — the api-client
+ * stays framework-agnostic and never imports a store or the router.
+ */
+let onUnauthorized: (() => void) | null = null;
+export const setUnauthorizedHandler = (handler: (() => void) | null) => {
+  onUnauthorized = handler;
+};
+
+/** Wipe stored tokens and notify the app so it can redirect to login. */
+const clearSession = async () => {
+  try {
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await SecureStore.deleteItemAsync(REFRESH_KEY);
+  } catch {
+    // SecureStore can throw if the keychain is unavailable — still notify the app.
+  }
+  onUnauthorized?.();
+};
+
 export const createApiClient = (baseURL: string) => {
   const client = axios.create({
     baseURL,
@@ -27,8 +49,19 @@ export const createApiClient = (baseURL: string) => {
   client.interceptors.response.use(
     (response) => response,
     async (error) => {
-      const original = error.config as typeof error.config & { _retry?: boolean };
-      if (error.response?.status === 401 && !original._retry) {
+      const original = (error.config ?? {}) as typeof error.config & { _retry?: boolean };
+      const status = error.response?.status;
+      // A 401 on the refresh call itself means the refresh token is dead — never
+      // try to refresh a refresh (that recurses forever); tear the session down.
+      const isRefreshCall =
+        typeof original.url === 'string' && original.url.includes('/auth/refresh');
+
+      if (status === 401 && isRefreshCall) {
+        await clearSession();
+        return Promise.reject(error);
+      }
+
+      if (status === 401 && !original._retry) {
         original._retry = true;
         try {
           const refresh = await SecureStore.getItemAsync(REFRESH_KEY);
@@ -36,11 +69,11 @@ export const createApiClient = (baseURL: string) => {
           const { data } = await client.post('/auth/refresh', { refreshToken: refresh });
           await SecureStore.setItemAsync(TOKEN_KEY, data.data.accessToken);
           await SecureStore.setItemAsync(REFRESH_KEY, data.data.refreshToken);
+          original.headers = original.headers ?? {};
           original.headers.Authorization = `Bearer ${data.data.accessToken}`;
           return client(original);
         } catch {
-          await SecureStore.deleteItemAsync(TOKEN_KEY);
-          await SecureStore.deleteItemAsync(REFRESH_KEY);
+          await clearSession();
           return Promise.reject(error);
         }
       }

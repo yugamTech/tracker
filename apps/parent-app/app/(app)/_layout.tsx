@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { Platform, Text } from 'react-native';
 import { colors, fontSizes, fontWeights } from '@saarthi/ui';
 import { useRegisterDeviceToken } from '@saarthi/api-client';
@@ -7,6 +7,7 @@ import { useAuthStore } from '../../store/auth.store';
 
 export default function AppLayout() {
   const person = useAuthStore((s) => s.person);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { mutate: registerToken } = useRegisterDeviceToken();
 
   useEffect(() => {
@@ -15,6 +16,10 @@ export default function AppLayout() {
       registerToken({ token: `dev-token-${person.id}`, platform: Platform.OS });
     }
   }, [person?.id]);
+
+  // Protected group: a dropped session (hard 401, or never authenticated) falls
+  // back to login. Hooks above always run; this guard returns only after them.
+  if (!isAuthenticated) return <Redirect href="/(auth)/phone" />;
 
   return (
     <Tabs

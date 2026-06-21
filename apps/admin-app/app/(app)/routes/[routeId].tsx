@@ -260,7 +260,11 @@ export default function RouteDetailScreen() {
                 </View>
                 <View style={styles.stopInfo}>
                   <Text style={styles.stopName}>{rs.stop.name}</Text>
-                  <Text style={styles.stopCoord}>{rs.stop.lat.toFixed(4)}, {rs.stop.lng.toFixed(4)}</Text>
+                  <Text style={styles.stopCoord}>
+                    {rs.stop.lat != null && rs.stop.lng != null
+                      ? `${rs.stop.lat.toFixed(4)}, ${rs.stop.lng.toFixed(4)}`
+                      : 'No coordinates'}
+                  </Text>
                 </View>
               </View>
             ))}
