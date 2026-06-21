@@ -16,7 +16,7 @@ import { colors } from '../theme/colors';
 import { fontSizes, fontWeights, letterSpacing } from '../theme/typography';
 import { radius, spacing, shadows } from '../theme/spacing';
 
-interface SheetProps {
+export interface SheetProps {
   visible: boolean;
   onClose: () => void;
   children: React.ReactNode;
@@ -77,7 +77,12 @@ export const Sheet: React.FC<SheetProps> = ({
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
       <View style={styles.root}>
         <Animated.View style={[styles.backdrop, { opacity: backdrop }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          />
         </Animated.View>
         <Animated.View
           style={[

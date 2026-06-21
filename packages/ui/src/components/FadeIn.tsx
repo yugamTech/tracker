@@ -2,7 +2,7 @@ import React from 'react';
 import { type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { FadeIn as REFadeIn, useReducedMotion } from 'react-native-reanimated';
 
-interface FadeInProps {
+export interface FadeInProps {
   children: React.ReactNode;
   /** Delay before the fade starts, in ms. Default 0. */
   delay?: number;

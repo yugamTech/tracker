@@ -1,29 +1,44 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { ActivityIndicator, View, StyleSheet, Text } from 'react-native';
 import { colors } from '../theme/colors';
 import { fontSizes } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 
-interface LoadingSpinnerProps {
+export interface LoadingSpinnerProps {
+  /** Spinner size. Default `'large'`. */
   size?: 'small' | 'large';
+  /** Spinner color. Default `colors.primary`. */
   color?: string;
+  /** Optional caption shown under the spinner. */
   label?: string;
+  /** Fill the available space and center (full-screen loading). Default `false`. */
   fullScreen?: boolean;
 }
 
-export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
-  size = 'large',
-  color = colors.primary,
-  label,
-  fullScreen = false,
-}) => {
-  return (
-    <View style={[styles.container, fullScreen && styles.fullScreen]}>
-      <ActivityIndicator size={size} color={color} />
-      {label && <Text style={styles.label}>{label}</Text>}
-    </View>
-  );
-};
+/**
+ * Centered activity indicator with an optional label. Set `fullScreen` to
+ * occupy the whole screen while a route loads.
+ *
+ * @example
+ * if (isLoading) return <LoadingSpinner fullScreen label="Loading trips…" />;
+ */
+export const LoadingSpinner = forwardRef<React.ComponentRef<typeof View>, LoadingSpinnerProps>(
+  ({ size = 'large', color = colors.primary, label, fullScreen = false }, ref) => {
+    return (
+      <View
+        ref={ref}
+        style={[styles.container, fullScreen && styles.fullScreen]}
+        accessibilityRole="progressbar"
+        accessibilityLabel={label ?? 'Loading'}
+      >
+        <ActivityIndicator size={size} color={color} />
+        {label && <Text style={styles.label}>{label}</Text>}
+      </View>
+    );
+  },
+);
+
+LoadingSpinner.displayName = 'LoadingSpinner';
 
 const styles = StyleSheet.create({
   container: {

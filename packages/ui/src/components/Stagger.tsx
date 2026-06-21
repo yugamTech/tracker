@@ -2,7 +2,7 @@ import React from 'react';
 import { type StyleProp, type ViewStyle } from 'react-native';
 import { SlideIn, type SlideDirection } from './SlideIn';
 
-interface StaggerProps {
+export interface StaggerProps {
   children: React.ReactNode;
   /** Edge each child slides in from. Default 'bottom'. */
   from?: SlideDirection;

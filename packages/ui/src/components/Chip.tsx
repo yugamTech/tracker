@@ -5,12 +5,13 @@ import { fontSizes, fontWeights } from '../theme/typography';
 import { radius, spacing } from '../theme/spacing';
 import { AnimatedPressable } from './Pressable';
 
-interface ChipProps {
+export interface ChipProps {
   label: string;
-  /** Selected (filled) vs. unselected (outlined) styling. */
+  /** Selected (filled) vs. unselected (outlined) styling. Default `false`. */
   selected?: boolean;
   onPress?: () => void;
   leftIcon?: React.ReactNode;
+  /** Size scale. Default `'md'`. */
   size?: 'sm' | 'md';
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -18,7 +19,12 @@ interface ChipProps {
 
 /**
  * Compact, pill-shaped selectable token — used for filters and quick choices.
- * Tappable when `onPress` is set; otherwise renders as a static tag.
+ * Tappable when `onPress` is set; otherwise renders as a static tag. When
+ * tappable it exposes a `button` role with selected/disabled state and an
+ * 8pt hitSlop so the small pill still clears the 44pt touch target.
+ *
+ * @example
+ * <Chip label="Active" selected={filter === 'active'} onPress={() => setFilter('active')} />
  */
 export const Chip: React.FC<ChipProps> = ({
   label,
@@ -56,7 +62,15 @@ export const Chip: React.FC<ChipProps> = ({
   if (!onPress) return content;
 
   return (
-    <AnimatedPressable onPress={onPress} disabled={disabled} scaleTo={0.94}>
+    <AnimatedPressable
+      onPress={onPress}
+      disabled={disabled}
+      scaleTo={0.94}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected, disabled: !!disabled }}
+    >
       {content}
     </AnimatedPressable>
   );

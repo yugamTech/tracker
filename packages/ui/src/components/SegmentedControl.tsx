@@ -13,13 +13,14 @@ import { colors } from '../theme/colors';
 import { fontSizes, fontWeights } from '../theme/typography';
 import { radius, spacing, shadows } from '../theme/spacing';
 
-interface Segment<T extends string> {
+export interface Segment<T extends string> {
   label: string;
   value: T;
 }
 
-interface SegmentedControlProps<T extends string> {
+export interface SegmentedControlProps<T extends string> {
   segments: Segment<T>[];
+  /** Currently selected value. */
   value: T;
   onChange: (value: T) => void;
   style?: StyleProp<ViewStyle>;
@@ -29,7 +30,15 @@ const TRACK_PADDING = 3;
 
 /**
  * iOS-style segmented control with an animated sliding thumb. Generic over the
- * segment value type so callers keep their string-literal unions.
+ * segment value type so callers keep their string-literal unions. Each segment
+ * is a 44pt `button` exposing its selected state.
+ *
+ * @example
+ * <SegmentedControl
+ *   segments={[{ label: 'All', value: 'all' }, { label: 'Active', value: 'active' }]}
+ *   value={filter}
+ *   onChange={setFilter}
+ * />
  */
 export function SegmentedControl<T extends string>({
   segments,
@@ -111,6 +120,7 @@ const styles = StyleSheet.create({
   segment: {
     flex: 1,
     paddingVertical: spacing[2],
+    minHeight: 38, // segment + 2× track padding ≈ 44pt touch target
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,

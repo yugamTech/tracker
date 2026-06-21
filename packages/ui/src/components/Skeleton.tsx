@@ -9,7 +9,7 @@ import {
 import { colors } from '../theme/colors';
 import { radius as radiusTokens } from '../theme/spacing';
 
-interface SkeletonProps {
+export interface SkeletonProps {
   width?: DimensionValue;
   height?: DimensionValue;
   /** Corner radius token, or a raw number. Default 'md'. */

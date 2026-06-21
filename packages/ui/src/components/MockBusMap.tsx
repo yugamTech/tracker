@@ -9,7 +9,7 @@ export interface MockBusMapStop {
   name: string;
 }
 
-interface MockBusMapProps {
+export interface MockBusMapProps {
   stops: MockBusMapStop[];
   currentIdx?: number; // driven externally (e.g. from socket); if omitted, self-animates
   live?: boolean;

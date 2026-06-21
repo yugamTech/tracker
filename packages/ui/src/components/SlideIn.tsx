@@ -18,7 +18,7 @@ const BUILDERS = {
   right: FadeInRight,
 } as const;
 
-interface SlideInProps {
+export interface SlideInProps {
   children: React.ReactNode;
   /** Edge to slide in from. Default 'bottom'. */
   from?: SlideDirection;

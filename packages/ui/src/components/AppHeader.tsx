@@ -5,7 +5,7 @@ import { fontSizes, fontWeights, letterSpacing } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 import { AnimatedPressable } from './Pressable';
 
-interface AppHeaderProps {
+export interface AppHeaderProps {
   title: string;
   subtitle?: string;
   /** Renders a back affordance on the left when provided. */
@@ -25,6 +25,9 @@ export const HEADER_HEIGHT = 56;
  * Consistent app bar: fixed-height row with an optional back affordance, a
  * title (+ optional subtitle), and an optional right action. Title stays
  * centered-friendly by reserving equal-width side slots.
+ *
+ * @example
+ * <AppHeader title="Trip details" subtitle="Route 12" onBack={() => router.back()} />
  */
 export const AppHeader: React.FC<AppHeaderProps> = ({
   title,
@@ -51,7 +54,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     <View style={[styles.container, bordered && styles.bordered, style]}>
       <View style={styles.side}>{leftSlot}</View>
       <View style={styles.titleWrap}>
-        <Text style={styles.title} numberOfLines={1}>{title}</Text>
+        <Text style={styles.title} numberOfLines={1} accessibilityRole="header">{title}</Text>
         {subtitle ? (
           <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>
         ) : null}

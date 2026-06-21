@@ -10,12 +10,22 @@ import { colors } from '../theme/colors';
 import { fontSizes, fontWeights } from '../theme/typography';
 import { radius, spacing } from '../theme/spacing';
 
-interface OtpInputProps {
+export interface OtpInputProps {
+  /** Number of digit boxes. Default `6`. */
   length?: number;
+  /** Fired once every box is filled, with the joined code. */
   onComplete: (otp: string) => void;
   disabled?: boolean;
 }
 
+/**
+ * Segmented one-time-code entry: auto-advances on input, backspaces to the
+ * previous box, and fires `onComplete` once full. Each box is 48×56 (clears the
+ * 44pt target) and labelled "Digit N of M" for screen readers.
+ *
+ * @example
+ * <OtpInput length={6} onComplete={(code) => verify(code)} disabled={isVerifying} />
+ */
 export const OtpInput: React.FC<OtpInputProps> = ({
   length = 6,
   onComplete,
@@ -66,6 +76,7 @@ export const OtpInput: React.FC<OtpInputProps> = ({
             textContentType="oneTimeCode"
             editable={!disabled}
             autoFocus={i === 0}
+            accessibilityLabel={`Digit ${i + 1} of ${length}`}
           />
         ))}
     </View>

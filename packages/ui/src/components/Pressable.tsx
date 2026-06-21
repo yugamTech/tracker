@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
-interface AnimatedPressableProps extends Omit<PressableProps, 'style' | 'children'> {
+export interface AnimatedPressableProps extends Omit<PressableProps, 'style' | 'children'> {
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   /** Scale applied while pressed. Default 0.97. Use 1 to disable. */
@@ -21,7 +21,13 @@ interface AnimatedPressableProps extends Omit<PressableProps, 'style' | 'childre
 /**
  * The standard tap target across all three apps: a subtle scale-down (and
  * optional fade) on press, driven on the native thread. Drop-in for `Pressable`
- * / `TouchableOpacity` wherever consistent tap feedback is wanted.
+ * / `TouchableOpacity` wherever consistent tap feedback is wanted. Pass
+ * `accessibilityRole`/`accessibilityLabel` through for interactive targets.
+ *
+ * @example
+ * <AnimatedPressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Open">
+ *   <Card>{children}</Card>
+ * </AnimatedPressable>
  */
 export const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
   children,

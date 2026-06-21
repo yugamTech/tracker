@@ -5,7 +5,7 @@ import { fontSizes, fontWeights } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 import { AnimatedPressable } from './Pressable';
 
-interface ListItemProps {
+export interface ListItemProps {
   title: string;
   subtitle?: string;
   /** Leading element — icon, Avatar, StatusDot, etc. */
@@ -16,12 +16,23 @@ interface ListItemProps {
   showChevron?: boolean;
   onPress?: () => void;
   disabled?: boolean;
+  /** Overrides the accessibility label (defaults to title + subtitle). */
+  accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
 }
 
 /**
  * Standard row: leading slot, stacked title/subtitle, trailing slot or chevron.
- * Becomes a tappable row (with scale feedback) when `onPress` is provided.
+ * Becomes a tappable row (with scale feedback, `button` role, 56pt min height)
+ * when `onPress` is provided.
+ *
+ * @example
+ * <ListItem
+ *   title="Notifications"
+ *   subtitle="Push & email"
+ *   left={<StatusDot variant="live" />}
+ *   onPress={() => router.push('/settings/notifications')}
+ * />
  */
 export const ListItem: React.FC<ListItemProps> = ({
   title,
@@ -31,6 +42,7 @@ export const ListItem: React.FC<ListItemProps> = ({
   showChevron,
   onPress,
   disabled,
+  accessibilityLabel,
   style,
 }) => {
   const chevron = (showChevron ?? !!onPress) && !right
@@ -51,7 +63,14 @@ export const ListItem: React.FC<ListItemProps> = ({
   if (!onPress) return content;
 
   return (
-    <AnimatedPressable onPress={onPress} disabled={disabled} scaleTo={0.985}>
+    <AnimatedPressable
+      onPress={onPress}
+      disabled={disabled}
+      scaleTo={0.985}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? (subtitle ? `${title}, ${subtitle}` : title)}
+      accessibilityState={{ disabled: !!disabled }}
+    >
       {content}
     </AnimatedPressable>
   );
