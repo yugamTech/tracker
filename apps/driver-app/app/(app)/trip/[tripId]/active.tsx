@@ -8,9 +8,16 @@ import {
 import { useTripById, useStartTrip, useCompleteTrip, useDriverPing, useRoster } from '@saarthi/api-client';
 import type { RosterRider } from '@saarthi/api-client';
 import { useAuthStore } from '../../../../store/auth.store';
-import { startBroadcast, stopBroadcast, type BroadcastResult } from '../../../../services/location';
+import {
+  startBroadcast, stopBroadcast, ensureForegroundPermission, type BroadcastResult,
+} from '../../../../services/location';
 
 const ARRIVAL_METERS = 40; // within this of the current stop, the bus has "reached" it
+// A GPS stream can be "up" yet deliver no usable fix (cold start, tunnel, garage,
+// signal loss). Treat the position as stale — and surface "Waiting for GPS" — after
+// a grace period with no fix, distinct from genuine permission denial.
+const COLD_START_MS = 12000; // no first fix within this of starting = waiting for GPS
+const STALE_FIX_MS = 15000; // no fix for this long after a valid start = signal gap
 
 const toRad = (d: number) => (d * Math.PI) / 180;
 function haversine(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
@@ -53,6 +60,13 @@ export default function ActiveTripScreen() {
     useState<'idle' | 'foreground' | 'background' | 'denied' | 'unavailable'>('idle');
   // Whether the bus has physically reached the current stop yet — gates marking.
   const [arrivedAtCurrent, setArrivedAtCurrent] = useState(false);
+  // Explicit, logged "mark without GPS" escape hatch for a genuine no-signal
+  // outage. Unlocks marking for the CURRENT stop only (reset when it advances).
+  const [overrideUnlocked, setOverrideUnlocked] = useState(false);
+  const [showGpsOverride, setShowGpsOverride] = useState(false);
+  // Foreground-permission gate: when starting is hard-blocked for missing location
+  // permission, this drives the recoverable explanation (re-request / Settings).
+  const [permBlock, setPermBlock] = useState<{ canAskAgain: boolean } | null>(null);
   // Trip-start governance: when a clean start is blocked, the server explains why
   // and the driver must add a reason note to start anyway.
   const [blockedWhy, setBlockedWhy] = useState<string | null>(null);
@@ -105,6 +119,10 @@ export default function ActiveTripScreen() {
   // broadcast doesn't churn on every re-render.
   const sendPingRef = useRef(sendPing);
   sendPingRef.current = sendPing;
+  // GPS-freshness tracking (refs, so the async fix callback writes them without
+  // re-rendering): when the last real fix arrived, and when this broadcast began.
+  const lastFixRef = useRef<number | null>(null);
+  const broadcastStartedAtRef = useRef<number | null>(null);
 
   // Resume: a trip already in flight should broadcast on mount without re-calling
   // startTrip (which would error STARTED→STARTED).
@@ -115,9 +133,11 @@ export default function ActiveTripScreen() {
     }
   }, [(trip as any)?.status]);
 
-  // The current stop changed (advanced) — reset the "reached" gate for the new one.
+  // The current stop changed (advanced) — reset both the "reached" gate and any
+  // no-signal override so the new stop must be reached (or re-confirmed) afresh.
   useEffect(() => {
     setArrivedAtCurrent(false);
+    setOverrideUnlocked(false);
   }, [currentStop?.id]);
 
   // Elapsed timer once broadcasting.
@@ -142,6 +162,7 @@ export default function ActiveTripScreen() {
       },
       {
         onFix: (fix) => {
+          lastFixRef.current = Date.now(); // GPS is delivering — clears "Waiting for GPS"
           setPingsSent((n) => n + 1);
           const tgt = stopsRef.current[currentRef.current];
           if (tgt && haversine(fix, tgt) <= ARRIVAL_METERS) setArrivedAtCurrent(true);
@@ -159,6 +180,8 @@ export default function ActiveTripScreen() {
   // stops (complete/cancel/unmount) so a finished trip can't leak pings.
   useEffect(() => {
     if (!broadcasting) return;
+    broadcastStartedAtRef.current = Date.now();
+    lastFixRef.current = null; // no fix yet on this (re)start — start the grace clock
     void beginBroadcast();
     return () => {
       setLocStatus('idle');
@@ -169,7 +192,7 @@ export default function ActiveTripScreen() {
   const errMsg = (e: any): string => e?.response?.data?.error?.message ?? e?.message ?? '';
   const errCode = (e: any): string => e?.response?.data?.error?.code ?? '';
 
-  const onStart = () => {
+  const doStartTrip = () => {
     startTrip.mutate(
       { tripId },
       {
@@ -192,6 +215,51 @@ export default function ActiveTripScreen() {
     );
   };
 
+  // Integrity gate: a trip may only start with foreground location permission — so
+  // parents can see the bus and attendance is verified at each stop. Permission is
+  // pre-checked WITHOUT opening a stream; denial hard-blocks the start (recoverable
+  // via the permission modal). A granted-but-no-fix-yet state never reaches here.
+  const onStart = async () => {
+    const perm = await ensureForegroundPermission();
+    if (!perm.granted) {
+      setPermBlock({ canAskAgain: perm.canAskAgain });
+      return;
+    }
+    doStartTrip();
+  };
+
+  // Recover from a blocked start: re-request in-app while still askable, otherwise
+  // deep-link to Settings. Never dead-ends — always offers the next step.
+  const onPermAction = async () => {
+    if (permBlock?.canAskAgain === false) {
+      Linking.openSettings().catch(() => {});
+      setPermBlock(null);
+      return;
+    }
+    const perm = await ensureForegroundPermission();
+    if (perm.granted) {
+      setPermBlock(null);
+      doStartTrip();
+    } else {
+      setPermBlock({ canAskAgain: perm.canAskAgain });
+    }
+  };
+
+  // Explicit, logged escape hatch for a genuine no-signal outage (long GPS gap /
+  // no fix). Only offered when GPS can't confirm arrival, so it never reopens the
+  // "skip arrival" hole while GPS is healthy. Unlocks marking for this stop only.
+  const onConfirmGpsOverride = () => {
+    console.warn(
+      `[trip ${tripId}] attendance marked WITHOUT GPS at stop ` +
+        `${currentStop?.id ?? '?'} (${currentStop?.name ?? '?'}) — driver confirmed no signal`,
+    );
+    setOverrideUnlocked(true);
+    setShowGpsOverride(false);
+    toast.warning('Marking without GPS — recorded.', 'No signal');
+  };
+
+  // Reached only after onStart already passed the location-permission gate (this
+  // path opens on the server's TRIP_START_BLOCKED response), so no re-check needed.
   const onStartWithReason = () => {
     const note = reasonNote.trim();
     if (!note) return;
@@ -250,10 +318,28 @@ export default function ActiveTripScreen() {
 
   // A real GPS stream is live (foreground or background).
   const gpsActive = locStatus === 'foreground' || locStatus === 'background';
-  // Marking is gated on physically reaching the stop only while GPS can verify
-  // it. With no GPS (denied / Expo Go) we can't check proximity, so don't block
-  // the driver — let them mark at their own judgement.
-  const canMark = arrivedAtCurrent || !gpsActive;
+  // Is GPS actually delivering fixes? The stream can be "up" yet have no usable
+  // position — cold start, a tunnel/garage, or signal loss after a valid start.
+  // Treat it as stale after a grace period with no fix. Recomputed each second by
+  // the elapsed-timer re-render.
+  const now = Date.now();
+  const gpsStale =
+    broadcasting &&
+    (lastFixRef.current != null
+      ? now - lastFixRef.current > STALE_FIX_MS
+      : (broadcastStartedAtRef.current != null ? now - broadcastStartedAtRef.current : 0) > COLD_START_MS);
+  // "Waiting for GPS": the stream is up but no recent fix is flowing.
+  const waitingForGps = broadcasting && gpsActive && gpsStale;
+
+  // Marking gate (integrity): permission is now guaranteed before a trip can
+  // start, so a missing fix is a transient signal gap — NOT denial, and must not
+  // auto-unlock marking the way denial used to. Allow marking once the bus has
+  // actually reached the stop; for a genuine no-signal outage, don't strand the
+  // driver — require an explicit, logged override instead of a silent bypass.
+  const canMark = arrivedAtCurrent || overrideUnlocked;
+  // The override is offered only when GPS genuinely can't confirm arrival, so a
+  // healthy stream still forces a real arrival (the integrity hole stays closed).
+  const canOverrideGps = broadcasting && !allStopsDone && !canMark && (!gpsActive || gpsStale);
 
   const onMarkAttendance = () => {
     if (!currentStop || !canMark) return;
@@ -316,6 +402,13 @@ export default function ActiveTripScreen() {
             </Text>
           </View>
         )}
+        {waitingForGps && (
+          <View style={[styles.locBanner, styles.locBannerMuted]}>
+            <Text style={styles.locBannerText}>
+              Waiting for GPS… the bus map may not update until the signal returns.
+            </Text>
+          </View>
+        )}
 
         {/* Overall progress */}
         {broadcasting && summary && (
@@ -340,7 +433,7 @@ export default function ActiveTripScreen() {
               ? `${currentCounts.boarded}/${currentCounts.total} boarded`
               : 'Roster loading…'}
           </Text>
-          {broadcasting && gpsActive && !arrivedAtCurrent && !allStopsDone && (
+          {broadcasting && gpsActive && !gpsStale && !arrivedAtCurrent && !allStopsDone && (
             <Text style={styles.currentHint}>Driving to this stop…</Text>
           )}
 
@@ -355,17 +448,28 @@ export default function ActiveTripScreen() {
         </View>
 
         {broadcasting && !allStopsDone && (
-          <Button
-            title={
-              canMark
-                ? `Mark attendance — ${currentStop?.name ?? ''}`
-                : 'Reach the stop to mark attendance'
-            }
-            size="lg"
-            fullWidth
-            disabled={!canMark}
-            onPress={onMarkAttendance}
-          />
+          <>
+            <Button
+              title={
+                canMark
+                  ? `Mark attendance — ${currentStop?.name ?? ''}`
+                  : 'Reach the stop to mark attendance'
+              }
+              size="lg"
+              fullWidth
+              disabled={!canMark}
+              onPress={onMarkAttendance}
+            />
+            {canOverrideGps && (
+              <Button
+                title="Mark without GPS — no signal"
+                variant="outline"
+                size="lg"
+                fullWidth
+                onPress={() => setShowGpsOverride(true)}
+              />
+            )}
+          </>
         )}
 
         {/* READ-ONLY progress list: ✓ done / current / upcoming. No manual jumps. */}
@@ -527,6 +631,57 @@ export default function ActiveTripScreen() {
               title="Cancel"
               variant="ghost"
               onPress={() => setShowConfirm(false)}
+              fullWidth
+              style={{ marginTop: spacing[1] }}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Integrity gate: location permission is required to start a trip. Recoverable —
+          re-request in-app, or open Settings if the OS won't prompt again. */}
+      <Modal visible={permBlock !== null} transparent animationType="fade" onRequestClose={() => setPermBlock(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Location access required</Text>
+            <Text style={styles.modalWhy}>
+              Location access is required to run a trip so parents can see the bus and attendance
+              is verified at each stop.
+              {permBlock?.canAskAgain === false
+                ? ' Enable location for Yaanam in Settings, then start the trip again.'
+                : ''}
+            </Text>
+            <Button
+              title={permBlock?.canAskAgain === false ? 'Open Settings' : 'Allow location'}
+              onPress={onPermAction}
+              fullWidth
+            />
+            <Button
+              title="Cancel"
+              variant="ghost"
+              onPress={() => setPermBlock(null)}
+              fullWidth
+              style={{ marginTop: spacing[1] }}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* No-signal override: explicit, logged confirm to mark without GPS verification.
+          Only reachable when GPS can't confirm arrival (see canOverrideGps). */}
+      <Modal visible={showGpsOverride} transparent animationType="fade" onRequestClose={() => setShowGpsOverride(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Mark without GPS?</Text>
+            <Text style={styles.modalWhy}>
+              There's no GPS signal to confirm the bus has reached {currentStop?.name ?? 'this stop'}.
+              Only do this if you're actually at the stop — this action is recorded.
+            </Text>
+            <Button title="Mark without GPS" onPress={onConfirmGpsOverride} fullWidth />
+            <Button
+              title="Cancel"
+              variant="ghost"
+              onPress={() => setShowGpsOverride(false)}
               fullWidth
               style={{ marginTop: spacing[1] }}
             />

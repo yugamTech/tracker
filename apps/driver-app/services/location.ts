@@ -96,6 +96,41 @@ if (TaskManager) {
   }
 }
 
+/**
+ * Foreground-permission pre-check — the integrity gate before a trip may start.
+ * Resolves the current foreground-location permission, requesting it once if the
+ * driver hasn't decided yet, WITHOUT opening any location stream. A trip cannot
+ * legitimately begin without this, so parents can always see the bus and
+ * attendance is verified at each stop.
+ *
+ * `granted: false` means HARD-BLOCK the start; `canAskAgain` tells the caller
+ * whether to re-request in-app (true) or deep-link to Settings (false).
+ *
+ * Same graceful try/catch as startBroadcast: if there is no native location
+ * module at all (a build without expo-location, or Expo Go stripped of it) there
+ * is no OS permission layer to enforce, so we do NOT block — `granted: true` lets
+ * the trip start in a degraded, GPS-less mode (startBroadcast then reports
+ * `unavailable`). In a real build the module is always present, so this branch
+ * never runs and `granted` always reflects the genuine permission decision.
+ */
+export async function ensureForegroundPermission(): Promise<{ granted: boolean; canAskAgain: boolean }> {
+  if (!nativeAvailable || !Location) return { granted: true, canAskAgain: false };
+  try {
+    // Read the current status first so we never pop the OS dialog when the driver
+    // has already decided (granted, or permanently denied).
+    const current = await Location.getForegroundPermissionsAsync();
+    if (current.granted) return { granted: true, canAskAgain: current.canAskAgain ?? false };
+    if (current.canAskAgain === false) return { granted: false, canAskAgain: false };
+    // Undecided and still askable → request once (no stream is started).
+    const res = await Location.requestForegroundPermissionsAsync();
+    return { granted: !!res.granted, canAskAgain: res.canAskAgain ?? false };
+  } catch {
+    // Request threw (unsupported surface / module glitch) — don't dead-end the
+    // driver; report not-granted-but-askable so the caller offers a retry.
+    return { granted: false, canAskAgain: true };
+  }
+}
+
 async function tryStartBackground(): Promise<boolean> {
   try {
     // Only ask for the sensitive "Always" permission when a trip is actually

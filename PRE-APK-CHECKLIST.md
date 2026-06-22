@@ -74,11 +74,19 @@ All three apps share an identical [`eas.json`](apps/driver-app/eas.json) with th
   so pings continue when the phone locks mid-trip. The task is registered at app startup
   (side-effect import in the root layout) and no-ops when there's no active trip, so it
   can't leak across trips.
-- **Permissions**: foreground permission is requested when broadcasting starts; the
-  sensitive "Always"/background permission is requested **only when a trip is active**.
-  Foreground-only still works if background is denied. If the native module is missing
-  (Expo Go without a dev build), it degrades gracefully — no GPS, no crash — exactly like
-  the MapLibre/camera fallbacks.
+- **Permissions**: foreground location is now a **hard gate to START a trip** — the start
+  flow calls `ensureForegroundPermission()` (in `services/location.ts`) before
+  `startTrip.mutate`, and **blocks** the start if it's denied, with a recoverable prompt
+  (re-request in-app, or open Settings when the OS won't ask again). This closes the
+  attendance-integrity hole: no location permission → no trip → no attendance. The sensitive
+  "Always"/background permission is still requested **only when a trip is active**, and
+  foreground-only still works if background is denied. Once a trip has legitimately started,
+  a momentary GPS drop (cold start / tunnel / signal loss) does **not** strand the driver —
+  marking stays available (banner while waiting; explicit "Mark without GPS" override for a
+  long outage). If the native module is missing (Expo Go without a dev build), the start is
+  **not** blocked and it degrades gracefully — no GPS, no crash — exactly like the
+  MapLibre/camera fallbacks; in a real build the module is always present, so the permission
+  decision is the only gate.
 - `app.json` is right-sized to what's actually used: Android
   `ACCESS_FINE/COARSE/BACKGROUND_LOCATION` + `FOREGROUND_SERVICE[_LOCATION]`; iOS
   `NSLocationWhenInUse…` + `NSLocationAlwaysAndWhenInUse…` and `UIBackgroundModes: [location]`
@@ -236,12 +244,20 @@ iOS**:
 **Driver app**
 - [ ] Camera permission denied → "Board without photo" path works; allowed → capture +
       upload works.
-- [ ] Start trip → location permission prompt → real device position broadcasts on
-      `driver:ping`; the bus moves on the parent/admin map as the phone moves. "Navigate"
-      opens Google Maps. (Test on a dev/EAS build — background GPS doesn't run in Expo Go.)
+- [ ] Start trip **with location denied** → start is **blocked** with the "Location access
+      required" prompt; no trip starts and nothing broadcasts. "Allow location" re-requests;
+      if set to "Don't ask again", the button becomes **Open Settings** (no dead-end).
+- [ ] Grant location → start trip → real device position broadcasts on `driver:ping`; the
+      bus moves on the parent/admin map as the phone moves. "Navigate" opens Google Maps.
+      (Test on a dev/EAS build — background GPS doesn't run in Expo Go.)
 - [ ] Lock the phone mid-trip → pings keep flowing (foreground-service notification shows);
       complete the trip → background updates stop.
-- [ ] Deny location → recoverable banner shows, no crash, attendance marking still usable.
+- [ ] Mid-trip GPS drop (tunnel / airplane mode briefly) → trip stays live, **"Waiting for
+      GPS…"** banner shows, driver is **not** stranded; attendance markable on arrival, and a
+      genuine long outage offers the **"Mark without GPS — no signal"** confirm.
+- [ ] Reach a stop with GPS healthy → "Mark attendance" unlocks; before arrival it stays
+      disabled ("Reach the stop to mark attendance") with **no** "Mark without GPS" button
+      (the override only appears when GPS can't confirm arrival).
 
 **Parent app**
 - [ ] Live tracking map renders OSM tiles + bus/stop markers; ETA + arrival banners show.
