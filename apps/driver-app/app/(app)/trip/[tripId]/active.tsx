@@ -212,7 +212,6 @@ export default function ActiveTripScreen() {
     const early = !allStopsDone;
     const reason = completeReason.trim();
     if (early && !reason) return; // reason mandatory when completing early
-    setBroadcasting(false);
     completeTrip.mutate(
       {
         tripId,
@@ -222,9 +221,16 @@ export default function ActiveTripScreen() {
         reason: early ? reason : undefined,
       },
       {
-        onSettled: () => {
+        onSuccess: () => {
+          // Only stop broadcasting once the trip is confirmed complete; on
+          // failure the trip stays active so the driver can retry.
+          setBroadcasting(false);
           setShowConfirm(false);
           router.replace(`/(app)/trip/${tripId}/complete` as never);
+        },
+        onError: (e: any) => {
+          setShowConfirm(false);
+          toast.error(errMsg(e) || 'Try again', 'Could not complete trip');
         },
       },
     );

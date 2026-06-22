@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@saarthi/ui';
@@ -47,15 +47,23 @@ export default function NewComplaintScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Raise Complaint</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.label}>What's the issue?</Text>
         <View style={styles.categoryGrid}>
           {CATEGORIES.map((c) => (
@@ -63,6 +71,9 @@ export default function NewComplaintScreen() {
               key={c.id}
               style={[styles.categoryBtn, category === c.id && styles.categoryBtnActive]}
               onPress={() => setCategory(c.id)}
+              accessibilityRole="button"
+              accessibilityLabel={c.label}
+              accessibilityState={{ selected: category === c.id }}
             >
               <Text style={{ fontSize: 28 }}>{c.icon}</Text>
               <Text style={[styles.categoryLabel, category === c.id && styles.categoryLabelActive]}>
@@ -90,6 +101,9 @@ export default function NewComplaintScreen() {
                   style={[styles.tripRow, selected && styles.tripRowActive]}
                   onPress={() => setTripId(selected ? null : t.id)}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${routeName}, ${when}, ${dir}`}
+                  accessibilityState={{ selected }}
                 >
                   <View style={styles.tripInfo}>
                     <Text style={[styles.tripRoute, selected && styles.tripRouteActive]} numberOfLines={1}>
@@ -120,11 +134,13 @@ export default function NewComplaintScreen() {
 
         <Button title="Submit Complaint" onPress={handleSubmit} loading={isPending} fullWidth size="lg" style={{ marginTop: spacing[4] }} />
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   container: { flex: 1, backgroundColor: colors.white },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',

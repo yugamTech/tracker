@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, OtpInput, useToast } from '@saarthi/ui';
 import { Button } from '@saarthi/ui';
@@ -77,8 +77,16 @@ export default function OtpScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.back} onPress={() => router.back()}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <TouchableOpacity
+        style={styles.back}
+        onPress={() => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+      >
         <Text style={styles.backText}>← Back</Text>
       </TouchableOpacity>
 
@@ -106,11 +114,9 @@ export default function OtpScreen() {
           style={{ marginTop: spacing[4] }}
         />
 
-        <TouchableOpacity style={styles.resend}>
-          <Text style={styles.resendText}>Resend OTP in 30s</Text>
-        </TouchableOpacity>
+        <Text style={[styles.resendText, styles.resend]}>Resend OTP in 30s</Text>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -124,6 +130,6 @@ const styles = StyleSheet.create({
   phone: { fontWeight: fontWeights.semibold, color: colors.textPrimary },
   otpWrapper: { alignItems: 'center', paddingVertical: spacing[4] },
   hint: { fontSize: fontSizes.xs, color: colors.textMuted, textAlign: 'center' },
-  resend: { alignItems: 'center', marginTop: spacing[2] },
+  resend: { textAlign: 'center', marginTop: spacing[2] },
   resendText: { fontSize: fontSizes.sm, color: colors.textMuted },
 });

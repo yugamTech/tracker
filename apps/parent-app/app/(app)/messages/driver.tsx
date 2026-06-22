@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, useToast } from '@saarthi/ui';
 import { useSendDriverMessage } from '@saarthi/api-client';
 
 const MESSAGE_OPTIONS = [
@@ -19,6 +19,7 @@ const COOLDOWN_MS = 30_000;
 export default function MessageDriverScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const { mutate: send, isPending, variables: pendingVars } = useSendDriverMessage();
+  const toast = useToast();
 
   // Per-key cooldown: key → timestamp when cooldown expires
   const [cooldowns, setCooldowns] = useState<Partial<Record<MessageKey, number>>>({});
@@ -38,7 +39,10 @@ export default function MessageDriverScreen() {
         {
           onSuccess: () => {
             setCooldowns((prev) => ({ ...prev, [key]: Date.now() + COOLDOWN_MS }));
+            toast.success('Message sent to the driver.');
           },
+          onError: (e: any) =>
+            toast.error(e?.response?.data?.message ?? 'Could not send message. Please try again.'),
         },
       );
     },
@@ -58,7 +62,12 @@ export default function MessageDriverScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
           <Text style={styles.back}>✕</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Message Driver</Text>
@@ -81,6 +90,10 @@ export default function MessageDriverScreen() {
               activeOpacity={0.8}
               disabled={disabled}
               onPress={() => handleSend(opt.key)}
+              accessibilityRole="button"
+              accessibilityLabel={opt.label}
+              accessibilityHint={opt.description}
+              accessibilityState={{ disabled }}
             >
               <Text style={styles.icon}>{opt.icon}</Text>
               <View style={styles.cardBody}>

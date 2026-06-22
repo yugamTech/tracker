@@ -88,7 +88,12 @@ export default function AttendancePhotoScreen() {
           </Text>
           <View style={styles.permissionActions}>
             <Button title="Allow camera" onPress={requestPermission} size="lg" fullWidth />
-            <TouchableOpacity onPress={() => board(false)} disabled={busy}>
+            <TouchableOpacity
+              onPress={() => board(false)}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel="Board without photo"
+            >
               <Text style={styles.skipText}>{busy ? 'Boarding…' : 'Board without photo'}</Text>
             </TouchableOpacity>
           </View>
@@ -108,10 +113,23 @@ export default function AttendancePhotoScreen() {
           </View>
           <Text style={styles.hint}>Take a quick photo of {name} as they board</Text>
           <View style={styles.captureRow}>
-            <TouchableOpacity onPress={() => board(false)} disabled={busy} hitSlop={8}>
+            <TouchableOpacity
+              onPress={() => board(false)}
+              disabled={busy}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Board without photo"
+            >
               <Text style={styles.skipText}>Board without photo</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.shutterBtn} onPress={capture} activeOpacity={0.8} disabled={busy}>
+            <TouchableOpacity
+              style={styles.shutterBtn}
+              onPress={capture}
+              activeOpacity={0.8}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel={`Take boarding photo of ${name}`}
+            >
               <View style={styles.shutterOuter}>
                 <View style={styles.shutterInner} />
               </View>
@@ -126,7 +144,13 @@ export default function AttendancePhotoScreen() {
           </View>
           <Text style={styles.hint}>Boarding photo for {name}</Text>
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.retakeBtn} onPress={() => setShot(null)} disabled={busy}>
+            <TouchableOpacity
+              style={styles.retakeBtn}
+              onPress={() => setShot(null)}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel="Retake photo"
+            >
               <Text style={styles.retakeText}>Retake</Text>
             </TouchableOpacity>
             <Button
@@ -146,7 +170,7 @@ export default function AttendancePhotoScreen() {
 function Header({ name, onClose }: { name: string; onClose: () => void }) {
   return (
     <View style={styles.header}>
-      <TouchableOpacity onPress={onClose} hitSlop={8}>
+      <TouchableOpacity onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close">
         <Text style={styles.back}>✕</Text>
       </TouchableOpacity>
       <View style={{ flex: 1 }}>

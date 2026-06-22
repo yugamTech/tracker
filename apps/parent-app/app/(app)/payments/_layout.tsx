@@ -15,7 +15,7 @@ export default function PaymentsLayout() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="history" options={{ title: 'Payment History' }} />
       <Stack.Screen name="mandate" options={{ title: 'Auto-Pay Setup' }} />
-      <Stack.Screen name="pay/[invoiceId]" options={{ title: 'Pay Invoice' }} />
+      <Stack.Screen name="pay/[invoiceId]" options={{ headerShown: false }} />
     </Stack>
   );
 }

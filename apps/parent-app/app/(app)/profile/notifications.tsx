@@ -30,7 +30,11 @@ export default function NotificationPrefsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Notification Preferences</Text>
@@ -56,6 +60,7 @@ export default function NotificationPrefsScreen() {
                 onValueChange={(v) => handleToggle(row.category, v)}
                 trackColor={{ false: colors.gray200, true: colors.primary }}
                 thumbColor={colors.white}
+                accessibilityLabel={`${row.label} push notifications`}
               />
             </View>
           ))}

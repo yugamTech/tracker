@@ -46,11 +46,12 @@ export default function AppLayout() {
       }}
     >
       {/* ── Visible tabs (5) ── */}
-      <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🏠</Text> }} />
-      <Tabs.Screen name="trips" options={{ title: 'Trips', tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🚌</Text> }} />
-      <Tabs.Screen name="complaints" options={{ title: 'Help', tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>💬</Text> }} />
-      <Tabs.Screen name="payments" options={{ title: 'Pay', tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>💳</Text> }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>👤</Text> }} />
+      {/* Tab label (title) is the a11y name; the emoji glyph is decorative and hidden from screen readers. */}
+      <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: ({ color }) => <Text accessibilityElementsHidden importantForAccessibility="no" style={{ fontSize: 20, color }}>🏠</Text> }} />
+      <Tabs.Screen name="trips" options={{ title: 'Trips', tabBarIcon: ({ color }) => <Text accessibilityElementsHidden importantForAccessibility="no" style={{ fontSize: 20, color }}>🚌</Text> }} />
+      <Tabs.Screen name="complaints" options={{ title: 'Help', tabBarIcon: ({ color }) => <Text accessibilityElementsHidden importantForAccessibility="no" style={{ fontSize: 20, color }}>💬</Text> }} />
+      <Tabs.Screen name="payments" options={{ title: 'Pay', tabBarIcon: ({ color }) => <Text accessibilityElementsHidden importantForAccessibility="no" style={{ fontSize: 20, color }}>💳</Text> }} />
+      <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ color }) => <Text accessibilityElementsHidden importantForAccessibility="no" style={{ fontSize: 20, color }}>👤</Text> }} />
 
       {/* ── Hidden detail / flow screens — declared so Router knows them, kept off the tab bar ── */}
       {/* Child selector: profile-switch landing, reachable from "Switch child". Tab bar hidden. */}

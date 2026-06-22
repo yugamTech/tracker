@@ -47,12 +47,21 @@ export default function NotificationCenterScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.back}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Notifications</Text>
         {unreadCount > 0 && (
-          <TouchableOpacity onPress={() => markAllRead()}>
+          <TouchableOpacity
+            onPress={() => markAllRead()}
+            accessibilityRole="button"
+            accessibilityLabel="Mark all notifications as read"
+          >
             <Text style={styles.markAll}>Mark all read</Text>
           </TouchableOpacity>
         )}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, radius, letterSpacing,
@@ -93,6 +93,10 @@ export default function DriverKycScreen() {
           ))}
         </View>
       ) : (
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* Police verification — admin controlled, read-only here. */}
           <View style={styles.pvCard}>
@@ -166,12 +170,14 @@ export default function DriverKycScreen() {
             style={{ marginTop: spacing[5] }}
           />
         </ScrollView>
+        </KeyboardAvoidingView>
       )}
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   content: { padding: spacing[4], gap: spacing[2] },
   pvCard: {
     backgroundColor: colors.background, borderRadius: radius.xl, padding: spacing[4],

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@saarthi/ui';
@@ -92,7 +92,12 @@ export default function VehicleCheckScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Vehicle Check</Text>
@@ -136,10 +141,22 @@ export default function VehicleCheckScreen() {
           />
         </ScrollView>
       ) : (
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.subtitle}>Complete daily pre-trip checklist</Text>
           {CHECKS.map((c) => (
-            <TouchableOpacity key={c.id} style={styles.checkItem} onPress={() => toggle(c.id)} activeOpacity={0.8}>
+            <TouchableOpacity
+              key={c.id}
+              style={styles.checkItem}
+              onPress={() => toggle(c.id)}
+              activeOpacity={0.8}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: !!checked[c.id] }}
+              accessibilityLabel={c.label}
+            >
               <Text style={{ fontSize: 28 }}>{c.icon}</Text>
               <Text style={styles.checkLabel}>{c.label}</Text>
               <View style={[styles.checkbox, checked[c.id] && styles.checkboxChecked]}>
@@ -181,12 +198,14 @@ export default function VehicleCheckScreen() {
             disabled={!allDone || !vehicleId || !window.canSubmit}
           />
         </ScrollView>
+        </KeyboardAvoidingView>
       )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   container: { flex: 1, backgroundColor: colors.white },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',

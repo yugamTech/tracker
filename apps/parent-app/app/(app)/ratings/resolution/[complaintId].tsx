@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button } from '@saarthi/ui';
@@ -27,8 +27,16 @@ export default function ResolutionRatingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
       </View>
@@ -42,7 +50,15 @@ export default function ResolutionRatingScreen() {
           <Text style={styles.cardLabel}>How satisfied are you with how your complaint was handled?</Text>
           <View style={styles.stars}>
             {STARS.map((s) => (
-              <TouchableOpacity key={s} onPress={() => setRating(s)} activeOpacity={0.7}>
+              <TouchableOpacity
+                key={s}
+                onPress={() => setRating(s)}
+                activeOpacity={0.7}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`Rate ${s} ${s === 1 ? 'star' : 'stars'}`}
+                accessibilityState={{ selected: s <= rating }}
+              >
                 <Text style={[styles.star, s <= rating && styles.starActive]}>★</Text>
               </TouchableOpacity>
             ))}
@@ -73,11 +89,13 @@ export default function ResolutionRatingScreen() {
           disabled={rating === 0}
         />
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   container: { flex: 1, backgroundColor: colors.white },
   header: { padding: spacing[5] },
   back: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.medium },

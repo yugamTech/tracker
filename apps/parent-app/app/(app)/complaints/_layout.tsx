@@ -13,7 +13,7 @@ export default function ComplaintsLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="new" options={{ title: 'Raise Issue' }} />
+      <Stack.Screen name="new" options={{ headerShown: false }} />
       <Stack.Screen name="[id]" options={{ headerShown: false }} />
     </Stack>
   );

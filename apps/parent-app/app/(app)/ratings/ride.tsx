@@ -32,7 +32,12 @@ export default function RideRatingScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.skip}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.skip}
+          accessibilityRole="button"
+          accessibilityLabel="Skip rating"
+        >
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
       </View>
@@ -40,11 +45,19 @@ export default function RideRatingScreen() {
       <View style={styles.body}>
         <Text style={{ fontSize: 48, textAlign: 'center' }}>🚌</Text>
         <Text style={styles.title}>How was the ride?</Text>
-        <Text style={styles.sub}>Trip {tripId ?? 'completed'} · Arjun Sharma</Text>
+        <Text style={styles.sub}>Trip {tripId ?? 'completed'}</Text>
 
         <View style={styles.stars}>
           {STARS.map((s) => (
-            <TouchableOpacity key={s} onPress={() => setRating(s)} activeOpacity={0.7}>
+            <TouchableOpacity
+              key={s}
+              onPress={() => setRating(s)}
+              activeOpacity={0.7}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`Rate ${s} ${s === 1 ? 'star' : 'stars'}`}
+              accessibilityState={{ selected: s <= rating }}
+            >
               <Text style={[styles.star, s <= rating && styles.starActive]}>★</Text>
             </TouchableOpacity>
           ))}
@@ -60,6 +73,9 @@ export default function RideRatingScreen() {
                   key={tag}
                   onPress={() => toggleTag(tag)}
                   style={[styles.tag, selected.includes(tag) && styles.tagSelected]}
+                  accessibilityRole="button"
+                  accessibilityLabel={tag}
+                  accessibilityState={{ selected: selected.includes(tag) }}
                 >
                   <Text style={[styles.tagText, selected.includes(tag) && styles.tagTextSelected]}>{tag}</Text>
                 </TouchableOpacity>

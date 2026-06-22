@@ -122,6 +122,7 @@ export default function AttendanceScreen() {
                       disabled={markAttendance.isPending}
                       accessibilityRole="button"
                       accessibilityLabel={`Mark ${item.studentName} boarded`}
+                      accessibilityState={{ selected: status === 'BOARDED' }}
                     >
                       <Text style={[styles.markGlyph, status === 'BOARDED' && styles.boardedGlyph]}>✓</Text>
                     </AnimatedPressable>
@@ -132,6 +133,7 @@ export default function AttendanceScreen() {
                       disabled={markAttendance.isPending}
                       accessibilityRole="button"
                       accessibilityLabel={`Mark ${item.studentName} absent`}
+                      accessibilityState={{ selected: status === 'NOT_BOARDED' }}
                     >
                       <Text style={[styles.markGlyph, status === 'NOT_BOARDED' && styles.absentGlyph]}>✕</Text>
                     </AnimatedPressable>

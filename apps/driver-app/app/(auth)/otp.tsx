@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, OtpInput, Button, useToast } from '@saarthi/ui';
 import { useAuthStore } from '../../store/auth.store';
@@ -79,8 +79,16 @@ export default function DriverOtpScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.back} onPress={() => router.back()}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <TouchableOpacity
+        style={styles.back}
+        onPress={() => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+      >
         <Text style={styles.backText}>← Back</Text>
       </TouchableOpacity>
       <View style={styles.content}>
@@ -99,7 +107,7 @@ export default function DriverOtpScreen() {
           style={{ marginTop: spacing[4] }}
         />
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
