@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Modal, TextInput, Linking } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
@@ -8,9 +8,8 @@ import {
 import { useTripById, useStartTrip, useCompleteTrip, useDriverPing, useRoster } from '@saarthi/api-client';
 import type { RosterRider } from '@saarthi/api-client';
 import { useAuthStore } from '../../../../store/auth.store';
+import { startBroadcast, stopBroadcast, type BroadcastResult } from '../../../../services/location';
 
-const PING_INTERVAL_MS = 2500;
-const STEP_METERS = 20; // ~30 km/h at the ping interval
 const ARRIVAL_METERS = 40; // within this of the current stop, the bus has "reached" it
 
 const toRad = (d: number) => (d * Math.PI) / 180;
@@ -48,6 +47,10 @@ export default function ActiveTripScreen() {
   const [broadcasting, setBroadcasting] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [pingsSent, setPingsSent] = useState(0);
+  // Outcome of starting the real-GPS broadcast: which stream is live, or why not.
+  // 'idle' before start; 'foreground'/'background' once a real fix stream runs.
+  const [locStatus, setLocStatus] =
+    useState<'idle' | 'foreground' | 'background' | 'denied' | 'unavailable'>('idle');
   // Whether the bus has physically reached the current stop yet — gates marking.
   const [arrivedAtCurrent, setArrivedAtCurrent] = useState(false);
   // Trip-start governance: when a clean start is blocked, the server explains why
@@ -92,15 +95,16 @@ export default function ActiveTripScreen() {
   const summary = rosterData?.summary;
   const currentCounts = currentStop ? boardedOf(currentStop.riders) : { boarded: 0, total: 0 };
 
-  // Mutable driving state kept in refs so the ping interval reads fresh values.
-  const posRef = useRef<{ lat: number; lng: number } | null>(null);
-  const seqRef = useRef(Math.floor(Date.now() / 1000));
+  // Live driving state read by the (async) location callback, kept in refs so it
+  // always sees the freshest values without restarting the GPS stream.
   const currentRef = useRef(0);
   currentRef.current = currentIdx;
-
-  useEffect(() => {
-    if (stops.length && !posRef.current) posRef.current = { lat: stops[0].lat, lng: stops[0].lng };
-  }, [stops.length]);
+  const stopsRef = useRef(stops);
+  stopsRef.current = stops;
+  // sendPing is recreated each render; a ref keeps the emit path stable so the
+  // broadcast doesn't churn on every re-render.
+  const sendPingRef = useRef(sendPing);
+  sendPingRef.current = sendPing;
 
   // Resume: a trip already in flight should broadcast on mount without re-calling
   // startTrip (which would error STARTED→STARTED).
@@ -123,42 +127,44 @@ export default function ActiveTripScreen() {
     return () => clearInterval(t);
   }, [broadcasting]);
 
-  // The live broadcast loop: step toward the current stop and emit driver:ping.
-  // It parks on arrival — once within ARRIVAL_METERS the stop is "reached" and the
-  // driver may mark attendance. Marking advances the derived current stop.
-  useEffect(() => {
-    if (!broadcasting || !membership || stops.length < 1) return;
-    const timer = setInterval(() => {
-      const cur = posRef.current;
-      const tgt = stops[currentRef.current] ?? stops[stops.length - 1];
-      if (!cur || !tgt) return;
-
-      const dist = haversine(cur, tgt);
-      let next: { lat: number; lng: number };
-      if (dist <= STEP_METERS) {
-        next = { lat: tgt.lat, lng: tgt.lng };
-      } else {
-        const f = STEP_METERS / dist;
-        next = { lat: cur.lat + (tgt.lat - cur.lat) * f, lng: cur.lng + (tgt.lng - cur.lng) * f };
-      }
-      posRef.current = next;
-      if (haversine(next, tgt) <= ARRIVAL_METERS) setArrivedAtCurrent(true);
-
-      sendPing({
+  // Start the device's REAL location stream and feed each fix into the same
+  // driver:ping emit path. Arrival at the current stop is derived from the real
+  // fix (within ARRIVAL_METERS), which gates attendance marking exactly as the
+  // old simulation did. Kept in a callback so the denial banner can retry it.
+  const beginBroadcast = useCallback(async (): Promise<BroadcastResult | undefined> => {
+    if (!membership) return;
+    const res = await startBroadcast(
+      {
         tripId,
         tenantId: membership.tenantId,
         driverMembershipId: membership.membershipId,
-        lat: next.lat,
-        lng: next.lng,
-        accuracy: 5,
-        speed: STEP_METERS / (PING_INTERVAL_MS / 1000),
-        deviceTs: new Date().toISOString(),
-        sequence: seqRef.current++,
-      });
-      setPingsSent((n) => n + 1);
-    }, PING_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [broadcasting, membership, stops.length, tripId, sendPing]);
+        emit: (payload) => sendPingRef.current(payload),
+      },
+      {
+        onFix: (fix) => {
+          setPingsSent((n) => n + 1);
+          const tgt = stopsRef.current[currentRef.current];
+          if (tgt && haversine(fix, tgt) <= ARRIVAL_METERS) setArrivedAtCurrent(true);
+        },
+      },
+    );
+    setLocStatus(res.status === 'started' ? res.mode : res.status);
+    if (res.status === 'denied') {
+      toast.error('Allow location so parents can see the live bus.', 'Location needed');
+    }
+    return res;
+  }, [membership, tripId]);
+
+  // Broadcast only while the trip is live; tear the GPS stream down the moment it
+  // stops (complete/cancel/unmount) so a finished trip can't leak pings.
+  useEffect(() => {
+    if (!broadcasting) return;
+    void beginBroadcast();
+    return () => {
+      setLocStatus('idle');
+      void stopBroadcast();
+    };
+  }, [broadcasting, beginBroadcast]);
 
   const errMsg = (e: any): string => e?.response?.data?.error?.message ?? e?.message ?? '';
   const errCode = (e: any): string => e?.response?.data?.error?.code ?? '';
@@ -242,8 +248,15 @@ export default function ActiveTripScreen() {
     Linking.openURL(url).catch(() => toast.error('Could not open Google Maps.'));
   };
 
+  // A real GPS stream is live (foreground or background).
+  const gpsActive = locStatus === 'foreground' || locStatus === 'background';
+  // Marking is gated on physically reaching the stop only while GPS can verify
+  // it. With no GPS (denied / Expo Go) we can't check proximity, so don't block
+  // the driver — let them mark at their own judgement.
+  const canMark = arrivedAtCurrent || !gpsActive;
+
   const onMarkAttendance = () => {
-    if (!currentStop || !arrivedAtCurrent) return;
+    if (!currentStop || !canMark) return;
     router.push(`/(app)/trip/attendance/${currentStop.id}?tripId=${tripId}` as never);
   };
 
@@ -285,6 +298,25 @@ export default function ActiveTripScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
+        {/* Live-location health: surface a recoverable notice if real GPS isn't
+            flowing, so the driver knows the bus map won't update — and can fix it. */}
+        {broadcasting && locStatus === 'denied' && (
+          <AnimatedPressable onPress={() => void beginBroadcast()} accessibilityRole="button">
+            <View style={[styles.locBanner, styles.locBannerWarn]}>
+              <Text style={styles.locBannerText}>
+                Location is off — parents can't see the bus. Tap to enable.
+              </Text>
+            </View>
+          </AnimatedPressable>
+        )}
+        {broadcasting && locStatus === 'unavailable' && (
+          <View style={[styles.locBanner, styles.locBannerMuted]}>
+            <Text style={styles.locBannerText}>
+              Live location needs a dev/EAS build — running without GPS.
+            </Text>
+          </View>
+        )}
+
         {/* Overall progress */}
         {broadcasting && summary && (
           <View style={styles.progressBar}>
@@ -308,7 +340,7 @@ export default function ActiveTripScreen() {
               ? `${currentCounts.boarded}/${currentCounts.total} boarded`
               : 'Roster loading…'}
           </Text>
-          {broadcasting && !arrivedAtCurrent && !allStopsDone && (
+          {broadcasting && gpsActive && !arrivedAtCurrent && !allStopsDone && (
             <Text style={styles.currentHint}>Driving to this stop…</Text>
           )}
 
@@ -325,13 +357,13 @@ export default function ActiveTripScreen() {
         {broadcasting && !allStopsDone && (
           <Button
             title={
-              arrivedAtCurrent
+              canMark
                 ? `Mark attendance — ${currentStop?.name ?? ''}`
                 : 'Reach the stop to mark attendance'
             }
             size="lg"
             fullWidth
-            disabled={!arrivedAtCurrent}
+            disabled={!canMark}
             onPress={onMarkAttendance}
           />
         )}
@@ -521,6 +553,14 @@ const styles = StyleSheet.create({
   timer: { fontFamily: fontFamilies.mono, color: colors.textPrimary, fontWeight: fontWeights.medium },
 
   body: { padding: spacing[4], gap: spacing[3] },
+
+  locBanner: {
+    borderRadius: radius.lg, paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  locBannerWarn: { backgroundColor: colors.errorBg, borderColor: colors.error },
+  locBannerMuted: { backgroundColor: colors.gray100, borderColor: colors.border },
+  locBannerText: { fontSize: fontSizes.sm, color: colors.textPrimary, fontWeight: fontWeights.medium },
 
   progressBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

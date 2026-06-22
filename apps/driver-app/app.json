@@ -11,9 +11,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.saarthi.driver",
       "infoPlist": {
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Yaanam needs your location to track the bus route for parents and school.",
-        "NSLocationAlwaysUsageDescription": "Yaanam needs background location to track the bus even when the app is not in focus.",
-        "UIBackgroundModes": ["location", "fetch"]
+        "NSLocationWhenInUseUsageDescription": "Yaanam shares your bus location with parents and the school while a trip is live.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Yaanam keeps sharing the bus location during a live trip even when the app is in the background, so parents can track the bus.",
+        "UIBackgroundModes": ["location"]
       }
     },
     "android": {
@@ -33,7 +33,10 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Yaanam needs background location to track your bus route."
+          "locationWhenInUsePermission": "Yaanam shares your bus location with parents and the school while a trip is live.",
+          "locationAlwaysAndWhenInUsePermission": "Yaanam keeps sharing the bus location during a live trip even when the app is in the background, so parents can track the bus.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       [

@@ -61,21 +61,32 @@ All three apps share an identical [`eas.json`](apps/driver-app/eas.json) with th
 - ⚠️ Verify in the build: deny the permission → fallback works; allow → capture + upload
   works. `base64: true` at `quality: 0.6` keeps payloads reasonable.
 
-### Location — ⚠️ SIMULATED (no real GPS yet)
-- **`expo-location` and `expo-task-manager` are listed as driver-app deps but are never
-  imported anywhere in the source.** The driver's "live" position in
+### Location — ✅ REAL GPS (foreground + background)
+- The driver's live position now comes from the device. A location service
+  ([`driver/services/location.ts`](apps/driver-app/services/location.ts)) feeds each real
+  fix from `expo-location` into the same `driver:ping` socket payload the gateway already
+  validates — the haversine/interpolation simulation in
   [`driver .../trip/[tripId]/active.tsx`](apps/driver-app/app/(app)/trip/[tripId]/active.tsx)
-  is **computed** (a haversine step that walks the bus toward each stop) and emitted over
-  the `driver:ping` socket. There is no `getCurrentPositionAsync` / `watchPositionAsync`.
-- Consequence: the bus moves on its own regardless of the device's real location. This is
-  a known demo behaviour, **not** a crash risk — there is no native location call to fail.
-- The driver `app.json` declares the full background-location set
-  (`ACCESS_FINE/COARSE/BACKGROUND_LOCATION`, `FOREGROUND_SERVICE[_LOCATION]`, iOS
-  `UIBackgroundModes: [location]`) for a feature that isn't wired yet.
-  - 🚩 **Play Store**: `ACCESS_BACKGROUND_LOCATION` triggers a mandatory sensitive-permission
-    review and a prominent-disclosure requirement. Either implement real background GPS or
-    **strip these permissions before submitting** to avoid rejection.
-- When real GPS is added it will need its own permission request + denial fallback.
+  is gone. Cadence (~3s / ~15 m) matches the old loop so backend speed/ETA/geofence behave
+  the same.
+- **Background**: an `expo-task-manager` task (`saarthi-driver-location`) is started via
+  `startLocationUpdatesAsync` when a trip goes live and stopped on complete/cancel/unmount,
+  so pings continue when the phone locks mid-trip. The task is registered at app startup
+  (side-effect import in the root layout) and no-ops when there's no active trip, so it
+  can't leak across trips.
+- **Permissions**: foreground permission is requested when broadcasting starts; the
+  sensitive "Always"/background permission is requested **only when a trip is active**.
+  Foreground-only still works if background is denied. If the native module is missing
+  (Expo Go without a dev build), it degrades gracefully — no GPS, no crash — exactly like
+  the MapLibre/camera fallbacks.
+- `app.json` is right-sized to what's actually used: Android
+  `ACCESS_FINE/COARSE/BACKGROUND_LOCATION` + `FOREGROUND_SERVICE[_LOCATION]`; iOS
+  `NSLocationWhenInUse…` + `NSLocationAlwaysAndWhenInUse…` and `UIBackgroundModes: [location]`
+  (dropped the unused legacy `NSLocationAlwaysUsageDescription` and the unused `fetch`
+  background mode).
+  - 🚩 **Play Store**: `ACCESS_BACKGROUND_LOCATION` is now genuinely used, so it still needs
+    the prominent-disclosure flow + a privacy-policy entry, but it is no longer declared for
+    a dead feature. Background GPS must be tested on a dev/EAS build (not Expo Go).
 
 ### Notifications — ⚠️ DEV STUB (no native push yet)
 - **`expo-notifications` is not a dependency of any app.** The in-app "Notifications"
@@ -225,8 +236,12 @@ iOS**:
 **Driver app**
 - [ ] Camera permission denied → "Board without photo" path works; allowed → capture +
       upload works.
-- [ ] Start trip → simulated bus advances stop-to-stop; "Navigate" opens Google Maps.
-- [ ] (Note: position is simulated — real GPS is not implemented.)
+- [ ] Start trip → location permission prompt → real device position broadcasts on
+      `driver:ping`; the bus moves on the parent/admin map as the phone moves. "Navigate"
+      opens Google Maps. (Test on a dev/EAS build — background GPS doesn't run in Expo Go.)
+- [ ] Lock the phone mid-trip → pings keep flowing (foreground-service notification shows);
+      complete the trip → background updates stop.
+- [ ] Deny location → recoverable banner shows, no crash, attendance marking still usable.
 
 **Parent app**
 - [ ] Live tracking map renders OSM tiles + bus/stop markers; ETA + arrival banners show.
@@ -238,12 +253,14 @@ iOS**:
 - [ ] Drawer navigation + gestures work (GestureHandlerRootView present).
 
 **Permissions / store**
-- [ ] iOS: camera (driver) and any location prompts show the declared usage strings.
-- [ ] Android: decide on `ACCESS_BACKGROUND_LOCATION` before Play submission (§1 Location).
+- [ ] iOS: camera (driver) + the when-in-use and "Always" location prompts show the
+      declared usage strings.
+- [ ] Android: `ACCESS_BACKGROUND_LOCATION` prominent-disclosure flow + privacy policy ready
+      for Play submission (§1 Location — it's now genuinely used).
 - [ ] App version / build number bumped for this release.
 
 **Production hardening (recommended, not yet done)**
 - [ ] Install a crash reporter (e.g. `sentry-expo`) and wire it to `ErrorBoundary.onError`.
 - [ ] Wire NetInfo → React Query `onlineManager` for offline-aware queries.
-- [ ] Implement real `expo-location` GPS (driver) and `expo-notifications` push, or remove
-      the unused deps/permissions.
+- [ ] Implement `expo-notifications` push, or remove the unused dep. (Real `expo-location`
+      GPS for the driver is now wired — §1 Location.)
