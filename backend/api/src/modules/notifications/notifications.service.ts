@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type Redis from 'ioredis';
-import { NotifCategory, NotifChannel, NotifStatus } from '@saarthi/types';
+import { NotifCategory, NotifChannel, NotifStatus } from '@yaanam/types';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { REDIS_CLIENT } from '../../infra/redis/redis.module';
 import { NOTIFICATION_EVENT_SPECS } from './notification-event.types';

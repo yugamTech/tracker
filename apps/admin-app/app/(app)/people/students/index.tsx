@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, LoadingSpinner, EmptyState } from '@saarthi/ui';
-import { useStudents } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, LoadingSpinner, EmptyState } from '@yaanam/ui';
+import { useStudents } from '@yaanam/api-client';
 
 /** Status filter chips — `''` = all (deactivated students set status INACTIVE). */
 const STATUS_FILTERS = [

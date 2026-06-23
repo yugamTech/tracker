@@ -14,7 +14,7 @@ import {
   EmptyState,
   StatTile,
   type StatTone,
-} from '@saarthi/ui';
+} from '@yaanam/ui';
 
 /* ────────────────────────────────────────────────────────────────────────
  * GridList — a FlatList that lays cards out in a responsive number of columns.
@@ -77,7 +77,7 @@ export function GridList<T>({
 }
 
 /* ────────────────────────────────────────────────────────────────────────
- * StatCard — the shared KPI tile from @saarthi/ui (StatTile), re-exported under
+ * StatCard — the shared KPI tile from @yaanam/ui (StatTile), re-exported under
  * the name admin screens already import. Prefer StatTile directly in new code.
  * ──────────────────────────────────────────────────────────────────────── */
 

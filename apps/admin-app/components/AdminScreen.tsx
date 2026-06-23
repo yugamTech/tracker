@@ -10,7 +10,7 @@ import {
   fontWeights,
   AppHeader,
   AnimatedPressable,
-} from '@saarthi/ui';
+} from '@yaanam/ui';
 import { useResponsive, CONTENT_MAX_WIDTH } from '../hooks/useResponsive';
 import { MenuButton } from './MenuButton';
 

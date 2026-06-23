@@ -4,12 +4,12 @@ import {
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge, useToast } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge, useToast } from '@yaanam/ui';
 import {
   useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useReactivateRoute,
   useStops, useCreateStop, useAddStop,
-} from '@saarthi/api-client';
-import type { Stop } from '@saarthi/api-client';
+} from '@yaanam/api-client';
+import type { Stop } from '@yaanam/api-client';
 import { goBackTo } from '../../../lib/nav';
 
 const DIRECTIONS = ['PICKUP', 'DROP'] as const;

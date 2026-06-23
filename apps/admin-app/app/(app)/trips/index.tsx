@@ -4,9 +4,9 @@ import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
   Card, Badge, Button, Chip, Skeleton, EmptyState, AnimatedPressable, Stagger,
-} from '@saarthi/ui';
-import type { BadgeVariant } from '@saarthi/ui';
-import { useFilteredTrips, useTripDates, useRoutes, useMembers } from '@saarthi/api-client';
+} from '@yaanam/ui';
+import type { BadgeVariant } from '@yaanam/ui';
+import { useFilteredTrips, useTripDates, useRoutes, useMembers } from '@yaanam/api-client';
 import { AdminScreen, HeaderAction } from '../../../components/AdminScreen';
 import { SubNav } from '../../../components/SubNav';
 import {

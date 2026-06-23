@@ -4,7 +4,7 @@ import { REDIS_CLIENT } from '../../infra/redis/redis.module';
 import type Redis from 'ioredis';
 import type { LatestPosition } from './location.service';
 import { haversineMeters, speedKmh } from '../../common/geo.util';
-import type { AlertPayload } from '@saarthi/types';
+import type { AlertPayload } from '@yaanam/types';
 
 // Ground speed is derived from consecutive fixes (unit-free) rather than the
 // device's self-reported speed field, whose units we can't trust across clients.

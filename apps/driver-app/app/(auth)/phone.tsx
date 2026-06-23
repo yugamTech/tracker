@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@saarthi/ui';
-import { useRequestOtp } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@yaanam/ui';
+import { useRequestOtp } from '@yaanam/api-client';
 
 export default function DriverPhoneScreen() {
   const [phone, setPhone] = useState('');

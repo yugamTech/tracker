@@ -4,9 +4,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, radius,
   Card, Button, Avatar, Skeleton, EmptyState, AppHeader, AnimatedPressable, ScreenContainer, SlideIn, useToast,
-} from '@saarthi/ui';
-import { useRoster, useMarkAttendance } from '@saarthi/api-client';
-import type { RosterRider } from '@saarthi/api-client';
+} from '@yaanam/ui';
+import { useRoster, useMarkAttendance } from '@yaanam/api-client';
+import type { RosterRider } from '@yaanam/api-client';
 
 export default function AttendanceScreen() {
   const { stopId, tripId } = useLocalSearchParams<{ stopId: string; tripId: string }>();

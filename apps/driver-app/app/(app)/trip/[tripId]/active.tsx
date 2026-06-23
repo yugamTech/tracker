@@ -4,9 +4,9 @@ import { useLocalSearchParams, router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, fontFamilies, radius, letterSpacing,
   StatusDot, Button, AnimatedPressable, ScreenContainer, AppHeader, Stagger, useToast,
-} from '@saarthi/ui';
-import { useTripById, useStartTrip, useCompleteTrip, useAbortTrip, useDriverPing, useRoster } from '@saarthi/api-client';
-import type { RosterRider } from '@saarthi/api-client';
+} from '@yaanam/ui';
+import { useTripById, useStartTrip, useCompleteTrip, useAbortTrip, useDriverPing, useRoster } from '@yaanam/api-client';
+import type { RosterRider } from '@yaanam/api-client';
 import { useAuthStore } from '../../../../store/auth.store';
 import {
   startBroadcast, stopBroadcast, ensureForegroundPermission, type BroadcastResult,

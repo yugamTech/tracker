@@ -119,4 +119,4 @@ The environment defaults to **OTP Bypass Mode** (`OTP_BYPASS_MODE=true` in `back
 - **Backend**: NestJS, Prisma Client v6, PostgreSQL 16, Redis 7 (caching location states).
 - **Frontend / Apps**: Expo SDK 54 (React Native), Expo Router v3, React Query, Zustand.
 - **Real-Time**: Socket.IO for active client subscriptions to driver GPS coordinate feeds.
-- **Shared Code**: Monorepo packages for standard UI elements (`@saarthi/ui`), API interactions (`@saarthi/api-client`), common TS schemas (`@saarthi/types`), and configs (`@saarthi/config`).
+- **Shared Code**: Monorepo packages for standard UI elements (`@yaanam/ui`), API interactions (`@yaanam/api-client`), common TS schemas (`@yaanam/types`), and configs (`@yaanam/config`).

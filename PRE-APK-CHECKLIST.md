@@ -146,7 +146,7 @@ its `process.env.EXPO_PUBLIC_*` reads are inlined with the *app's* build-time en
 
 ## 3. Error boundaries (added this pass)
 
-- New [`ErrorBoundary`](packages/ui/src/components/ErrorBoundary.tsx) in `@saarthi/ui`
+- New [`ErrorBoundary`](packages/ui/src/components/ErrorBoundary.tsx) in `@yaanam/ui`
   (a class component — the only thing that can catch render errors).
 - It is now the **outermost wrapper** in every app's root layout
   ([driver](apps/driver-app/app/_layout.tsx), [parent](apps/parent-app/app/_layout.tsx),

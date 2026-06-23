@@ -10,10 +10,10 @@
   },
   "dependencies": {
     "@react-navigation/drawer": "^7.0.0",
-    "@saarthi/api-client": "*",
-    "@saarthi/types": "*",
+    "@yaanam/api-client": "*",
+    "@yaanam/types": "*",
     "@maplibre/maplibre-react-native": "^11.3.4",
-    "@saarthi/ui": "*",
+    "@yaanam/ui": "*",
     "@tanstack/react-query": "^5.0.0",
     "axios": "^1.6.0",
     "expo": "~54.0.20",

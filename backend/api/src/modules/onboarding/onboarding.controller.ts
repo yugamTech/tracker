@@ -17,7 +17,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
 import { PersonId } from '../../common/decorators/person-id.decorator';
-import { Role } from '@saarthi/types';
+import { Role } from '@yaanam/types';
 import { OnboardingService } from './onboarding.service';
 
 // Minimal shape of a multer memory-storage file (avoids a @types/multer dep).

@@ -4,8 +4,8 @@ import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
   Card, Avatar, Badge, Button, Chip, Skeleton, EmptyState, AnimatedPressable, SegmentedControl, SlideIn,
-} from '@saarthi/ui';
-import { useStudents, useMembers, useParents } from '@saarthi/api-client';
+} from '@yaanam/ui';
+import { useStudents, useMembers, useParents } from '@yaanam/api-client';
 import { AdminScreen, HeaderAction } from '../../../components/AdminScreen';
 import { SearchField } from '../../../components/SearchField';
 import { GridList } from '../../../components/widgets';

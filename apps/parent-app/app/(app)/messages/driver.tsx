@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, useToast } from '@saarthi/ui';
-import { useSendDriverMessage } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, radius, useToast } from '@yaanam/ui';
+import { useSendDriverMessage } from '@yaanam/api-client';
 
 const MESSAGE_OPTIONS = [
   { key: 'RUNNING_LATE', icon: '⏳', label: 'Running late to stop', description: 'Running 2–3 min late to the stop' },

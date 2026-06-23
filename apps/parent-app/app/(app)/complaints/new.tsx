@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@saarthi/ui';
-import { useCreateComplaint, useFilteredTrips } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@yaanam/ui';
+import { useCreateComplaint, useFilteredTrips } from '@yaanam/api-client';
 
 const CATEGORIES = [
   { id: 'TIMING', label: 'Timing', icon: '⏰' },

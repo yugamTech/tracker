@@ -17,8 +17,8 @@ import { GeofenceService } from './geofence.service';
 import { EtaService } from './eta.service';
 import { SpeedService } from './speed.service';
 import type { LocationPingDto } from './dto/location-ping.dto';
-import { NotifCategory, RiderStatus } from '@saarthi/types';
-import type { JwtPayload } from '@saarthi/types';
+import { NotifCategory, RiderStatus } from '@yaanam/types';
+import type { JwtPayload } from '@yaanam/types';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 

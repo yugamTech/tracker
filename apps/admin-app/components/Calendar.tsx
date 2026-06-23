@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import {
   colors, spacing, radius, fontSizes, fontWeights, letterSpacing, AnimatedPressable, Sheet,
-} from '@saarthi/ui';
+} from '@yaanam/ui';
 
 /* ────────────────────────────────────────────────────────────────────────
  * Dependency-free calendar — local date helpers + a month grid. Shared by the

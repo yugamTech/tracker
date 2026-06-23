@@ -1,5 +1,5 @@
 import React from 'react';
-import { colors } from '@saarthi/ui';
+import { colors } from '@yaanam/ui';
 import { AdminScreen } from '../../../components/AdminScreen';
 import { SubNav } from '../../../components/SubNav';
 import { Placeholder } from '../../../components/widgets';

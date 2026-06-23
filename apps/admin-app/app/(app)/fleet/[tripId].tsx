@@ -5,10 +5,10 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button, LoadingSpinner, EmptyState, LiveBusMap, useToast,
-} from '@saarthi/ui';
-import type { BadgeVariant } from '@saarthi/ui';
-import { useTripById, useRoster, useCancelTrip, useLatestPosition, useFleetSocket } from '@saarthi/api-client';
-import type { RosterGuardian } from '@saarthi/api-client';
+} from '@yaanam/ui';
+import type { BadgeVariant } from '@yaanam/ui';
+import { useTripById, useRoster, useCancelTrip, useLatestPosition, useFleetSocket } from '@yaanam/api-client';
+import type { RosterGuardian } from '@yaanam/api-client';
 import { goBackTo } from '../../../lib/nav';
 
 const STATUS_COLORS: Record<string, string> = {

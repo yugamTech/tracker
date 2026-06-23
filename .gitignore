@@ -33,7 +33,7 @@ backend/api/.env
 # Prisma
 # (migration SQL is intentionally committed — it's the reproducible schema history)
 
-# Stray TS build output — @saarthi/types compiles to dist/, never into src/
+# Stray TS build output — @yaanam/types compiles to dist/, never into src/
 packages/types/src/**/*.js
 packages/types/src/**/*.d.ts
 packages/types/src/**/*.map

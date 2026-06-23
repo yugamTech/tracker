@@ -1,4 +1,4 @@
-import type { DriverPingPayload } from '@saarthi/types';
+import type { DriverPingPayload } from '@yaanam/types';
 
 // expo-location + expo-task-manager need the native runtime. In Expo Go the
 // foreground watch works but background updates do not, and in any build the

@@ -4,9 +4,9 @@ import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, radius, letterSpacing,
   Avatar, Button, AppHeader, ListItem, SectionHeader, Divider, ScreenContainer,
-} from '@saarthi/ui';
+} from '@yaanam/ui';
 import { useAuthStore } from '../../store/auth.store';
-import { useMe } from '@saarthi/api-client';
+import { useMe } from '@yaanam/api-client';
 
 export default function DriverProfileScreen() {
   const { logout } = useAuthStore();

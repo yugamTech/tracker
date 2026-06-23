@@ -6,7 +6,7 @@ import { Roles } from '../../../common/decorators/roles.decorator';
 import { VehiclesService } from '../vehicles.service';
 import { TenantId } from '../../../common/decorators/tenant-id.decorator';
 import { IsString, IsNumber, IsOptional } from 'class-validator';
-import { Role } from '@saarthi/types';
+import { Role } from '@yaanam/types';
 
 class CreateVehicleDto {
   @IsString() regNumber!: string;

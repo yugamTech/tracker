@@ -85,5 +85,5 @@ export const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
   );
 };
 
-/** Alias — `Pressable` from @saarthi/ui is the animated variant by convention. */
+/** Alias — `Pressable` from @yaanam/ui is the animated variant by convention. */
 export const Pressable = AnimatedPressable;

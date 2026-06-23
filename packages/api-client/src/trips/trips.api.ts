@@ -1,5 +1,5 @@
 import { apiClient } from '../axios';
-import type { Trip, TripStartException, TripCompletionException } from '@saarthi/types';
+import type { Trip, TripStartException, TripCompletionException } from '@yaanam/types';
 
 /**
  * Minutes before `scheduledStart` after which a parent can no longer skip a

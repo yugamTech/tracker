@@ -2,8 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, Button, Skeleton } from '@saarthi/ui';
-import { useTripById, useRoster } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, Button, Skeleton } from '@yaanam/ui';
+import { useTripById, useRoster } from '@yaanam/api-client';
 
 /** Whole minutes between two ISO timestamps, or null if either is missing. */
 function durationMinutes(startedAt?: string | null, completedAt?: string | null): number | null {

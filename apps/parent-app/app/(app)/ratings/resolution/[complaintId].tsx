@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button } from '@yaanam/ui';
 
 const STARS = [1, 2, 3, 4, 5];
 

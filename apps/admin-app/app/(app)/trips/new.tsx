@@ -3,11 +3,11 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput,
 } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, LoadingSpinner, useToast } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, LoadingSpinner, useToast } from '@yaanam/ui';
 import {
   useRoutes, useVehicles, useMembers, useStudents, useCreateTrip,
   useTripById, useUpdateTrip,
-} from '@saarthi/api-client';
+} from '@yaanam/api-client';
 import { MonthCalendar, ymdKey, startOfMonth, formatDayLabel } from '../../../components/Calendar';
 import { useScheduleResultStore, type ScheduleDayResult } from '../../../store/schedule.store';
 

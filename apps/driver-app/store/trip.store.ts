@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Trip } from '@saarthi/types';
+import type { Trip } from '@yaanam/types';
 
 interface LocationPing {
   lat: number;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TextInput, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, spacing, radius, fontSizes } from '@saarthi/ui';
+import { colors, spacing, radius, fontSizes } from '@yaanam/ui';
 
 interface SearchFieldProps {
   value: string;

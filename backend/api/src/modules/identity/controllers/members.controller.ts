@@ -6,7 +6,7 @@ import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { MembersService, STAFF_ROLES } from '../members.service';
 import { TenantId } from '../../../common/decorators/tenant-id.decorator';
-import { Role } from '@saarthi/types';
+import { Role } from '@yaanam/types';
 
 class CreateMemberDto {
   @IsString() name!: string;

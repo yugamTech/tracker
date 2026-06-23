@@ -5,10 +5,10 @@ import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, radius, letterSpacing,
   Card, Badge, Avatar, Skeleton, EmptyState, AnimatedPressable, Button,
-} from '@saarthi/ui';
+} from '@yaanam/ui';
 import { useAuthStore } from '../../store/auth.store';
-import { useTodayTrips, useDailyChecks, formatTripWhen } from '@saarthi/api-client';
-import type { BadgeVariant } from '@saarthi/ui';
+import { useTodayTrips, useDailyChecks, formatTripWhen } from '@yaanam/api-client';
+import type { BadgeVariant } from '@yaanam/ui';
 
 const LIVE = ['STARTED', 'IN_PROGRESS'];
 

@@ -13,8 +13,8 @@ import {
   AnimatedPressable,
   Avatar,
   Divider,
-} from '@saarthi/ui';
-import { useMyTenant } from '@saarthi/api-client';
+} from '@yaanam/ui';
+import { useMyTenant } from '@yaanam/api-client';
 import { useAuthStore } from '../store/auth.store';
 import { useResponsive } from '../hooks/useResponsive';
 import { NAV_GROUPS, activeKeyForPath } from '../lib/nav';

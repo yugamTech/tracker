@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button } from '@yaanam/ui';
 
 export default function ConsentScreen() {
   return (

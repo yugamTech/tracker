@@ -1,5 +1,5 @@
 {
-  "name": "@saarthi/api-client",
+  "name": "@yaanam/api-client",
   "version": "0.1.0",
   "private": true,
   "main": "src/index.ts",
@@ -18,7 +18,7 @@
     "react-native": "*"
   },
   "devDependencies": {
-    "@saarthi/types": "*",
+    "@yaanam/types": "*",
     "typescript": "^5.4.0"
   }
 }

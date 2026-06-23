@@ -5,7 +5,7 @@
  * — the literal string unions are assignable to the native-stack option types.
  *
  * @example
- *   import { transitions } from '@saarthi/ui';
+ *   import { transitions } from '@yaanam/ui';
  *   <Stack screenOptions={{ headerShown: false, ...transitions.slideFromRight }} />
  *   <Stack.Screen name="filters" options={transitions.modalSlideUp} />
  */

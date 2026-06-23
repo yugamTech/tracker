@@ -2,9 +2,9 @@ import React from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, EmptyState } from '@saarthi/ui';
-import { useDriverMessages } from '@saarthi/api-client';
-import type { DriverMessage } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, EmptyState } from '@yaanam/ui';
+import { useDriverMessages } from '@yaanam/api-client';
+import type { DriverMessage } from '@yaanam/api-client';
 
 const MESSAGE_LABELS: Record<string, string> = {
   RUNNING_LATE: 'Running 2–3 min late to the stop',

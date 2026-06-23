@@ -3,8 +3,8 @@ import {
   View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, useToast } from '@saarthi/ui';
-import { useCommitImport } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, useToast } from '@yaanam/ui';
+import { useCommitImport } from '@yaanam/api-client';
 import { useImportStore } from '../../../../store/import.store';
 import { downloadErrorReport } from '../../../../lib/import-files';
 import { goBackTo } from '../../../../lib/nav';

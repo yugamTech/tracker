@@ -5,9 +5,9 @@ import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
   AppHeader, Avatar, Card, Badge, Button, ListItem, Divider, SectionHeader, useToast,
-} from '@saarthi/ui';
+} from '@yaanam/ui';
 import { useAuthStore } from '../../../store/auth.store';
-import { useMyStudents } from '@saarthi/api-client';
+import { useMyStudents } from '@yaanam/api-client';
 
 export default function ProfileScreen() {
   const { person, activeMembership, logout } = useAuthStore();

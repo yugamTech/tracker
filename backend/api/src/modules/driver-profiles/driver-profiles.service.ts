@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PoliceVerificationStatus, Role } from '@saarthi/types';
+import { PoliceVerificationStatus, Role } from '@yaanam/types';
 import { PrismaService } from '../../infra/database/prisma.service';
 
 /** Fields a driver may edit on their own KYC. Police verification is admin-only. */

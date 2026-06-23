@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { NotifCategory } from '@saarthi/types';
+import { NotifCategory } from '@yaanam/types';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 

@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@saarthi/ui';
-import { attendanceApi, useMarkAttendance } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@yaanam/ui';
+import { attendanceApi, useMarkAttendance } from '@yaanam/api-client';
 
 type Shot = { uri: string; base64: string };
 

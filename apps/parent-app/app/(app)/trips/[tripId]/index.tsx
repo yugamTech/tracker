@@ -2,9 +2,9 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Badge, LoadingSpinner, EmptyState, AppHeader } from '@saarthi/ui';
-import { useTripById } from '@saarthi/api-client';
-import type { BadgeVariant } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Badge, LoadingSpinner, EmptyState, AppHeader } from '@yaanam/ui';
+import { useTripById } from '@yaanam/api-client';
+import type { BadgeVariant } from '@yaanam/ui';
 import { goBackTo } from '../../../../lib/nav';
 
 function tripStatusVariant(status: string): BadgeVariant {

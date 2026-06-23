@@ -4,7 +4,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "paths": {
-      "@saarthi/types": ["../../packages/types/dist/index.d.ts"]
+      "@yaanam/types": ["../../packages/types/dist/index.d.ts"]
     }
   },
   "include": ["src/**/*"],

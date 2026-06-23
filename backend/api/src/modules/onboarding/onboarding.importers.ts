@@ -1,7 +1,7 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { normalizeIndianPhone } from '../identity/phone.util';
 import { STAFF_ROLES } from '../identity/members.service';
-import type { Role } from '@saarthi/types';
+import type { Role } from '@yaanam/types';
 import type { ImportEntityType, ParsedRow } from './onboarding.templates';
 
 /**

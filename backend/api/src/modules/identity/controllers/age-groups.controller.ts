@@ -6,7 +6,7 @@ import { Roles } from '../../../common/decorators/roles.decorator';
 import { AgeGroupsService } from '../age-groups.service';
 import { TenantId } from '../../../common/decorators/tenant-id.decorator';
 import { IsString, IsOptional } from 'class-validator';
-import { Role } from '@saarthi/types';
+import { Role } from '@yaanam/types';
 
 class CreateAgeGroupDto {
   @IsString() name!: string;

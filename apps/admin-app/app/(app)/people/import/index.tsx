@@ -3,10 +3,10 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, useToast } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, useToast } from '@yaanam/ui';
 import {
   useImportTemplates, useValidateImport, type ImportEntityType, type PickedFile,
-} from '@saarthi/api-client';
+} from '@yaanam/api-client';
 import { downloadTemplate, pickSpreadsheet } from '../../../../lib/import-files';
 import { useImportStore } from '../../../../store/import.store';
 

@@ -4,9 +4,9 @@ import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights,
   Card, Chip, Skeleton, EmptyState,
-} from '@saarthi/ui';
-import { useFleet } from '@saarthi/api-client';
-import type { FleetEntry } from '@saarthi/api-client';
+} from '@yaanam/ui';
+import { useFleet } from '@yaanam/api-client';
+import type { FleetEntry } from '@yaanam/api-client';
 import { AdminScreen } from '../../../components/AdminScreen';
 import { GridList } from '../../../components/widgets';
 import { useResponsive } from '../../../hooks/useResponsive';

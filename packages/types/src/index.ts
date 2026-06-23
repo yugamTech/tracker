@@ -1,4 +1,4 @@
-// @saarthi/types — re-exports everything
+// @yaanam/types — re-exports everything
 export * from './auth';
 export * from './trips';
 export * from './attendance';

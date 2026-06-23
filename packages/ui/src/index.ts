@@ -1,5 +1,5 @@
 /**
- * @saarthi/ui — shared design system for the Yaanam apps (admin, parent, driver).
+ * @yaanam/ui — shared design system for the Yaanam apps (admin, parent, driver).
  *
  * Exports are grouped by role: Layout, Buttons & pressables, Forms & inputs,
  * Data display, Feedback & overlays, Maps, Animation, and Theme tokens. Every

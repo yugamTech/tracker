@@ -2,8 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button, useToast } from '@saarthi/ui';
-import { useInvoiceById } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, Button, useToast } from '@yaanam/ui';
+import { useInvoiceById } from '@yaanam/api-client';
 
 const STATUS_V: Record<string, 'warning' | 'success' | 'error'> = {
   DUE: 'warning', PAID: 'success', OVERDUE: 'error',

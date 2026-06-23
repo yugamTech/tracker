@@ -6,7 +6,7 @@ import { TrackingGateway } from '../tracking/tracking.gateway';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
 import { ActiveMembershipDec } from '../../common/decorators/active-membership.decorator';
 import { IsString, IsEnum, IsOptional } from 'class-validator';
-import type { ActiveMembership } from '@saarthi/types';
+import type { ActiveMembership } from '@yaanam/types';
 
 class MarkAttendanceDto {
   @IsString() tripId!: string;

@@ -3,8 +3,8 @@ import {
   View, Text, TextInput, ScrollView, StyleSheet,
   TouchableOpacity,
 } from 'react-native';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, useToast } from '@saarthi/ui';
-import { useCreateMember } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, useToast } from '@yaanam/ui';
+import { useCreateMember } from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
 /** Roles an admin may provision here (PRD-01 FR-13). Mirrors the backend STAFF_ROLES. */

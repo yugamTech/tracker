@@ -9,8 +9,8 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
 import { ActiveMembershipDec } from '../../common/decorators/active-membership.decorator';
-import { Role, PoliceVerificationStatus } from '@saarthi/types';
-import type { ActiveMembership } from '@saarthi/types';
+import { Role, PoliceVerificationStatus } from '@yaanam/types';
+import type { ActiveMembership } from '@yaanam/types';
 import { DriverProfilesService, type AdminEditableProfile } from './driver-profiles.service';
 
 /** Validates that a `YYYY-MM-DD` value is a strictly future calendar date. */

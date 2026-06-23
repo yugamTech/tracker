@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { queryClient } from '@saarthi/api-client';
-import { ToastProvider, ErrorBoundary } from '@saarthi/ui';
+import { queryClient } from '@yaanam/api-client';
+import { ToastProvider, ErrorBoundary } from '@yaanam/ui';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 

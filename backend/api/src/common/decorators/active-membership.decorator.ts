@@ -1,5 +1,5 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import type { ActiveMembership } from '@saarthi/types';
+import type { ActiveMembership } from '@yaanam/types';
 
 export const ActiveMembershipDec = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): ActiveMembership => {

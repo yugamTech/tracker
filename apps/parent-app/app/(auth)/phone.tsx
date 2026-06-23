@@ -4,9 +4,9 @@ import {
   Platform, TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, useToast } from '@saarthi/ui';
-import { Button } from '@saarthi/ui';
-import { useRequestOtp } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, radius, useToast } from '@yaanam/ui';
+import { Button } from '@yaanam/ui';
+import { useRequestOtp } from '@yaanam/api-client';
 
 export default function PhoneScreen() {
   const [phone, setPhone] = useState('');

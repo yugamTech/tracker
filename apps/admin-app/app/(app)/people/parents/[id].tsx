@@ -4,8 +4,8 @@ import {
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, Button, useToast } from '@saarthi/ui';
-import { useParents, useUpdateMember, useDeactivateMember, useReactivateMember } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, Button, useToast } from '@yaanam/ui';
+import { useParents, useUpdateMember, useDeactivateMember, useReactivateMember } from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
 export default function ParentDetailScreen() {

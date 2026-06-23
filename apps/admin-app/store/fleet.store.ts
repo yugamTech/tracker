@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { LocationPingPayload } from '@saarthi/types';
+import type { LocationPingPayload } from '@yaanam/types';
 
 interface FleetState {
   vehiclePositions: Record<string, LocationPingPayload>;

@@ -1,5 +1,5 @@
 import { apiClient } from '../axios';
-import type { Notification, NotificationPreference } from '@saarthi/types';
+import type { Notification, NotificationPreference } from '@yaanam/types';
 
 export interface PreferenceUpdate {
   category: string;

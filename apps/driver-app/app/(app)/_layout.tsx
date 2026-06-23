@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { Stack, Redirect } from 'expo-router';
 import { Platform } from 'react-native';
-import { useRegisterDeviceToken } from '@saarthi/api-client';
-import { transitions } from '@saarthi/ui';
+import { useRegisterDeviceToken } from '@yaanam/api-client';
+import { transitions } from '@yaanam/ui';
 import { useAuthStore } from '../../store/auth.store';
 
 export default function AppLayout() {

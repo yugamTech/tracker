@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { queryClient, setUnauthorizedHandler } from '@saarthi/api-client';
-import type { ActiveMembership, Role } from '@saarthi/types';
+import { queryClient, setUnauthorizedHandler } from '@yaanam/api-client';
+import type { ActiveMembership, Role } from '@yaanam/types';
 import { useChildStore } from './child.store';
 
 interface Person {

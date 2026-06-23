@@ -5,8 +5,8 @@ import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing,
   Avatar, Card, Skeleton, EmptyState, AnimatedPressable, Button,
-} from '@saarthi/ui';
-import { useMyStudents } from '@saarthi/api-client';
+} from '@yaanam/ui';
+import { useMyStudents } from '@yaanam/api-client';
 import { useAuthStore } from '../../store/auth.store';
 import { useChildStore } from '../../store/child.store';
 

@@ -2,9 +2,9 @@ import React from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, EmptyState } from '@saarthi/ui';
-import { useMyNotifications, useMarkRead, useMarkAllRead } from '@saarthi/api-client';
-import type { Notification } from '@saarthi/types';
+import { colors, spacing, fontSizes, fontWeights, EmptyState } from '@yaanam/ui';
+import { useMyNotifications, useMarkRead, useMarkAllRead } from '@yaanam/api-client';
+import type { Notification } from '@yaanam/types';
 
 // Backend includes readAt on the row; types package doesn't declare it yet.
 type ApiNotification = Notification & { readAt: string | null };

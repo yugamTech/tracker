@@ -1,4 +1,4 @@
-import { NotifCategory, NotifChannel } from '@saarthi/types';
+import { NotifCategory, NotifChannel } from '@yaanam/types';
 
 /**
  * Relative urgency of an event. Drives nothing in the engine yet (all channels
@@ -14,7 +14,7 @@ export enum NotifPriority {
 type Vars = Record<string, string>;
 
 export interface NotificationEventSpec {
-  /** Matches a NotifCategory in @saarthi/types — never invent new categories. */
+  /** Matches a NotifCategory in @yaanam/types — never invent new categories. */
   eventType: NotifCategory;
   /** Channels to attempt, in order. PUSH is real; SMS/WHATSAPP are stubs. */
   channels: NotifChannel[];

@@ -1,7 +1,7 @@
 import { apiClient } from '../axios';
-import type { DriverProfile, PoliceVerificationStatus } from '@saarthi/types';
+import type { DriverProfile, PoliceVerificationStatus } from '@yaanam/types';
 
-export type { DriverProfile } from '@saarthi/types';
+export type { DriverProfile } from '@yaanam/types';
 
 /** Fields a driver may edit on their own KYC (no police-verification fields). */
 export interface DriverProfileSelfDto {

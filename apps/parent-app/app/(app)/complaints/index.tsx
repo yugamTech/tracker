@@ -5,9 +5,9 @@ import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing,
   AppHeader, Card, Badge, Button, Skeleton, EmptyState, AnimatedPressable,
-} from '@saarthi/ui';
-import { useMyComplaints } from '@saarthi/api-client';
-import type { BadgeVariant } from '@saarthi/ui';
+} from '@yaanam/ui';
+import { useMyComplaints } from '@yaanam/api-client';
+import type { BadgeVariant } from '@yaanam/ui';
 
 const STATUS_VARIANT: Record<string, BadgeVariant> = {
   RECEIVED: 'warning',

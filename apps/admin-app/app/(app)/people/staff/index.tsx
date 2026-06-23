@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, LoadingSpinner, EmptyState } from '@saarthi/ui';
-import { useMembers } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, LoadingSpinner, EmptyState } from '@yaanam/ui';
+import { useMembers } from '@yaanam/api-client';
 
 /** Role filter chips. `undefined` value = all staff (PRD-01 §7 people management). */
 const ROLE_FILTERS = [

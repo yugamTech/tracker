@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { queryClient } from '@saarthi/api-client';
-import { ToastProvider, ErrorBoundary } from '@saarthi/ui';
+import { queryClient } from '@yaanam/api-client';
+import { ToastProvider, ErrorBoundary } from '@yaanam/ui';
 import { StatusBar } from 'expo-status-bar';
 // Side-effect import: registers the background-location TaskManager task at app
 // startup so an OS-delivered location event always finds a defined handler.

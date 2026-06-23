@@ -2,8 +2,8 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Button, Skeleton, EmptyState, AppHeader } from '@saarthi/ui';
-import { useComplaintById } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Button, Skeleton, EmptyState, AppHeader } from '@yaanam/ui';
+import { useComplaintById } from '@yaanam/api-client';
 import { goBackTo } from '../../../lib/nav';
 
 const EVENT_COLORS: Record<string, string> = {

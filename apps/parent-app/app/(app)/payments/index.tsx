@@ -5,9 +5,9 @@ import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing, radius, shadows,
   AppHeader, Card, Badge, Button, Skeleton, EmptyState,
-} from '@saarthi/ui';
-import { useMyInvoices } from '@saarthi/api-client';
-import type { BadgeVariant } from '@saarthi/ui';
+} from '@yaanam/ui';
+import { useMyInvoices } from '@yaanam/api-client';
+import type { BadgeVariant } from '@yaanam/ui';
 
 const STATUS_VARIANT: Record<string, BadgeVariant> = {
   DUE: 'warning', PAID: 'success', OVERDUE: 'error',

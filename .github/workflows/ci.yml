@@ -26,7 +26,7 @@ jobs:
       # postinstall runs `prisma generate` for the backend.
       - run: npm ci
 
-      # @saarthi/types ships runtime enums consumed by the backend and resolves
+      # @yaanam/types ships runtime enums consumed by the backend and resolves
       # via dist/ (gitignored), so it must be built before anything type-checks.
       - name: Build shared types
         run: npm run build --workspace=packages/types

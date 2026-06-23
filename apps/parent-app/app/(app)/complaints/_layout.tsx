@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { colors, transitions } from '@saarthi/ui';
+import { colors, transitions } from '@yaanam/ui';
 
 export default function ComplaintsLayout() {
   return (

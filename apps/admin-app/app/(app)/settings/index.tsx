@@ -4,8 +4,8 @@ import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
   Card, Avatar, ListItem, SectionHeader, Divider, AnimatedPressable,
-} from '@saarthi/ui';
-import { useMyTenant } from '@saarthi/api-client';
+} from '@yaanam/ui';
+import { useMyTenant } from '@yaanam/api-client';
 import { AdminScreen } from '../../../components/AdminScreen';
 import { useAuthStore } from '../../../store/auth.store';
 

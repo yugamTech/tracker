@@ -1,6 +1,6 @@
 import { apiClient } from '../axios';
-import type { Complaint } from '@saarthi/types';
-import type { ComplaintCategory } from '@saarthi/types';
+import type { Complaint } from '@yaanam/types';
+import type { ComplaintCategory } from '@yaanam/types';
 
 export interface CreateComplaintDto {
   studentId?: string;

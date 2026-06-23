@@ -8,8 +8,8 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { TripsService } from './trips.service';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
 import { ActiveMembershipDec } from '../../common/decorators/active-membership.decorator';
-import { Role, Direction, TripStatus } from '@saarthi/types';
-import type { ActiveMembership } from '@saarthi/types';
+import { Role, Direction, TripStatus } from '@yaanam/types';
+import type { ActiveMembership } from '@yaanam/types';
 
 class CancelPickupDto {
   @IsString() studentId!: string;

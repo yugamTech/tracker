@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DrawerHeaderProps } from '@react-navigation/drawer';
-import { colors, AppHeader } from '@saarthi/ui';
+import { colors, AppHeader } from '@yaanam/ui';
 import { useResponsive } from '../hooks/useResponsive';
 import { SECTION_ROUTES, goBackTo } from '../lib/nav';
 import { MenuButton } from './MenuButton';

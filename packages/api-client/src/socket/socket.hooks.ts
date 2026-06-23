@@ -16,7 +16,7 @@ import type {
   GeofencePayload,
   AlertPayload,
   DriverPingPayload,
-} from '@saarthi/types';
+} from '@yaanam/types';
 
 // Socket connects to the bare host (the gateway namespace is appended in
 // socket.client). Prefer an explicit socket URL, else reuse the API host — both

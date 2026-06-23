@@ -5,9 +5,9 @@ import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
   AppHeader, Card, Badge, Skeleton, EmptyState, AnimatedPressable, SlideIn,
-} from '@saarthi/ui';
-import { useTodayTrips, useMyStudents } from '@saarthi/api-client';
-import type { BadgeVariant } from '@saarthi/ui';
+} from '@yaanam/ui';
+import { useTodayTrips, useMyStudents } from '@yaanam/api-client';
+import type { BadgeVariant } from '@yaanam/ui';
 
 function tripStatusVariant(status: string): BadgeVariant {
   switch (status) {

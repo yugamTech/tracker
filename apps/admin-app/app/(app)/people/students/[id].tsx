@@ -4,10 +4,10 @@ import {
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Avatar, Badge, useToast } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Avatar, Badge, useToast } from '@yaanam/ui';
 import {
   useStudentById, useUpdateStudent, useDeactivateStudent, useReactivateStudent, useAgeGroups, useRoutes, useStops,
-} from '@saarthi/api-client';
+} from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
 export default function StudentDetailScreen() {

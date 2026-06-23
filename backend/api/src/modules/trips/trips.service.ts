@@ -2,8 +2,8 @@ import { Injectable, BadRequestException, NotFoundException, Logger } from '@nes
 import { ConfigService } from '@nestjs/config';
 import { Prisma, TripLifecycleAction } from '@prisma/client';
 import { PrismaService } from '../../infra/database/prisma.service';
-import { TripStatus, RiderStatus, NotifCategory, Role, Direction } from '@saarthi/types';
-import type { ActiveMembership } from '@saarthi/types';
+import { TripStatus, RiderStatus, NotifCategory, Role, Direction } from '@yaanam/types';
+import type { ActiveMembership } from '@yaanam/types';
 import { TrackingGateway } from '../tracking/tracking.gateway';
 import { LocationService } from '../tracking/location.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -310,7 +310,7 @@ export class TripsService {
     const checkedVehicleDay = new Set(checks.map((c) => `${c.vehicleId}|${dayKey(c.createdAt)}`));
 
     // A trip that ever started: STARTED / IN_PROGRESS / COMPLETED. Compared as
-    // strings so the Prisma enum and @saarthi/types enum interop cleanly.
+    // strings so the Prisma enum and @yaanam/types enum interop cleanly.
     const STARTED_STATUSES = new Set<string>([
       TripStatus.STARTED,
       TripStatus.IN_PROGRESS,

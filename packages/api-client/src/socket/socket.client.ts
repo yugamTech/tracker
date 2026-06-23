@@ -1,13 +1,13 @@
 import { io, type Socket } from 'socket.io-client';
-import type { ServerToClientEvents, ClientToServerEvents, DriverPingPayload } from '@saarthi/types';
+import type { ServerToClientEvents, ClientToServerEvents, DriverPingPayload } from '@yaanam/types';
 import * as SecureStore from 'expo-secure-store';
 import { TOKEN_KEY } from '../axios';
 
-export type SaarthiSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
+export type YaanamSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-let socket: SaarthiSocket | null = null;
+let socket: YaanamSocket | null = null;
 
-export const getSocket = (baseURL: string): SaarthiSocket => {
+export const getSocket = (baseURL: string): YaanamSocket => {
   if (socket) return socket;
 
   socket = io(`${baseURL}/tracking`, {
@@ -17,7 +17,7 @@ export const getSocket = (baseURL: string): SaarthiSocket => {
       const token = await SecureStore.getItemAsync(TOKEN_KEY);
       cb({ token });
     },
-  }) as SaarthiSocket;
+  }) as YaanamSocket;
 
   return socket;
 };

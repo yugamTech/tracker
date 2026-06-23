@@ -3,9 +3,9 @@ import { View, Text, StyleSheet } from 'react-native';
 import {
   colors, spacing, fontSizes, fontWeights,
   Card, Badge, Skeleton, EmptyState,
-} from '@saarthi/ui';
-import type { BadgeVariant } from '@saarthi/ui';
-import { useMyInvoices } from '@saarthi/api-client';
+} from '@yaanam/ui';
+import type { BadgeVariant } from '@yaanam/ui';
+import { useMyInvoices } from '@yaanam/api-client';
 import { AdminScreen } from '../../../components/AdminScreen';
 import { SubNav } from '../../../components/SubNav';
 import { StatCard, GridList } from '../../../components/widgets';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, radius, EmptyState } from '@saarthi/ui';
+import { colors, radius, EmptyState } from '@yaanam/ui';
 import { AdminScreen } from '../../../components/AdminScreen';
 import { SubNav } from '../../../components/SubNav';
 import { SUBNAV } from '../../../lib/nav';

@@ -5,11 +5,11 @@ import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
   Card, Badge, Avatar, Skeleton, EmptyState, AnimatedPressable, Button, Divider, SlideIn, useToast,
-} from '@saarthi/ui';
-import type { BadgeVariant } from '@saarthi/ui';
+} from '@yaanam/ui';
+import type { BadgeVariant } from '@yaanam/ui';
 import { useAuthStore } from '../../../store/auth.store';
 import { useChildStore } from '../../../store/child.store';
-import { useMyStudents, useTodayTrips, useCancelPickup, pickupCancelInfo } from '@saarthi/api-client';
+import { useMyStudents, useTodayTrips, useCancelPickup, pickupCancelInfo } from '@yaanam/api-client';
 
 function greeting() {
   const h = new Date().getHours();

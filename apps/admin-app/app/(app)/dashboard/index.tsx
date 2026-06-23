@@ -4,10 +4,10 @@ import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
   Card, Badge, StatusDot, Skeleton, EmptyState, AnimatedPressable, Divider,
-} from '@saarthi/ui';
-import type { BadgeVariant } from '@saarthi/ui';
-import { useFleet, useTodayTrips, useLifecycleAlarms } from '@saarthi/api-client';
-import type { FleetEntry } from '@saarthi/api-client';
+} from '@yaanam/ui';
+import type { BadgeVariant } from '@yaanam/ui';
+import { useFleet, useTodayTrips, useLifecycleAlarms } from '@yaanam/api-client';
+import type { FleetEntry } from '@yaanam/api-client';
 import { AdminScreen } from '../../../components/AdminScreen';
 import { SubNav } from '../../../components/SubNav';
 import { StatCard } from '../../../components/widgets';

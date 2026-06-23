@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../infra/database/prisma.service';
-import { Role } from '@saarthi/types';
+import { Role } from '@yaanam/types';
 import { normalizeIndianPhone } from './phone.util';
 
 /**

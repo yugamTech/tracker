@@ -4,15 +4,15 @@ import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights,
   Card, Badge, Button, Chip, Skeleton, EmptyState, AnimatedPressable, useToast,
-} from '@saarthi/ui';
+} from '@yaanam/ui';
 import {
   useTripStartExceptions, useResolveStartException, useOverdueTrips,
   useTripCompletionExceptions, useResolveCompletionException,
   useLifecycleAlarms, useForceCompleteTrip, useAbortTrip, useAcknowledgeTrip,
-} from '@saarthi/api-client';
+} from '@yaanam/api-client';
 import type {
   TripStartExceptionWithTrip, TripCompletionExceptionWithTrip, OverdueTrip, LifecycleAlarmTrip,
-} from '@saarthi/api-client';
+} from '@yaanam/api-client';
 import { AdminScreen } from '../../../components/AdminScreen';
 import { SubNav } from '../../../components/SubNav';
 import { GridList } from '../../../components/widgets';

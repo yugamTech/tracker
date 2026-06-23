@@ -4,10 +4,10 @@ import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, radius, letterSpacing,
   Card, Badge, Skeleton, EmptyState, AppHeader, ScreenContainer,
-} from '@saarthi/ui';
-import type { BadgeVariant } from '@saarthi/ui';
-import { useDriverHistory, formatTripWhen } from '@saarthi/api-client';
-import type { HistoryTrip, DriverEfficiency } from '@saarthi/api-client';
+} from '@yaanam/ui';
+import type { BadgeVariant } from '@yaanam/ui';
+import { useDriverHistory, formatTripWhen } from '@yaanam/api-client';
+import type { HistoryTrip, DriverEfficiency } from '@yaanam/api-client';
 
 function tripStatusVariant(status: string): BadgeVariant {
   switch (status) {

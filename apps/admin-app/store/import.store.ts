@@ -4,7 +4,7 @@ import type {
   PickedFile,
   ValidationResult,
   CommitResult,
-} from '@saarthi/api-client';
+} from '@yaanam/api-client';
 
 /**
  * Shared state for the bulk-import wizard, which spans three routes

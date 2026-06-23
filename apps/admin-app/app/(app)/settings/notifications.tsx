@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, fontSizes, fontWeights, Badge, EmptyState } from '@saarthi/ui';
-import { useMyNotifications } from '@saarthi/api-client';
-import type { Notification } from '@saarthi/types';
+import { colors, spacing, fontSizes, fontWeights, Badge, EmptyState } from '@yaanam/ui';
+import { useMyNotifications } from '@yaanam/api-client';
+import type { Notification } from '@yaanam/types';
 
 // Admin calls the same endpoint; the backend scopes to tenantId for admin roles.
 type ApiNotification = Notification & { readAt: string | null };

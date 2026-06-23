@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException, ForbiddenException, BadRequestExcept
 import { PrismaService } from '../../infra/database/prisma.service';
 import { OtpService } from './otp.service';
 import { TokenService } from './token.service';
-import { Role } from '@saarthi/types';
+import { Role } from '@yaanam/types';
 import type { RequestOtpDto } from './dto/request-otp.dto';
 import type { VerifyOtpDto } from './dto/verify-otp.dto';
 

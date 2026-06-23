@@ -7,8 +7,8 @@ import { ComplaintsService } from './complaints.service';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
 import { ActiveMembershipDec } from '../../common/decorators/active-membership.decorator';
 import { IsString, IsOptional } from 'class-validator';
-import { Role } from '@saarthi/types';
-import type { ActiveMembership } from '@saarthi/types';
+import { Role } from '@yaanam/types';
+import type { ActiveMembership } from '@yaanam/types';
 
 class CreateComplaintDto {
   @IsOptional() @IsString() studentId?: string;

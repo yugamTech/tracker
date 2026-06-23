@@ -3,8 +3,8 @@ import { View, Text, Switch, StyleSheet, ScrollView, ActivityIndicator } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights } from '@saarthi/ui';
-import { useNotificationPreferences, useUpdatePreferences } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights } from '@yaanam/ui';
+import { useNotificationPreferences, useUpdatePreferences } from '@yaanam/api-client';
 
 const PREF_ROWS = [
   { category: 'TRIP_START', label: 'Trip started', description: 'When the bus begins its route' },

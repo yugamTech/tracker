@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@yaanam/ui';
 import {
   useTodayTrips, useSubmitDailyCheck, useDailyChecks,
   checkWindowInfo, formatTripTime,
-} from '@saarthi/api-client';
+} from '@yaanam/api-client';
 
 /** Today's calendar day in IST (`YYYY-MM-DD`) — matches the daily-checks list filter. */
 function istToday(): string {

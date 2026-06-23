@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, Button, Card, Badge } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, Button, Card, Badge } from '@yaanam/ui';
 import { useScheduleResultStore } from '../../../store/schedule.store';
 import { formatDayLabel } from '../../../components/Calendar';
 

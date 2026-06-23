@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { Tabs, Redirect } from 'expo-router';
 import { Platform, Text } from 'react-native';
-import { colors, fontSizes, fontWeights } from '@saarthi/ui';
-import { useRegisterDeviceToken } from '@saarthi/api-client';
+import { colors, fontSizes, fontWeights } from '@yaanam/ui';
+import { useRegisterDeviceToken } from '@yaanam/api-client';
 import { useAuthStore } from '../../store/auth.store';
 
 export default function AppLayout() {

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, Button, Card } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, Button, Card } from '@yaanam/ui';
 import { useImportStore } from '../../../../store/import.store';
 
 export default function ImportResultScreen() {

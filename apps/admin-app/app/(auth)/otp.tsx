@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, OtpInput, Button, useToast } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, OtpInput, Button, useToast } from '@yaanam/ui';
 import { useAuthStore } from '../../store/auth.store';
-import { useVerifyOtp } from '@saarthi/api-client';
+import { useVerifyOtp } from '@yaanam/api-client';
 
 /** Roles this app serves — login is refused for numbers without one of these. */
 const APP_ROLES = ['ADMIN', 'TRANSPORT_MANAGER'];

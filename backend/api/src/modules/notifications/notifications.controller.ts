@@ -24,7 +24,7 @@ import { TenantId } from '../../common/decorators/tenant-id.decorator';
 import { PersonId } from '../../common/decorators/person-id.decorator';
 import { ActiveMembershipDec } from '../../common/decorators/active-membership.decorator';
 import { NotificationsService } from './notifications.service';
-import type { ActiveMembership } from '@saarthi/types';
+import type { ActiveMembership } from '@yaanam/types';
 
 const ADMIN_ROLES = ['ADMIN', 'TRANSPORT_MANAGER', 'FOUNDER', 'SUPER_ADMIN'];
 

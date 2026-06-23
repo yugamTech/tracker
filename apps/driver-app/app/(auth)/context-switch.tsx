@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../store/auth.store';
-import { colors, spacing, fontSizes, fontWeights, radius, Card } from '@saarthi/ui';
+import { colors, spacing, fontSizes, fontWeights, radius, Card } from '@yaanam/ui';
 
 export default function ContextSwitchScreen() {
   const { memberships, setActiveMembership } = useAuthStore();

@@ -1,6 +1,6 @@
 import React from 'react';
 import { router } from 'expo-router';
-import { SegmentedControl } from '@saarthi/ui';
+import { SegmentedControl } from '@yaanam/ui';
 import type { SubNavSegment } from '../lib/nav';
 
 interface SubNavProps {

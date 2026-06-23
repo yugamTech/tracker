@@ -4,8 +4,8 @@ import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
   Card, Badge, Button, Chip, Skeleton, EmptyState, AnimatedPressable,
-} from '@saarthi/ui';
-import { useRoutes } from '@saarthi/api-client';
+} from '@yaanam/ui';
+import { useRoutes } from '@yaanam/api-client';
 import { AdminScreen, HeaderAction } from '../../../components/AdminScreen';
 import { GridList } from '../../../components/widgets';
 import { useResponsive } from '../../../hooks/useResponsive';

@@ -7,7 +7,7 @@ import { StudentsService } from '../students.service';
 import { TenantId } from '../../../common/decorators/tenant-id.decorator';
 import { PersonId } from '../../../common/decorators/person-id.decorator';
 import { IsString, IsOptional } from 'class-validator';
-import { Role } from '@saarthi/types';
+import { Role } from '@yaanam/types';
 
 class CreateStudentDto {
   @IsString() name!: string;

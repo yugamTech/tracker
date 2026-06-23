@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
-import { colors, radius, AnimatedPressable } from '@saarthi/ui';
+import { colors, radius, AnimatedPressable } from '@yaanam/ui';
 
 /** Hamburger that opens the navigation drawer — the phone affordance for the
  *  collapsible nav (hidden on desktop where the sidebar is always present). */

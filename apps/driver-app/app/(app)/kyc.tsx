@@ -4,13 +4,13 @@ import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, radius, letterSpacing,
   Button, Badge, Skeleton, AppHeader, ScreenContainer, useToast,
-} from '@saarthi/ui';
-import type { BadgeVariant } from '@saarthi/ui';
+} from '@yaanam/ui';
+import type { BadgeVariant } from '@yaanam/ui';
 import {
   useMyDriverProfile, useUpdateMyDriverProfile,
   validateKyc, formatAadhaar, normaliseAadhaar, normaliseLicense, isValidDateString,
   type KycErrors,
-} from '@saarthi/api-client';
+} from '@yaanam/api-client';
 
 const PV_META: Record<string, { label: string; variant: BadgeVariant }> = {
   PENDING: { label: 'Pending', variant: 'warning' },

@@ -4,8 +4,8 @@ import { useLocalSearchParams, router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, radius, letterSpacing,
   AppHeader, Badge, Button, Skeleton, EmptyState, SectionHeader, ScreenContainer, FadeIn, SlideIn,
-} from '@saarthi/ui';
-import { useTripById, useDailyChecks, checkWindowInfo, formatTripTime } from '@saarthi/api-client';
+} from '@yaanam/ui';
+import { useTripById, useDailyChecks, checkWindowInfo, formatTripTime } from '@yaanam/api-client';
 
 /** Today's calendar day in the tenant timezone (Asia/Kolkata), as `YYYY-MM-DD`. */
 function istToday(): string {

@@ -3,13 +3,13 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@saarthi/types": [
+      "@yaanam/types": [
         "../../packages/types/src/index.ts"
       ],
-      "@saarthi/ui": [
+      "@yaanam/ui": [
         "../../packages/ui/src/index.ts"
       ],
-      "@saarthi/api-client": [
+      "@yaanam/api-client": [
         "../../packages/api-client/src/index.ts"
       ]
     }

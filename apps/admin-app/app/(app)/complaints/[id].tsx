@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, useToast } from '@saarthi/ui';
-import { useComplaintById, useUpdateComplaintStatus } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, useToast } from '@yaanam/ui';
+import { useComplaintById, useUpdateComplaintStatus } from '@yaanam/api-client';
 
 const STATUS_FLOW = ['RECEIVED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'] as const;
 type ComplaintStatus = typeof STATUS_FLOW[number];

@@ -1,5 +1,5 @@
 import { apiClient } from '../axios';
-import type { AttendanceEvent } from '@saarthi/types';
+import type { AttendanceEvent } from '@yaanam/types';
 
 export interface MarkAttendanceDto {
   tripId: string;

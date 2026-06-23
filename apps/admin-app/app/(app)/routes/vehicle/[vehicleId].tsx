@@ -4,8 +4,8 @@ import {
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge, useToast } from '@saarthi/ui';
-import { useVehicleById, useCreateVehicle, useUpdateVehicle, useDeactivateVehicle, useReactivateVehicle } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge, useToast } from '@yaanam/ui';
+import { useVehicleById, useCreateVehicle, useUpdateVehicle, useDeactivateVehicle, useReactivateVehicle } from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
 const TYPES = ['BUS', 'MINI_BUS', 'VAN'];

@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { onboardingApi, type ImportEntityType, type PickedFile } from '@saarthi/api-client';
+import { onboardingApi, type ImportEntityType, type PickedFile } from '@yaanam/api-client';
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 

@@ -3,8 +3,8 @@ import {
   View, Text, TextInput, ScrollView, StyleSheet,
   TouchableOpacity, ActivityIndicator,
 } from 'react-native';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, useToast } from '@saarthi/ui';
-import { useCreateStudent, useAgeGroups, useRoutes, useStops } from '@saarthi/api-client';
+import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, useToast } from '@yaanam/ui';
+import { useCreateStudent, useAgeGroups, useRoutes, useStops } from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
 export default function NewStudentScreen() {

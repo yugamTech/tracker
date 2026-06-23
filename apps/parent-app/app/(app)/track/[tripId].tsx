@@ -6,8 +6,8 @@ import {
   colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
   StatusDot, Card, Badge, Button, Divider, Skeleton, EmptyState,
   LiveBusMap, AppHeader, AnimatedPressable, useToast,
-} from '@saarthi/ui';
-import type { BadgeVariant } from '@saarthi/ui';
+} from '@yaanam/ui';
+import type { BadgeVariant } from '@yaanam/ui';
 import {
   useTripById,
   useLatestPosition,
@@ -15,7 +15,7 @@ import {
   useMyStudents,
   useCancelPickup,
   pickupCancelInfo,
-} from '@saarthi/api-client';
+} from '@yaanam/api-client';
 import { useChildStore } from '../../../store/child.store';
 import { goBackTo } from '../../../lib/nav';
 

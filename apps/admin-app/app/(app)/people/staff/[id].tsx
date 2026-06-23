@@ -4,8 +4,8 @@ import {
   TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { PoliceVerificationStatus } from '@saarthi/types';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, Button, useToast } from '@saarthi/ui';
+import { PoliceVerificationStatus } from '@yaanam/types';
+import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, Button, useToast } from '@yaanam/ui';
 import {
   useMemberById,
   useUpdateMember,
@@ -13,7 +13,7 @@ import {
   useReactivateMember,
   useDriverProfile,
   useUpsertDriverProfile,
-} from '@saarthi/api-client';
+} from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
 /** Roles an admin may assign here (PRD-01 FR-13). Mirrors the backend STAFF_ROLES. */
