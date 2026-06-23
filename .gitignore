@@ -77,3 +77,6 @@ docker/postgres/data/
 
 # Real customer/import data — never commit
 data-incoming/
+
+# Runtime-uploaded files (attendance photos etc.)
+backend/api/uploads/
