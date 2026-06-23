@@ -20,6 +20,12 @@ export enum NotifCategory {
   // Raised when a trip is still SCHEDULED well past its planned start (12h) — a
   // never-started anomaly the admin must review. Targets tenant admins.
   TRIP_NOT_STARTED = 'TRIP_NOT_STARTED',
+  // Stage-1 (soft) of the started-not-completed mechanism (PRD-02a): a live trip
+  // is past its overdue cutoff. Trip stays live; targets tenant admins.
+  TRIP_OVERDUE = 'TRIP_OVERDUE',
+  // Stage-2 (hard) of the started-not-completed mechanism (PRD-02a): a live trip
+  // was auto-aborted as abandoned. Targets tenant admins.
+  TRIP_ABANDONED = 'TRIP_ABANDONED',
   TRIP_END = 'TRIP_END',
   // Per-rider arrival alarms (PRD-03 §4.1): the bus is ~5 min / ~1 min from a
   // rider's stop, or has arrived at it.

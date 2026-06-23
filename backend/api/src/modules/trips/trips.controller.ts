@@ -48,6 +48,21 @@ class CompleteTripDto {
   @IsOptional() @IsInt() @Min(1) stoppedAtSeq?: number;
 }
 
+/** Abort a live trip — reason mandatory (PRD-02a §4). */
+class AbortTripDto {
+  @IsString() reason!: string;
+}
+
+/** Admin force-complete a trip the driver forgot to close — reason mandatory (PRD-02a §4). */
+class ForceCompleteTripDto {
+  @IsString() reason!: string;
+}
+
+/** Admin acknowledge of an overdue / auto-aborted lifecycle alarm — optional note. */
+class AcknowledgeTripDto {
+  @IsOptional() @IsString() note?: string;
+}
+
 /** Parse a `YYYY-MM-DD` calendar-day string into a local-time midnight Date. */
 function parseDateOnly(s: string): Date {
   const [y, m, d] = s.split('-').map(Number);
@@ -118,6 +133,16 @@ export class TripsController {
   @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
   overdue(@ActiveMembershipDec() actor: ActiveMembership) {
     return this.tripsService.listOverdueScheduled(actor);
+  }
+
+  /** Open lifecycle-alarm feed (PRD-02a §6): started-not-completed trips — overdue
+   *  (still live) + abandoned (auto-aborted) — that admins must act on, actor-scoped.
+   *  Declared before the `:id` route so the path isn't captured as a trip id. */
+  @Get('lifecycle-alarms')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  lifecycleAlarms(@ActiveMembershipDec() actor: ActiveMembership) {
+    return this.tripsService.listLifecycleAlarms(actor);
   }
 
   /** List trip-start exceptions for the admin alarm panel (default: open only).
@@ -232,9 +257,47 @@ export class TripsController {
     return this.tripsService.cancel(id, tenantId);
   }
 
+  /**
+   * Abort a live trip with a mandatory reason (PRD-02a §4). Available to the trip's
+   * own driver (the "end a stale trip" path) and to admins (force-abort) — both are
+   * tenant-scoped in the service and audited with the acting person. The actor's
+   * reason + identity are recorded; affected parents + driver are notified.
+   */
   @Post(':id/abort')
-  abort(@Param('id') id: string) {
-    return this.tripsService.abort(id);
+  abort(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: AbortTripDto,
+    @ActiveMembershipDec() actor: ActiveMembership,
+  ) {
+    return this.tripsService.abort(id, { reason: dto.reason, actorId: actor.personId, tenantId });
+  }
+
+  /** Admin force-complete a trip the driver ran but forgot to close (PRD-02a §4). */
+  @Post(':id/force-complete')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  forceComplete(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: ForceCompleteTripDto,
+    @ActiveMembershipDec() actor: ActiveMembership,
+  ) {
+    return this.tripsService.forceComplete(id, tenantId, actor.personId, dto.reason);
+  }
+
+  /** Acknowledge an overdue / auto-aborted lifecycle alarm — removes it from the
+   *  open feed with an audit note (PRD-02a §5/§6). Admin only. */
+  @Post(':id/acknowledge')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  acknowledge(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: AcknowledgeTripDto,
+    @ActiveMembershipDec() actor: ActiveMembership,
+  ) {
+    return this.tripsService.acknowledgeLifecycle(id, tenantId, actor.personId, dto.note);
   }
 
   /** DEV ONLY (OTP bypass mode): reset a trip for a clean demo replay. */

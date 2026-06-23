@@ -114,6 +114,33 @@ export const NOTIFICATION_EVENT_SPECS: Record<NotifCategory, NotificationEventSp
     body: (vars) =>
       `${v(vars, 'routeName', 'A trip')} is still scheduled ${v(vars, 'overdueHours') ? `${v(vars, 'overdueHours')}h ` : ''}past its start time.`,
   },
+  // Stage-1 overdue (PRD-02a): a STARTED/IN_PROGRESS trip past its overdue cutoff.
+  // Targets tenant admins. The dedup window is long (6h) so a still-overdue trip,
+  // re-seen on every sweep, pings admins at most once per window rather than each sweep.
+  [NotifCategory.TRIP_OVERDUE]: {
+    eventType: NotifCategory.TRIP_OVERDUE,
+    channels: [NotifChannel.PUSH],
+    dedupWindowMs: 21_600_000,
+    priority: NotifPriority.HIGH,
+    templateId: 'trip-overdue.v1',
+    recipients: 'tenant admins',
+    title: () => 'Trip running overdue',
+    body: (vars) =>
+      `${v(vars, 'routeName', 'A trip')} is still under way ${v(vars, 'overdueHours') ? `${v(vars, 'overdueHours')}h ` : ''}past when it should have finished.`,
+  },
+  // Stage-2 abandoned (PRD-02a): a trip was auto-aborted after no completion. Targets
+  // tenant admins; safety-critical. Deduped per trip (auto-abort fires once anyway).
+  [NotifCategory.TRIP_ABANDONED]: {
+    eventType: NotifCategory.TRIP_ABANDONED,
+    channels: [NotifChannel.PUSH],
+    dedupWindowMs: 86_400_000,
+    priority: NotifPriority.SAFETY_CRITICAL,
+    templateId: 'trip-abandoned.v1',
+    recipients: 'tenant admins',
+    title: () => 'Trip auto-closed (abandoned)',
+    body: (vars) =>
+      `${v(vars, 'routeName', 'A trip')} was automatically aborted — it started but was never completed.`,
+  },
   [NotifCategory.TRIP_END]: {
     eventType: NotifCategory.TRIP_END,
     channels: [NotifChannel.PUSH],

@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '@prisma/client';
+import { Prisma, TripLifecycleAction } from '@prisma/client';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { TripStatus, RiderStatus, NotifCategory, Role, Direction } from '@saarthi/types';
 import type { ActiveMembership } from '@saarthi/types';
@@ -43,6 +43,20 @@ export class TripsService {
 
   /** Hours past planned start after which a still-SCHEDULED trip is a never-started anomaly. */
   private static readonly NOT_STARTED_ALARM_HOURS = 12;
+
+  // ── Started-not-completed thresholds (PRD-02a §8). Named constants in the same
+  // style as NOT_STARTED_ALARM_HOURS, structured so per-tenant tuning is a one-line
+  // change later. No inline magic numbers.
+
+  /** Stage-1 (soft overdue) cutoff = scheduledEnd + this, when an end time is known. */
+  private static readonly STAGE1_OVERDUE_AFTER_SCHEDULED_END_HOURS = 2;
+  /** Stage-1 (soft overdue) cutoff = startedAt + this, when no end time is known.
+   *  This milestone stores no scheduledEnd (PRD-02a §6), so this is the effective rule. */
+  private static readonly STAGE1_OVERDUE_AFTER_START_HOURS = 3;
+  /** Stage-2 (hard abandoned) cutoff = startedAt + this → SYSTEM auto-abort. */
+  private static readonly STAGE2_ABANDONED_AFTER_START_HOURS = 6;
+  /** Founder decision: notify affected parents (not just driver/admin) on abort. */
+  private static readonly NOTIFY_PARENTS_ON_ABORT = true;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -238,7 +252,19 @@ export class TripsService {
           this.scopeForActor(actor),
           {
             OR: [
-              { status: { in: [TripStatus.COMPLETED, TripStatus.CANCELLED, TripStatus.ABORTED] } },
+              {
+                status: {
+                  // Include STARTED/IN_PROGRESS so a stuck (started-not-completed) trip
+                  // is never hidden from history (PRD-02a §4), alongside finished trips.
+                  in: [
+                    TripStatus.COMPLETED,
+                    TripStatus.CANCELLED,
+                    TripStatus.ABORTED,
+                    TripStatus.STARTED,
+                    TripStatus.IN_PROGRESS,
+                  ],
+                },
+              },
               { date: { lt: todayEnd } },
             ],
           },
@@ -249,6 +275,15 @@ export class TripsService {
         vehicle: { select: { id: true, regNumber: true } },
         riders: { select: { boardStatus: true } },
         startExceptions: { select: { id: true } },
+        // Latest abort reason (auto or forced) so an ABORTED row can badge "Aborted: <reason>".
+        lifecycleEvents: {
+          where: {
+            action: { in: [TripLifecycleAction.AUTO_ABORTED, TripLifecycleAction.FORCE_ABORTED] },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { reason: true },
+        },
       },
       orderBy: { date: 'desc' },
     });
@@ -309,6 +344,15 @@ export class TripsService {
       // On-time = it started AND was not flagged as an off-protocol start.
       const onTime = started ? t.startExceptions.length === 0 : null;
 
+      // A trip that didn't reach a clean COMPLETED — still running/stuck, or aborted —
+      // so the UI can badge it "In progress" / "Incomplete" / "Aborted: <reason>" (PRD-02a §4).
+      const incomplete =
+        t.status === TripStatus.STARTED ||
+        t.status === TripStatus.IN_PROGRESS ||
+        t.status === TripStatus.ABORTED;
+      const abortReason =
+        t.status === TripStatus.ABORTED ? t.lifecycleEvents[0]?.reason ?? null : null;
+
       if (started) {
         startedCount += 1;
         if (onTime) onTimeCount += 1;
@@ -334,6 +378,8 @@ export class TripsService {
         durationMinutes,
         vehicleChecked,
         onTime,
+        incomplete,
+        abortReason,
       };
     });
 
@@ -377,6 +423,41 @@ export class TripsService {
   }
 
   /**
+   * Stage-1 (soft overdue) cutoff for a live trip (PRD-02a §3.2): the instant past
+   * which a STARTED/IN_PROGRESS trip is "running overdue". No scheduledEnd is stored
+   * this milestone (§6), so this resolves to startedAt + STAGE1_OVERDUE_AFTER_START_HOURS;
+   * the scheduledEnd + 2h branch is reserved for when an end time is modelled. Null
+   * when the trip never recorded a startedAt (can't be overdue).
+   */
+  private stage1OverdueAt(trip: { startedAt: Date | null }): Date | null {
+    if (!trip.startedAt) return null;
+    return new Date(
+      trip.startedAt.getTime() + TripsService.STAGE1_OVERDUE_AFTER_START_HOURS * 60 * 60_000,
+    );
+  }
+
+  /** Stage-2 (hard abandoned) cutoff = startedAt + STAGE2_ABANDONED_AFTER_START_HOURS. */
+  private stage2AbandonedAt(trip: { startedAt: Date | null }): Date | null {
+    if (!trip.startedAt) return null;
+    return new Date(
+      trip.startedAt.getTime() + TripsService.STAGE2_ABANDONED_AFTER_START_HOURS * 60 * 60_000,
+    );
+  }
+
+  /** Append an immutable lifecycle-audit row (PRD-02a §5). Never updated/deleted. */
+  private writeLifecycleEvent(
+    tenantId: string,
+    tripId: string,
+    action: TripLifecycleAction,
+    actor: string,
+    reason?: string | null,
+  ) {
+    return this.prisma.tripLifecycleEvent.create({
+      data: { tenantId, tripId, action, actor, reason: reason ?? null },
+    });
+  }
+
+  /**
    * Start a trip under the trip-start governance rule (2B). A trip starts CLEANLY
    * only if BOTH a DailyCheck exists for its vehicle today AND `now` is within
    * [scheduledStart − 1h, scheduledStart + 1h]. If either gate fails the driver must
@@ -401,12 +482,18 @@ export class TripsService {
           status: { in: [TripStatus.STARTED, TripStatus.IN_PROGRESS] },
           id: { not: id },
         },
-        select: { id: true },
+        select: { id: true, startedAt: true },
       });
       if (live) {
+        // Carry the live trip's id (so the driver app can offer "Resume") and whether
+        // it's already Stage-1 overdue (so it can offer "this looks stale — end it"),
+        // instead of a dead-end error (PRD-02a §6, Part E).
+        const overdueAt = this.stage1OverdueAt(live);
         throw new BadRequestException({
           error: 'TRIP_ALREADY_LIVE',
-          message: 'You already have a trip under way. Complete it before starting another.',
+          message: 'You already have a trip under way. Resume it, or end it, before starting another.',
+          liveTripId: live.id,
+          liveTripOverdue: !!overdueAt && Date.now() > overdueAt.getTime(),
         });
       }
     }
@@ -535,6 +622,177 @@ export class TripsService {
     }
   }
 
+  /**
+   * Open lifecycle-alarm feed (PRD-02a §6), scoped to the actor (NFR-05): the
+   * started-not-completed trips an admin still needs to act on —
+   *  - OVERDUE: a STARTED/IN_PROGRESS trip past its Stage-1 cutoff (still live);
+   *  - ABANDONED: a trip the sweep auto-aborted (Stage-2),
+   * each with how long it has been running. A trip with an ACKNOWLEDGED audit row is
+   * excluded (the admin has already dealt with it). Computed on read, like the
+   * never-started feed.
+   */
+  async listLifecycleAlarms(actor: ActiveMembership) {
+    const now = new Date();
+    const trips = await this.prisma.trip.findMany({
+      where: {
+        AND: [
+          this.scopeForActor(actor),
+          {
+            OR: [
+              { status: { in: [TripStatus.STARTED, TripStatus.IN_PROGRESS] } },
+              {
+                status: TripStatus.ABORTED,
+                lifecycleEvents: { some: { action: TripLifecycleAction.AUTO_ABORTED } },
+              },
+            ],
+          },
+        ],
+      },
+      include: {
+        route: true,
+        vehicle: true,
+        driver: true,
+        conductor: true,
+        lifecycleEvents: { orderBy: { createdAt: 'desc' } },
+      },
+      orderBy: { startedAt: 'asc' },
+    });
+
+    const result: Array<
+      (typeof trips)[number] & {
+        lifecycleStage: 'OVERDUE' | 'ABANDONED';
+        overdueMinutes: number;
+        abortReason: string | null;
+      }
+    > = [];
+
+    for (const t of trips) {
+      // Acknowledged alarms drop out of the open feed.
+      if (t.lifecycleEvents.some((e) => e.action === TripLifecycleAction.ACKNOWLEDGED)) continue;
+      const runningMinutes = t.startedAt
+        ? Math.max(0, Math.round((now.getTime() - t.startedAt.getTime()) / 60_000))
+        : 0;
+
+      if (t.status === TripStatus.ABORTED) {
+        const autoEvt = t.lifecycleEvents.find(
+          (e) => e.action === TripLifecycleAction.AUTO_ABORTED,
+        );
+        result.push({
+          ...t,
+          lifecycleStage: 'ABANDONED',
+          overdueMinutes: runningMinutes,
+          abortReason: autoEvt?.reason ?? null,
+        });
+        continue;
+      }
+
+      const cutoff = this.stage1OverdueAt(t);
+      if (cutoff && now.getTime() > cutoff.getTime()) {
+        result.push({ ...t, lifecycleStage: 'OVERDUE', overdueMinutes: runningMinutes, abortReason: null });
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Periodic sweep for started-not-completed trips (PRD-02a §3.2), mirroring the
+   * signal-loss @Interval sweep. Runs across every tenant (like that sweep):
+   *  - past the Stage-2 cutoff → SYSTEM auto-abort (abandoned), unblocking the driver;
+   *  - else past the Stage-1 cutoff → deduped TRIP_OVERDUE alarm to admins (trip stays
+   *    live; never auto-completed).
+   * Driven by {@link TripOverdueSweepService}. Safe to also compute on read — the Redis
+   * dedup means the overdue ping fires at most once per window regardless of trigger.
+   */
+  async runLifecycleSweep(): Promise<void> {
+    const now = Date.now();
+    const live = await this.prisma.trip.findMany({
+      where: { status: { in: [TripStatus.STARTED, TripStatus.IN_PROGRESS] } },
+      select: { id: true, tenantId: true, startedAt: true, route: { select: { name: true } } },
+    });
+
+    for (const t of live) {
+      const stage2 = this.stage2AbandonedAt(t);
+      if (stage2 && now > stage2.getTime()) {
+        try {
+          await this.performAbort(t.id, {
+            reason: 'auto-closed: abandoned (no completion)',
+            actor: 'SYSTEM',
+            action: TripLifecycleAction.AUTO_ABORTED,
+            notifyParentsAndDriver: false,
+          });
+          await this.notifyAdminsOfAbandoned(t.tenantId, t.id, t.route?.name);
+        } catch (err) {
+          this.logger.error(`Auto-abort of abandoned trip ${t.id} failed: ${(err as Error).message}`);
+        }
+        continue;
+      }
+
+      const stage1 = this.stage1OverdueAt(t);
+      if (stage1 && now > stage1.getTime()) {
+        // Don't ping for an alarm an admin already acknowledged.
+        const acknowledged = await this.prisma.tripLifecycleEvent.count({
+          where: { tripId: t.id, action: TripLifecycleAction.ACKNOWLEDGED },
+        });
+        if (acknowledged > 0) continue;
+        const overdueHours = t.startedAt
+          ? Math.floor((now - t.startedAt.getTime()) / (60 * 60_000))
+          : 0;
+        await this.notifyAdminsOfOverdue(t.tenantId, t.id, t.route?.name, overdueHours).catch((err) =>
+          this.logger.error(`TRIP_OVERDUE dispatch failed: ${(err as Error).message}`),
+        );
+      }
+    }
+  }
+
+  /** Resolve tenant admins once and dispatch a deduped TRIP_OVERDUE for one live trip. */
+  private async notifyAdminsOfOverdue(
+    tenantId: string,
+    tripId: string,
+    routeName: string | undefined,
+    overdueHours: number,
+  ) {
+    const recipientIds = await this.tenantAdminIds(tenantId);
+    if (!recipientIds.length) return;
+    await this.notifications.dispatch({
+      eventType: NotifCategory.TRIP_OVERDUE,
+      tenantId,
+      recipientIds,
+      variables: {
+        tripId,
+        routeName: routeName ?? 'A trip',
+        overdueHours: String(overdueHours),
+        deepLink: '/trips/exceptions',
+      },
+      entityId: tripId,
+    });
+  }
+
+  /** Resolve tenant admins once and dispatch a deduped TRIP_ABANDONED for an auto-aborted trip. */
+  private async notifyAdminsOfAbandoned(
+    tenantId: string,
+    tripId: string,
+    routeName: string | undefined,
+  ) {
+    const recipientIds = await this.tenantAdminIds(tenantId);
+    if (!recipientIds.length) return;
+    await this.notifications.dispatch({
+      eventType: NotifCategory.TRIP_ABANDONED,
+      tenantId,
+      recipientIds,
+      variables: { tripId, routeName: routeName ?? 'A trip', deepLink: '/trips/exceptions' },
+      entityId: tripId,
+    });
+  }
+
+  /** ACTIVE admin / transport-manager person ids for a tenant (notification recipients). */
+  private async tenantAdminIds(tenantId: string): Promise<string[]> {
+    const admins = await this.prisma.membership.findMany({
+      where: { tenantId, role: { in: ['ADMIN', 'TRANSPORT_MANAGER'] as never }, status: 'ACTIVE' },
+      select: { personId: true },
+    });
+    return [...new Set(admins.map((a) => a.personId))];
+  }
+
   /** Open (or all) trip-start exceptions for the alarm panel, tenant-scoped. */
   listStartExceptions(tenantId: string, opts: { resolved?: boolean } = {}) {
     const where: Prisma.TripStartExceptionWhereInput = { tenantId };
@@ -644,7 +902,7 @@ export class TripsService {
   async complete(id: string, opts: { reason?: string; stoppedAtSeq?: number } = {}) {
     const trip = await this.prisma.trip.findUnique({
       where: { id },
-      select: { id: true, tenantId: true, status: true },
+      select: { id: true, tenantId: true, status: true, startedAt: true },
     });
     if (!trip) throw new NotFoundException(`Trip ${id} not found`);
 
@@ -653,6 +911,19 @@ export class TripsService {
       throw new BadRequestException({
         error: 'TRIP_NOT_STARTED',
         message: `Cannot complete a trip that is ${trip.status.toLowerCase()} — start it first.`,
+      });
+    }
+
+    // Completion-window guard (PRD-02a §4): a trip started beyond the Stage-2 cutoff
+    // is too old to be closed normally — it should be auto-/admin-aborted, not
+    // back-dated to "completed" a day later (the record-corruption / driver-exploit
+    // hole). Admin force-complete deliberately bypasses this (it is the override).
+    const stage2 = this.stage2AbandonedAt(trip);
+    if (stage2 && Date.now() > stage2.getTime()) {
+      throw new BadRequestException({
+        error: 'TRIP_COMPLETION_WINDOW_EXPIRED',
+        message:
+          'This trip is too old to complete — it needs admin review (force-complete or abort).',
       });
     }
 
@@ -751,13 +1022,119 @@ export class TripsService {
     return updated;
   }
 
-  /** Abort a trip already under way (mid-route emergency stop). */
-  async abort(id: string) {
+  /**
+   * Abort a trip already under way (mid-route emergency stop, or an admin force-abort
+   * of a stuck trip). A reason is MANDATORY (PRD-02a §4): the actor + reason + timestamp
+   * are written to the immutable lifecycle audit, the affected riders' EXPECTED/
+   * NOT_BOARDED roster flags are cleared so an aborted trip stops generating
+   * not-boarded anomalies (FR-19/FR-22), and the affected parents + driver are
+   * notified (mirrors the cancellation path, FR-22). Tenant-scoped (NFR-05).
+   */
+  async abort(id: string, opts: { reason: string; actorId: string; tenantId: string }) {
+    const reason = opts.reason?.trim();
+    if (!reason) {
+      throw new BadRequestException({
+        error: 'TRIP_ABORT_REASON_REQUIRED',
+        message: 'A reason is required to abort a trip.',
+      });
+    }
+    await this.assertOwned(id, opts.tenantId);
+    return this.performAbort(id, {
+      reason,
+      actor: opts.actorId,
+      action: TripLifecycleAction.FORCE_ABORTED,
+      notifyParentsAndDriver: TripsService.NOTIFY_PARENTS_ON_ABORT,
+    });
+  }
+
+  /**
+   * Shared ABORTED transition (PRD-02a §4/§5). Used by the manual/admin abort and the
+   * Stage-2 SYSTEM auto-abort. Transitions to ABORTED, clears the affected riders'
+   * roster flags, and writes the immutable audit row. Parent/driver notification is
+   * the caller's choice (manual abort notifies them; the abandoned auto-abort instead
+   * fires the admin-targeted TRIP_ABANDONED alarm).
+   */
+  private async performAbort(
+    id: string,
+    opts: {
+      reason: string;
+      actor: string;
+      action: TripLifecycleAction;
+      notifyParentsAndDriver: boolean;
+    },
+  ) {
+    const trip = await this.prisma.trip.findUnique({
+      where: { id },
+      select: { id: true, tenantId: true },
+    });
+    if (!trip) throw new NotFoundException(`Trip ${id} not found`);
+
     const updated = await this.transition(id, TripStatus.ABORTED, { completedAt: new Date() });
-    this.notifyPickupCancelled(id).catch((err) =>
-      this.logger.error(`PICKUP_CANCELLED dispatch failed: ${(err as Error).message}`),
+
+    // Clear the affected riders so an aborted trip can't keep flagging "not boarded".
+    await this.prisma.tripRider.updateMany({
+      where: { tripId: id, boardStatus: { in: [RiderStatus.EXPECTED, RiderStatus.NOT_BOARDED] } },
+      data: { boardStatus: RiderStatus.CANCELLED },
+    });
+
+    await this.writeLifecycleEvent(trip.tenantId, id, opts.action, opts.actor, opts.reason);
+
+    if (opts.notifyParentsAndDriver) {
+      this.notifyPickupCancelled(id, undefined, { includeGuardians: true }).catch((err) =>
+        this.logger.error(`PICKUP_CANCELLED dispatch failed: ${(err as Error).message}`),
+      );
+    }
+    return updated;
+  }
+
+  /**
+   * Admin force-complete (PRD-02a §4/§6): close a trip the driver ran but forgot to
+   * complete. Records who/why in the audit. Deliberately bypasses the completion-window
+   * guard — this IS the override for a trip too old to self-complete. A reason is
+   * mandatory. Tenant-scoped (NFR-05).
+   */
+  async forceComplete(id: string, tenantId: string, actorId: string, reason: string) {
+    const note = reason?.trim();
+    if (!note) {
+      throw new BadRequestException({
+        error: 'TRIP_FORCE_COMPLETE_REASON_REQUIRED',
+        message: 'A reason is required to force-complete a trip.',
+      });
+    }
+    const trip = await this.prisma.trip.findFirst({
+      where: { id, tenantId },
+      select: { id: true, tenantId: true, status: true },
+    });
+    if (!trip) throw new NotFoundException(`Trip ${id} not found`);
+    if (trip.status !== TripStatus.STARTED && trip.status !== TripStatus.IN_PROGRESS) {
+      throw new BadRequestException({
+        error: 'TRIP_NOT_LIVE',
+        message: `Only a live trip can be force-completed — this trip is ${trip.status.toLowerCase()}.`,
+      });
+    }
+
+    const updated = await this.transition(id, TripStatus.COMPLETED, { completedAt: new Date() });
+    await this.writeLifecycleEvent(trip.tenantId, id, TripLifecycleAction.FORCE_COMPLETED, actorId, note);
+    this.notifyGuardiansOnTrip(id, NotifCategory.TRIP_END).catch((err) =>
+      this.logger.error(`TRIP_END dispatch failed: ${(err as Error).message}`),
     );
     return updated;
+  }
+
+  /**
+   * Acknowledge an overdue / auto-aborted lifecycle alarm (PRD-02a §5/§6): records an
+   * ACKNOWLEDGED audit row with the admin's note, which removes the trip from the open
+   * lifecycle-alarm feed. No state change. Tenant-scoped (NFR-05).
+   */
+  async acknowledgeLifecycle(id: string, tenantId: string, actorId: string, note?: string) {
+    await this.assertOwned(id, tenantId);
+    return this.writeLifecycleEvent(
+      tenantId,
+      id,
+      TripLifecycleAction.ACKNOWLEDGED,
+      actorId,
+      note?.trim() || null,
+    );
   }
 
   /** Resolve every guardian of every rider on the trip and dispatch a trip-lifecycle event. */
@@ -797,6 +1174,7 @@ export class TripsService {
   private async notifyPickupCancelled(
     tripId: string,
     student?: { studentId: string; studentName: string },
+    opts: { includeGuardians?: boolean } = {},
   ) {
     const trip = await this.prisma.trip.findUnique({
       where: { id: tripId },
@@ -816,6 +1194,21 @@ export class TripsService {
       select: { personId: true },
     });
     for (const a of admins) recipientIds.add(a.personId);
+    // Whole-trip abort (PRD-02a §3.3 / FR-22): also notify the affected parents —
+    // the guardians of every rider still on the trip.
+    if (opts.includeGuardians) {
+      const riders = await this.prisma.tripRider.findMany({
+        where: { tripId },
+        select: { studentId: true },
+      });
+      if (riders.length) {
+        const guardians = await this.prisma.guardianship.findMany({
+          where: { studentId: { in: riders.map((r) => r.studentId) } },
+          select: { personId: true },
+        });
+        for (const g of guardians) recipientIds.add(g.personId);
+      }
+    }
     if (!recipientIds.size) return;
     await this.notifications.dispatch({
       eventType: NotifCategory.PICKUP_CANCELLED,

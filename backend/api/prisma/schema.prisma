@@ -353,6 +353,7 @@ model Trip {
   structuredMessages  StructuredMessage[]
   startExceptions     TripStartException[]
   completionExceptions TripCompletionException[]
+  lifecycleEvents     TripLifecycleEvent[]
 
   @@index([tenantId, date])
   @@index([tenantId, status])
@@ -435,6 +436,34 @@ model TripCompletionException {
 
   @@index([tenantId, resolvedAt])
   @@index([tripId])
+}
+
+// Immutable audit of every FORCED or AUTOMATIC trip transition (PRD-02a §5):
+// the SYSTEM auto-abort of an abandoned trip, an admin/driver force-abort, an
+// admin force-complete, or an admin acknowledging an overdue/auto-aborted alarm.
+// Append-only — there is no update/delete path — so trip state can never be
+// silently mutated (FR-20). tenant-scoped for isolation.
+model TripLifecycleEvent {
+  id        String              @id @default(uuid())
+  tenantId  String
+  tripId    String
+  action    TripLifecycleAction
+  // "SYSTEM" for the automated sweep, otherwise the acting admin/driver's personId.
+  actor     String
+  reason    String?
+  createdAt DateTime            @default(now())
+
+  trip Trip @relation(fields: [tripId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([tripId])
+}
+
+enum TripLifecycleAction {
+  AUTO_ABORTED
+  FORCE_ABORTED
+  FORCE_COMPLETED
+  ACKNOWLEDGED
 }
 
 model LocationPing {
