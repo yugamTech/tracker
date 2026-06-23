@@ -74,3 +74,6 @@ docker/postgres/data/
 
 # Claude Code session/memory (local only)
 .claude/
+
+# Real customer/import data — never commit
+data-incoming/
