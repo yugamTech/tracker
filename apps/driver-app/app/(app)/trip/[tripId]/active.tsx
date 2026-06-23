@@ -5,7 +5,7 @@ import {
   colors, spacing, fontSizes, fontWeights, fontFamilies, radius, letterSpacing,
   StatusDot, Button, AnimatedPressable, ScreenContainer, AppHeader, Stagger, useToast,
 } from '@saarthi/ui';
-import { useTripById, useStartTrip, useCompleteTrip, useDriverPing, useRoster } from '@saarthi/api-client';
+import { useTripById, useStartTrip, useCompleteTrip, useAbortTrip, useDriverPing, useRoster } from '@saarthi/api-client';
 import type { RosterRider } from '@saarthi/api-client';
 import { useAuthStore } from '../../../../store/auth.store';
 import {
@@ -47,6 +47,7 @@ export default function ActiveTripScreen() {
   const { data: rosterData } = useRoster(tripId);
   const startTrip = useStartTrip();
   const completeTrip = useCompleteTrip();
+  const abortTrip = useAbortTrip();
   const sendPing = useDriverPing();
   const membership = useAuthStore((s) => s.activeMembership);
   const toast = useToast();
@@ -74,6 +75,12 @@ export default function ActiveTripScreen() {
   // Completion verification + early-completion reason.
   const [showConfirm, setShowConfirm] = useState(false);
   const [completeReason, setCompleteReason] = useState('');
+  // Another trip is already under way (PRD-02a Part E): identifies the live trip so
+  // the driver can Resume it — and, if it's already stale (Stage-1 overdue), end it
+  // — instead of being stranded with an unactionable error.
+  const [liveTripBlock, setLiveTripBlock] = useState<{ tripId: string; overdue: boolean } | null>(null);
+  const [showStaleAbort, setShowStaleAbort] = useState(false);
+  const [staleReason, setStaleReason] = useState('');
 
   // Stops in ROUTE SEQUENCE — the only order they may be serviced in. Pulled from
   // the roster (server-ordered) so per-stop counts and sequence agree.
@@ -200,8 +207,14 @@ export default function ActiveTripScreen() {
         onError: (e: any) => {
           const code = errCode(e);
           if (code === 'TRIP_ALREADY_LIVE') {
-            // Another trip is live — can't start a second one.
-            toast.error(errMsg(e), 'Finish your current trip first');
+            // Another trip is live — surface it so the driver can Resume or end it,
+            // instead of a dead-end error.
+            const err = e?.response?.data?.error;
+            if (err?.liveTripId) {
+              setLiveTripBlock({ tripId: err.liveTripId, overdue: !!err.liveTripOverdue });
+            } else {
+              toast.error(errMsg(e), 'Finish your current trip first');
+            }
           } else if (code === 'TRIP_START_BLOCKED') {
             // Blocked: show why + open the "start anyway, add reason" path.
             setBlockedWhy(errMsg(e) || 'This trip cannot start cleanly.');
@@ -304,8 +317,36 @@ export default function ActiveTripScreen() {
         },
         onError: (e: any) => {
           setShowConfirm(false);
-          toast.error(errMsg(e) || 'Try again', 'Could not complete trip');
+          if (errCode(e) === 'TRIP_COMPLETION_WINDOW_EXPIRED') {
+            // Too old to self-complete — route the driver to the right outcome
+            // rather than a generic failure (PRD-02a Part E).
+            toast.error(
+              errMsg(e) || 'This trip is too old to complete — it needs admin review.',
+              'Needs admin review',
+            );
+          } else {
+            toast.error(errMsg(e) || 'Try again', 'Could not complete trip');
+          }
         },
+      },
+    );
+  };
+
+  // End a stale (overdue) live trip with a reason, then let the driver start the
+  // intended one. Reached only from the "a trip is already running" block.
+  const onConfirmStaleAbort = () => {
+    const reason = staleReason.trim();
+    if (!reason || !liveTripBlock) return;
+    abortTrip.mutate(
+      { tripId: liveTripBlock.tripId, reason },
+      {
+        onSuccess: () => {
+          setShowStaleAbort(false);
+          setLiveTripBlock(null);
+          setStaleReason('');
+          toast.success('Stale trip ended. You can start this one now.', 'Done');
+        },
+        onError: (e: any) => toast.error(errMsg(e) || 'Try again', 'Could not end the trip'),
       },
     );
   };
@@ -682,6 +723,79 @@ export default function ActiveTripScreen() {
               title="Cancel"
               variant="ghost"
               onPress={() => setShowGpsOverride(false)}
+              fullWidth
+              style={{ marginTop: spacing[1] }}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* A trip is already under way (PRD-02a Part E): never a dead-end — Resume it,
+          or (if it's stale) end it, before starting this one. */}
+      <Modal visible={liveTripBlock !== null} transparent animationType="fade" onRequestClose={() => setLiveTripBlock(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>A trip is already under way</Text>
+            <Text style={styles.modalWhy}>
+              You have another trip running. Resume it to continue
+              {liveTripBlock?.overdue ? ' — or, since it looks stale, end it' : ''} before starting this one.
+            </Text>
+            <Button
+              title="Resume that trip"
+              onPress={() => {
+                const id = liveTripBlock?.tripId;
+                setLiveTripBlock(null);
+                if (id) router.replace(`/(app)/trip/${id}/active` as never);
+              }}
+              fullWidth
+            />
+            {liveTripBlock?.overdue && (
+              <Button
+                title="This looks stale — end it"
+                variant="outline"
+                onPress={() => { setStaleReason(''); setShowStaleAbort(true); }}
+                fullWidth
+              />
+            )}
+            <Button
+              title="Cancel"
+              variant="ghost"
+              onPress={() => setLiveTripBlock(null)}
+              fullWidth
+              style={{ marginTop: spacing[1] }}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* End a stale live trip with a mandatory reason (abort). */}
+      <Modal visible={showStaleAbort} transparent animationType="fade" onRequestClose={() => setShowStaleAbort(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>End the stale trip?</Text>
+            <Text style={styles.modalWhy}>
+              This aborts the trip that's still running. Affected parents and you will be notified.
+            </Text>
+            <Text style={styles.modalLabel}>Reason *</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={staleReason}
+              onChangeText={setStaleReason}
+              placeholder="e.g. Forgot to complete an earlier trip; ended it"
+              placeholderTextColor={colors.gray400}
+              multiline
+            />
+            <Button
+              title="End trip"
+              onPress={onConfirmStaleAbort}
+              fullWidth
+              disabled={!staleReason.trim()}
+              loading={abortTrip.isPending}
+            />
+            <Button
+              title="Cancel"
+              variant="ghost"
+              onPress={() => setShowStaleAbort(false)}
               fullWidth
               style={{ marginTop: spacing[1] }}
             />

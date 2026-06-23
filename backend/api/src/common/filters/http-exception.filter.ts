@@ -35,8 +35,20 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ? (exceptionResponse as Record<string, unknown>)['error'] ?? 'HTTP_ERROR'
         : 'INTERNAL_SERVER_ERROR';
 
+    // Carry through any extra detail fields a thrower attached alongside
+    // { error, message } (e.g. liveTripId/liveTripOverdue, cutoff) so the client
+    // can act on them — without them the structured error is just a string.
+    const details =
+      typeof exceptionResponse === 'object' && exceptionResponse !== null
+        ? Object.fromEntries(
+            Object.entries(exceptionResponse as Record<string, unknown>).filter(
+              ([k]) => !['error', 'message', 'statusCode'].includes(k),
+            ),
+          )
+        : {};
+
     response.status(status).json({
-      error: { code, message },
+      error: { code, message, ...details },
       meta: {
         timestamp: new Date().toISOString(),
         requestId: randomUUID(),
