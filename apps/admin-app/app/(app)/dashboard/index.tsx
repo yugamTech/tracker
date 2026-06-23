@@ -6,7 +6,7 @@ import {
   Card, Badge, StatusDot, Skeleton, EmptyState, AnimatedPressable, Divider,
 } from '@saarthi/ui';
 import type { BadgeVariant } from '@saarthi/ui';
-import { useFleet, useTodayTrips } from '@saarthi/api-client';
+import { useFleet, useTodayTrips, useLifecycleAlarms } from '@saarthi/api-client';
 import type { FleetEntry } from '@saarthi/api-client';
 import { AdminScreen } from '../../../components/AdminScreen';
 import { SubNav } from '../../../components/SubNav';
@@ -27,12 +27,16 @@ export default function DashboardScreen() {
   const { isDesktop } = useResponsive();
   const { data: fleet, isLoading: fleetLoading } = useFleet();
   const { data: trips, isLoading: tripsLoading } = useTodayTrips();
+  const { data: lifecycleAlarms, isLoading: alarmsLoading } = useLifecycleAlarms();
 
   const list = fleet ?? [];
   const active = list.filter((f) => ACTIVE.has(f.status));
   const signalLost = list.filter((f) => f.status === 'SIGNAL_LOST');
   const tripList = trips ?? [];
   const completed = tripList.filter((t) => t.status === 'COMPLETED').length;
+  // Started-not-completed alarms (PRD-02a): Stage-1 overdue (still live) + Stage-2
+  // abandoned-pending-ack. Red when any need attention.
+  const alarms = lifecycleAlarms ?? [];
 
   return (
     <AdminScreen
@@ -54,6 +58,16 @@ export default function DashboardScreen() {
           </Kpi>
           <Kpi desktop={isDesktop}>
             <StatCard label="Completed" value={tripsLoading ? '—' : completed} icon="✓" tone="success" />
+          </Kpi>
+          <Kpi desktop={isDesktop}>
+            <AnimatedPressable scaleTo={0.99} onPress={() => router.push('/(app)/trips/exceptions' as never)}>
+              <StatCard
+                label="Active & Overdue"
+                value={alarmsLoading ? '—' : alarms.length}
+                icon="⏱"
+                tone={alarms.length ? 'error' : 'neutral'}
+              />
+            </AnimatedPressable>
           </Kpi>
         </View>
 

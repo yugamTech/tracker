@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, Modal, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights,
@@ -8,8 +8,11 @@ import {
 import {
   useTripStartExceptions, useResolveStartException, useOverdueTrips,
   useTripCompletionExceptions, useResolveCompletionException,
+  useLifecycleAlarms, useForceCompleteTrip, useAbortTrip, useAcknowledgeTrip,
 } from '@saarthi/api-client';
-import type { TripStartExceptionWithTrip, TripCompletionExceptionWithTrip, OverdueTrip } from '@saarthi/api-client';
+import type {
+  TripStartExceptionWithTrip, TripCompletionExceptionWithTrip, OverdueTrip, LifecycleAlarmTrip,
+} from '@saarthi/api-client';
 import { AdminScreen } from '../../../components/AdminScreen';
 import { SubNav } from '../../../components/SubNav';
 import { GridList } from '../../../components/widgets';
@@ -51,6 +54,64 @@ function OverdueCard({ item }: { item: OverdueTrip }) {
         <Text style={styles.times}>Scheduled {start ? new Date(start).toLocaleString() : '—'}</Text>
       </Card>
     </AnimatedPressable>
+  );
+}
+
+/**
+ * A started-not-completed lifecycle alarm (PRD-02a): an OVERDUE trip still under way,
+ * or an ABANDONED trip the system auto-aborted. Admin can force-complete / force-abort
+ * an overdue trip, or acknowledge either (removes it from the open feed).
+ */
+function LifecycleAlarmCard({
+  item,
+  busy,
+  onForceComplete,
+  onForceAbort,
+  onAcknowledge,
+}: {
+  item: LifecycleAlarmTrip;
+  busy: boolean;
+  onForceComplete: (item: LifecycleAlarmTrip) => void;
+  onForceAbort: (item: LifecycleAlarmTrip) => void;
+  onAcknowledge: (item: LifecycleAlarmTrip) => void;
+}) {
+  const abandoned = item.lifecycleStage === 'ABANDONED';
+  const routeName = item.route?.name ?? 'Route';
+  const driverName = item.driver?.name ?? '—';
+  const vehicleReg = item.vehicle?.regNumber ?? '—';
+  return (
+    <Card shadow="sm" style={[styles.card, { borderLeftColor: abandoned ? colors.error : colors.warning }]}>
+      <View style={styles.cardTop}>
+        <Text style={styles.route} numberOfLines={1}>{routeName} · {item.direction}</Text>
+        <Badge label={abandoned ? 'Abandoned' : 'Overdue'} variant={abandoned ? 'error' : 'warning'} size="sm" />
+      </View>
+      <Text style={styles.meta}>{driverName} · {vehicleReg}</Text>
+
+      <View style={styles.flags}>
+        <Text style={styles.flag}>⏱ {abandoned ? 'Ran' : 'Running'} {overdueLabel(item.overdueMinutes)}</Text>
+      </View>
+
+      {abandoned && item.abortReason ? (
+        <>
+          <Text style={styles.reasonLabel}>AUTO-CLOSE REASON</Text>
+          <Text style={styles.reason}>{item.abortReason}</Text>
+        </>
+      ) : null}
+
+      {item.startedAt ? (
+        <Text style={styles.times}>Started {new Date(item.startedAt).toLocaleString()}</Text>
+      ) : null}
+
+      <View style={styles.actions}>
+        {!abandoned && (
+          <>
+            <Button title="Force-complete" variant="outline" onPress={() => onForceComplete(item)} disabled={busy} fullWidth />
+            <Button title="Force-abort" variant="outline" onPress={() => onForceAbort(item)} disabled={busy} fullWidth />
+          </>
+        )}
+        <Button title="Acknowledge" onPress={() => onAcknowledge(item)} loading={busy} fullWidth />
+      </View>
+    </Card>
   );
 }
 
@@ -102,10 +163,78 @@ export default function TripStartAlarmsScreen() {
   const { data, isLoading, isError } = useTripStartExceptions(filter === 'all' ? 'all' : undefined);
   const { data: overdue = [] } = useOverdueTrips();
   const { data: completionExceptions = [] } = useTripCompletionExceptions(filter === 'all' ? 'all' : undefined);
+  const { data: lifecycleAlarms = [] } = useLifecycleAlarms();
   const resolve = useResolveStartException();
   const resolveCompletion = useResolveCompletionException();
+  const forceComplete = useForceCompleteTrip();
+  const abort = useAbortTrip();
+  const acknowledge = useAcknowledgeTrip();
   const toast = useToast();
   const { gridColumns } = useResponsive();
+
+  // Reason capture for force-complete / force-abort (both require a note, PRD-02a §4).
+  const [reasonModal, setReasonModal] =
+    useState<{ trip: LifecycleAlarmTrip; kind: 'force-complete' | 'force-abort' } | null>(null);
+  const [reasonText, setReasonText] = useState('');
+
+  const busyForTrip = (id: string) =>
+    (forceComplete.isPending && forceComplete.variables?.tripId === id) ||
+    (abort.isPending && abort.variables?.tripId === id) ||
+    (acknowledge.isPending && acknowledge.variables?.tripId === id);
+
+  const onForceComplete = (item: LifecycleAlarmTrip) => {
+    setReasonText('');
+    setReasonModal({ trip: item, kind: 'force-complete' });
+  };
+  const onForceAbort = (item: LifecycleAlarmTrip) => {
+    setReasonText('');
+    setReasonModal({ trip: item, kind: 'force-abort' });
+  };
+  const onAcknowledgeAlarm = (item: LifecycleAlarmTrip) => {
+    Alert.alert('Acknowledge alarm', 'Remove this trip from the open alarm feed?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Acknowledge',
+        onPress: () =>
+          acknowledge.mutate(
+            { tripId: item.id },
+            { onError: (e: any) => toast.error(e?.response?.data?.error?.message ?? 'Failed to acknowledge') },
+          ),
+      },
+    ]);
+  };
+  const onConfirmReason = () => {
+    const reason = reasonText.trim();
+    if (!reason || !reasonModal) return;
+    const { trip, kind } = reasonModal;
+    const opts = {
+      onSuccess: () => setReasonModal(null),
+      onError: (e: any) => toast.error(e?.response?.data?.error?.message ?? 'Action failed'),
+    };
+    if (kind === 'force-complete') forceComplete.mutate({ tripId: trip.id, reason }, opts);
+    else abort.mutate({ tripId: trip.id, reason }, opts);
+  };
+
+  // Started-not-completed alarms (PRD-02a): overdue (live) + abandoned (auto-aborted).
+  // Most urgent, so it stacks at the top of the unified panel.
+  const lifecycleSection = lifecycleAlarms.length > 0 ? (
+    <View style={styles.overdueSection}>
+      <Text style={styles.sectionHeading}>Active &amp; overdue · {lifecycleAlarms.length}</Text>
+      <Text style={styles.sectionSub}>Trips that started but never completed. Force-complete, abort, or acknowledge.</Text>
+      <View style={styles.overdueList}>
+        {lifecycleAlarms.map((t) => (
+          <LifecycleAlarmCard
+            key={t.id}
+            item={t}
+            busy={busyForTrip(t.id)}
+            onForceComplete={onForceComplete}
+            onForceAbort={onForceAbort}
+            onAcknowledge={onAcknowledgeAlarm}
+          />
+        ))}
+      </View>
+    </View>
+  ) : null;
 
   const onResolveCompletion = (item: TripCompletionExceptionWithTrip) => {
     Alert.alert('Resolve alarm', 'Mark this early-completion exception as resolved?', [
@@ -150,9 +279,11 @@ export default function TripStartAlarmsScreen() {
     </View>
   ) : null;
 
-  // Both computed/early sections stack above the start-exception list in one panel.
+  // Lifecycle / never-started / early-completion sections stack above the
+  // start-exception list, in one unified panel.
   const headerSections = (
     <>
+      {lifecycleSection}
       {overdueSection}
       {completionSection}
     </>
@@ -255,6 +386,54 @@ export default function TripStartAlarmsScreen() {
           />
         )}
       </View>
+
+      {/* Reason capture for force-complete / force-abort (both mandatory, PRD-02a §4). */}
+      <Modal
+        visible={reasonModal !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReasonModal(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              {reasonModal?.kind === 'force-complete' ? 'Force-complete trip' : 'Force-abort trip'}
+            </Text>
+            <Text style={styles.modalWhy}>
+              {reasonModal?.kind === 'force-complete'
+                ? 'Close this trip on the driver’s behalf. Parents are notified it completed.'
+                : 'Abort this trip. Affected parents and the driver are notified.'}
+            </Text>
+            <Text style={styles.modalLabel}>Reason *</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={reasonText}
+              onChangeText={setReasonText}
+              placeholder={
+                reasonModal?.kind === 'force-complete'
+                  ? 'e.g. Driver confirmed all riders dropped; forgot to tap complete'
+                  : 'e.g. Vehicle breakdown; trip could not continue'
+              }
+              placeholderTextColor={colors.gray400}
+              multiline
+            />
+            <Button
+              title={reasonModal?.kind === 'force-complete' ? 'Force-complete' : 'Force-abort'}
+              onPress={onConfirmReason}
+              fullWidth
+              disabled={!reasonText.trim()}
+              loading={forceComplete.isPending || abort.isPending}
+            />
+            <Button
+              title="Cancel"
+              variant="ghost"
+              onPress={() => setReasonModal(null)}
+              fullWidth
+              style={{ marginTop: spacing[1] }}
+            />
+          </View>
+        </View>
+      </Modal>
     </AdminScreen>
   );
 }
@@ -282,4 +461,17 @@ const styles = StyleSheet.create({
   times: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: spacing[1] },
   resolvedNote: { fontSize: fontSizes.xs, color: colors.textSecondary, marginTop: spacing[1], fontStyle: 'italic' },
   resolveBtn: { marginTop: spacing[2] },
+  actions: { gap: spacing[2], marginTop: spacing[3] },
+
+  modalBackdrop: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', padding: spacing[5] },
+  modalCard: { backgroundColor: colors.background, borderRadius: radius['2xl'], padding: spacing[5], gap: spacing[3], maxWidth: 440, width: '100%', alignSelf: 'center' },
+  modalTitle: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
+  modalWhy: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 20 },
+  modalLabel: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary },
+  modalInput: {
+    backgroundColor: colors.gray100, borderRadius: radius.lg,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    fontSize: fontSizes.base, color: colors.textPrimary,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, minHeight: 72, textAlignVertical: 'top',
+  },
 });
