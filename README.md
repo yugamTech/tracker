@@ -1,6 +1,6 @@
-# Saarthi — K-12 School Bus Tracking & Operations Monorepo
+# Yaanam — K-12 School Bus Tracking & Operations Monorepo
 
-Welcome to the monorepo for **Saarthi**, a comprehensive school bus transit operations, real-time safety tracking, automatic fees collection, and complaints management platform.
+Welcome to the monorepo for **Yaanam**, a comprehensive school bus transit operations, real-time safety tracking, automatic fees collection, and complaints management platform.
 
 This workspace houses the complete suite of backend services and mobile application interfaces.
 

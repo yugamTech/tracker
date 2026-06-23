@@ -11,7 +11,7 @@ async function main() {
     update: {},
     create: {
       id: 'demo-tenant-id',
-      name: 'Saarthi Demo School',
+      name: 'Yaanam Demo School',
       timezone: 'Asia/Kolkata',
       locale: 'en',
     },

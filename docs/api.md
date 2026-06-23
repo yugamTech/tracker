@@ -1,6 +1,6 @@
-# Saarthi MVP — REST API Documentation
+# Yaanam MVP — REST API Documentation
 
-This document describes the REST API endpoints exposed by the Saarthi backend on `http://localhost:3000`.
+This document describes the REST API endpoints exposed by the Yaanam backend on `http://localhost:3000`.
 
 All endpoints (except Authentication) require a Bearer token in the `Authorization` header and a tenant context header `x-tenant-id` (if context switching has been resolved).
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Saarthi driver-ping simulator (Phase 3).
+ * Yaanam driver-ping simulator (Phase 3).
  *
  * Logs in as a driver via OTP bypass, optionally resets the trip, starts it,
  * then "drives" the route by POSTing batches of interpolated location pings to
@@ -112,7 +112,7 @@ function buildPath(stops) {
 }
 
 async function main() {
-  console.log(`🚌 Saarthi driver-sim — trip ${TRIP} @ ${SPEED_KMH} km/h`);
+  console.log(`🚌 Yaanam driver-sim — trip ${TRIP} @ ${SPEED_KMH} km/h`);
   await login();
 
   if (DO_RESET) {

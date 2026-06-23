@@ -1,4 +1,4 @@
-# Saarthi scripts
+# Yaanam scripts
 
 ## `driver-sim.mjs` — driver-ping simulator (Phase 3)
 

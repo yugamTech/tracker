@@ -1,6 +1,6 @@
-# Saarthi MVP — Socket.IO Real-time Events Documentation
+# Yaanam MVP — Socket.IO Real-time Events Documentation
 
-Saarthi uses Socket.IO for real-time tracking, live route status updates, and parent notifications.
+Yaanam uses Socket.IO for real-time tracking, live route status updates, and parent notifications.
 
 ## Namespace & Connection
 

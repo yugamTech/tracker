@@ -1,6 +1,6 @@
-# Saarthi MVP — Data Model Documentation
+# Yaanam MVP — Data Model Documentation
 
-This document describes the database schema designed for the Saarthi platform. The schema is built using PostgreSQL and managed with Prisma.
+This document describes the database schema designed for the Yaanam platform. The schema is built using PostgreSQL and managed with Prisma.
 
 ---
 

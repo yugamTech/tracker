@@ -57,8 +57,8 @@ async function bootstrap() {
   // Swagger
   if (process.env.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()
-      .setTitle('Saarthi API')
-      .setDescription('Saarthi school transport management API')
+      .setTitle('Yaanam API')
+      .setDescription('Yaanam school transport management API')
       .setVersion('1.0')
       .addBearerAuth()
       .build();
@@ -70,7 +70,7 @@ async function bootstrap() {
   // Bind to all interfaces — cloud hosts (Railway/Render/Fly) route to 0.0.0.0,
   // not localhost, so the container is otherwise unreachable.
   await app.listen(port, '0.0.0.0');
-  console.warn(`🚀 Saarthi API running on http://localhost:${port}/api/v1`);
+  console.warn(`🚀 Yaanam API running on http://localhost:${port}/api/v1`);
   console.warn(`📖 Swagger docs: http://localhost:${port}/api/docs`);
 }
 

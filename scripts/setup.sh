@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Saarthi MVP - Quick Setup Script
+# Yaanam MVP - Quick Setup Script
 # This script automates installing dependencies, setting up local config, starting docker containers,
 # applying migrations, and seeding the database.
 
@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}===================================================${NC}"
-echo -e "${BLUE}        🚀 Saarthi MVP Monorepo Setup 🚀            ${NC}"
+echo -e "${BLUE}        🚀 Yaanam MVP Monorepo Setup 🚀            ${NC}"
 echo -e "${BLUE}===================================================${NC}"
 
 # 1. Root dependencies installation
@@ -66,7 +66,7 @@ echo -e "\n${YELLOW}🌱 Step 7: Seeding the database with mock data...${NC}"
 npm run db:seed --workspace=backend/api
 
 echo -e "\n${GREEN}===================================================${NC}"
-echo -e "${GREEN}🎉 Saarthi MVP Monorepo Setup Complete! 🎉${NC}"
+echo -e "${GREEN}🎉 Yaanam MVP Monorepo Setup Complete! 🎉${NC}"
 echo -e "${GREEN}===================================================${NC}"
 echo -e ""
 echo -e "To start developing:"
