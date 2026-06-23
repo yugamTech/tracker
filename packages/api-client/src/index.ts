@@ -44,7 +44,7 @@ export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, use
 
 // Trips
 export { tripsApi, pickupCancelInfo, PICKUP_CANCEL_CUTOFF_MINUTES } from './trips/trips.api';
-export type { ScheduleTripDto, TripStartExceptionWithTrip, TripCompletionExceptionWithTrip, OverdueTrip, TripFilters, UpdateTripDto, PickupCancelInfo, HistoryTrip, DriverEfficiency, DriverHistoryResponse } from './trips/trips.api';
+export type { ScheduleTripDto, TripStartExceptionWithTrip, TripCompletionExceptionWithTrip, OverdueTrip, LifecycleAlarmTrip, TripFilters, UpdateTripDto, PickupCancelInfo, HistoryTrip, DriverEfficiency, DriverHistoryResponse } from './trips/trips.api';
 export {
   tripKeys,
   useTodayTrips,
@@ -54,12 +54,15 @@ export {
   useDriverHistory,
   useTripById,
   useOverdueTrips,
+  useLifecycleAlarms,
   useCreateTrip,
   useUpdateTrip,
   useCancelTrip,
   useStartTrip,
   useCompleteTrip,
   useAbortTrip,
+  useForceCompleteTrip,
+  useAcknowledgeTrip,
   useCancelPickup,
   useTripStartExceptions,
   useResolveStartException,

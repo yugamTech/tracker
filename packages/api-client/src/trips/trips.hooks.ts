@@ -13,6 +13,7 @@ export const tripKeys = {
   completionExceptions: (resolved?: string) =>
     [...tripKeys.all, 'completion-exceptions', resolved ?? 'open'] as const,
   overdue: () => [...tripKeys.all, 'overdue'] as const,
+  lifecycleAlarms: () => [...tripKeys.all, 'lifecycle-alarms'] as const,
 };
 
 export const useTodayTrips = () =>
@@ -63,6 +64,13 @@ export const useOverdueTrips = () =>
   useQuery({
     queryKey: tripKeys.overdue(),
     queryFn: tripsApi.getOverdueTrips,
+  });
+
+/** Lifecycle-alarm feed (PRD-02a): overdue (live) + abandoned (auto-aborted) trips. */
+export const useLifecycleAlarms = () =>
+  useQuery({
+    queryKey: tripKeys.lifecycleAlarms(),
+    queryFn: tripsApi.getLifecycleAlarms,
   });
 
 export const useCreateTrip = () => {
@@ -142,7 +150,28 @@ export const useCompleteTrip = () => {
 export const useAbortTrip = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: tripsApi.abortTrip,
+    mutationFn: ({ tripId, reason }: { tripId: string; reason: string }) =>
+      tripsApi.abortTrip(tripId, reason),
+    onSuccess: () => qc.invalidateQueries({ queryKey: tripKeys.all }),
+  });
+};
+
+/** Admin force-complete a trip the driver forgot to close (reason required). */
+export const useForceCompleteTrip = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tripId, reason }: { tripId: string; reason: string }) =>
+      tripsApi.forceCompleteTrip(tripId, reason),
+    onSuccess: () => qc.invalidateQueries({ queryKey: tripKeys.all }),
+  });
+};
+
+/** Acknowledge an overdue / auto-aborted lifecycle alarm — removes it from the feed. */
+export const useAcknowledgeTrip = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tripId, note }: { tripId: string; note?: string }) =>
+      tripsApi.acknowledgeTrip(tripId, note),
     onSuccess: () => qc.invalidateQueries({ queryKey: tripKeys.all }),
   });
 };

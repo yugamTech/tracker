@@ -108,6 +108,23 @@ export type OverdueTrip = Trip & {
   vehicle?: { id: string; regNumber: string } | null;
 };
 
+/**
+ * A started-not-completed lifecycle alarm (PRD-02a): a still-live trip that's
+ * OVERDUE (Stage-1) or a trip the system auto-aborted as ABANDONED (Stage-2), as
+ * returned by the lifecycle-alarm feed.
+ */
+export type LifecycleAlarmTrip = Trip & {
+  /** OVERDUE = still live & past the soft cutoff; ABANDONED = auto-aborted. */
+  lifecycleStage: 'OVERDUE' | 'ABANDONED';
+  /** Whole minutes the trip has been running since it started. */
+  overdueMinutes: number;
+  /** Reason recorded on the auto-abort (ABANDONED only), else null. */
+  abortReason: string | null;
+  route?: { id: string; name: string } | null;
+  driver?: { id: string; name: string } | null;
+  vehicle?: { id: string; regNumber: string } | null;
+};
+
 /** A trip-start exception with its trip context, as returned by the alarm panel. */
 export type TripStartExceptionWithTrip = TripStartException & {
   trip?: {
@@ -152,6 +169,10 @@ export interface HistoryTrip {
   vehicleChecked: boolean;
   /** Started within the ±1h window (no start exception); null if it never started. */
   onTime: boolean | null;
+  /** Didn't reach a clean COMPLETED — still running/stuck or aborted (PRD-02a §4). */
+  incomplete: boolean;
+  /** Reason recorded on the abort (ABORTED trips only), else null. */
+  abortReason: string | null;
 }
 
 /** Aggregated driver efficiency across their whole ride history. Rates are 0–1, or null. */
@@ -271,9 +292,28 @@ export const tripsApi = {
     return data.data as Trip;
   },
 
-  abortTrip: async (tripId: string) => {
-    const { data } = await apiClient.post(`/trips/${tripId}/abort`);
+  /** Abort a live trip with a mandatory reason (driver "end stale" / admin force-abort). */
+  abortTrip: async (tripId: string, reason: string) => {
+    const { data } = await apiClient.post(`/trips/${tripId}/abort`, { reason });
     return data.data as Trip;
+  },
+
+  /** Open lifecycle-alarm feed: overdue (live) + abandoned (auto-aborted) trips. */
+  getLifecycleAlarms: async () => {
+    const { data } = await apiClient.get('/trips/lifecycle-alarms');
+    return data.data as LifecycleAlarmTrip[];
+  },
+
+  /** Admin force-complete a trip the driver ran but forgot to close (reason required). */
+  forceCompleteTrip: async (tripId: string, reason: string) => {
+    const { data } = await apiClient.post(`/trips/${tripId}/force-complete`, { reason });
+    return data.data as Trip;
+  },
+
+  /** Acknowledge an overdue / auto-aborted alarm — removes it from the open feed. */
+  acknowledgeTrip: async (tripId: string, note?: string) => {
+    const { data } = await apiClient.post(`/trips/${tripId}/acknowledge`, note ? { note } : {});
+    return data.data;
   },
 
   cancelPickup: async (tripId: string, studentId: string, reason?: string) => {
