@@ -12,6 +12,8 @@ interface AuthState {
   isAuthenticated: boolean;
   setAuth: (person: Person, memberships: MembershipOption[], active: ActiveMembership) => void;
   setActiveMembership: (membership: MembershipOption) => void;
+  /** Patch the cached identity (e.g. after a self profile edit) so the UI stays fresh. */
+  updatePerson: (patch: Partial<Person>) => void;
   logout: () => void;
 }
 
@@ -34,6 +36,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         role: m.role,
       },
     }),
+  updatePerson: (patch) =>
+    set((s) => (s.person ? { person: { ...s.person, ...patch } } : {})),
   logout: () => {
     queryClient.clear();
     set({ person: null, activeMembership: null, memberships: [], isAuthenticated: false });

@@ -85,6 +85,7 @@ export default function AppLayout() {
       <Drawer.Screen name="routes/vehicle/[vehicleId]" options={{ title: 'Vehicle Detail' }} />
       <Drawer.Screen name="complaints/[id]" options={{ title: 'Complaint Detail' }} />
       <Drawer.Screen name="settings/notifications" options={{ title: 'Notification Audit' }} />
+      <Drawer.Screen name="settings/profile" options={{ title: 'Profile' }} />
     </Drawer>
   );
 }

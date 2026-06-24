@@ -41,7 +41,7 @@ export default function SettingsScreen() {
     {
       title: 'Account',
       items: [
-        { label: 'Profile', icon: '👤', tint: colors.infoBg },
+        { label: 'Profile', icon: '👤', tint: colors.infoBg, onPress: () => router.push('/(app)/settings/profile' as never) },
         { label: 'Notification Config', icon: '🔔', tint: colors.primaryBg, onPress: () => router.push('/(app)/settings/notifications' as never) },
         { label: 'Privacy & Security', icon: '🔒', tint: colors.successBg },
       ],
