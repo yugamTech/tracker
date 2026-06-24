@@ -47,6 +47,10 @@ export const SUBNAV: Record<string, SubNavSegment[]> = {
     { label: 'Trips', value: 'trips', href: '/(app)/trips' },
     { label: 'Exceptions', value: 'exceptions', href: '/(app)/trips/exceptions' },
   ],
+  routes: [
+    { label: 'Routes', value: 'routes', href: '/(app)/routes' },
+    { label: 'Emergency', value: 'emergency', href: '/(app)/routes/emergency' },
+  ],
   complaints: [
     { label: 'Complaints', value: 'complaints', href: '/(app)/complaints' },
     { label: 'KPIs', value: 'kpi', href: '/(app)/complaints/kpi' },
@@ -106,6 +110,7 @@ export const SECTION_ROUTES = new Set<string>([
   'trips/exceptions',
   'people/index',
   'routes/index',
+  'routes/emergency',
   'complaints/index',
   'complaints/kpi',
   'payments/index',
@@ -152,6 +157,7 @@ export const PARENT_ROUTE: Record<string, string> = {
   // Routes & vehicles — both belong to the Routes list.
   'routes/[routeId]': '/(app)/routes',
   'routes/vehicle/[vehicleId]': '/(app)/routes',
+  'routes/emergency': '/(app)/routes',
   // Complaints
   'complaints/[id]': '/(app)/complaints',
   // Settings

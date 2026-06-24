@@ -33,9 +33,20 @@ export default function NewStudentScreen() {
 
   const isLoading = agLoading || routesLoading || stopsLoading;
 
+  // Seat-capacity guard (fleet-integrity §1): a new student is created ACTIVE, so
+  // assigning them to a route whose designated bus is full is blocked here (and
+  // hard-blocked on the backend).
+  const selectedRoute = routes.find((r) => r.id === routeId);
+  const routeFull =
+    !!selectedRoute && selectedRoute.capacity != null && (selectedRoute.seatsUsed ?? 0) >= selectedRoute.capacity;
+
   const handleSave = () => {
     if (!name.trim()) { toast.error('Student name is required'); return; }
     if (!ageGroupId) { toast.error('Please select an age group'); return; }
+    if (routeFull) {
+      toast.error(`Route bus is full (${selectedRoute!.seatsUsed ?? 0}/${selectedRoute!.capacity})`);
+      return;
+    }
     const phoneDigits = parentPhone.replace(/\D/g, '');
     if (phoneDigits && phoneDigits.length !== 10) {
       toast.error("Parent's mobile number must be 10 digits");
@@ -114,18 +125,30 @@ export default function NewStudentScreen() {
           >
             <Text style={[styles.chipText, !routeId && styles.chipTextActive]}>None</Text>
           </TouchableOpacity>
-          {routes.map((r) => (
-            <TouchableOpacity
-              key={r.id}
-              style={[styles.chip, routeId === r.id && styles.chipActive]}
-              onPress={() => { setRouteId(r.id); setStopId(''); }}
-            >
-              <Text style={[styles.chipText, routeId === r.id && styles.chipTextActive]}>
-                {r.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {routes.map((r) => {
+            const full = r.capacity != null && (r.seatsUsed ?? 0) >= r.capacity;
+            return (
+              <TouchableOpacity
+                key={r.id}
+                style={[styles.chip, routeId === r.id && styles.chipActive]}
+                onPress={() => { setRouteId(r.id); setStopId(''); }}
+              >
+                <Text style={[styles.chipText, routeId === r.id && styles.chipTextActive]}>
+                  {r.name}{r.capacity != null ? ` · ${r.seatsUsed ?? 0}/${r.capacity}${full ? ' FULL' : ''}` : ''}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
+
+        {routeFull && (
+          <View style={styles.capacityWarn}>
+            <Text style={styles.capacityWarnText}>
+              ⚠ Route bus is full ({selectedRoute!.seatsUsed ?? 0}/{selectedRoute!.capacity}). Pick another route or
+              assign a bigger bus before adding a student here.
+            </Text>
+          </View>
+        )}
 
         {routeId && (
           <>
@@ -185,6 +208,7 @@ export default function NewStudentScreen() {
         title="Add Student"
         onPress={handleSave}
         loading={createStudent.isPending}
+        disabled={routeFull}
         fullWidth
         style={styles.saveBtn}
       />
@@ -223,5 +247,11 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
   chipTextActive: { color: colors.white },
+  capacityWarn: {
+    backgroundColor: colors.warningBg, borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.warning,
+    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
+  },
+  capacityWarnText: { fontSize: fontSizes.sm, color: colors.warningDark, lineHeight: 18 },
   saveBtn: { marginTop: spacing[2] },
 });

@@ -14,6 +14,7 @@ import {
   useDeleteMember,
   useDriverProfile,
   useUpsertDriverProfile,
+  useRoutes,
 } from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
@@ -21,6 +22,7 @@ import { goBackTo } from '../../../../lib/nav';
 const ROLES = [
   { value: 'DRIVER', label: 'Driver' },
   { value: 'CONDUCTOR', label: 'Conductor' },
+  { value: 'TEACHER', label: 'Teacher' },
   { value: 'ADMIN', label: 'Admin' },
   { value: 'TRANSPORT_MANAGER', label: 'Transport Manager' },
 ] as const;
@@ -35,6 +37,7 @@ export default function StaffDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { data: member, isLoading } = useMemberById(id);
+  const { data: routes = [] } = useRoutes();
   const updateMember = useUpdateMember();
   const deactivateMember = useDeactivateMember();
   const reactivateMember = useReactivateMember();
@@ -44,13 +47,16 @@ export default function StaffDetailScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<string>('');
+  const [routeId, setRouteId] = useState('');
 
-  // Hydrate the form once the member loads.
+  // Hydrate the form once the member loads. The form manages a single route
+  // assignment (RouteStaff[0]).
   useEffect(() => {
     if (member) {
       setName(member.person.name);
       setEmail(member.person.email ?? '');
       setRole(member.role);
+      setRouteId(member.routeStaff?.[0]?.route.id ?? '');
     }
   }, [member]);
 
@@ -66,8 +72,9 @@ export default function StaffDetailScreen() {
 
   const handleSave = () => {
     if (!name.trim()) { toast.error('Name is required'); return; }
+    // routeId '' clears the route assignment on the backend.
     updateMember.mutate(
-      { id, name: name.trim(), email: email.trim() || undefined, role },
+      { id, name: name.trim(), email: email.trim() || undefined, role, routeId },
       {
         onSuccess: () => toast.success('Staff member updated'),
         onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to update'),
@@ -186,6 +193,31 @@ export default function StaffDetailScreen() {
             >
               <Text style={[styles.chipText, role === r.value && styles.chipTextActive]}>
                 {r.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Route (rides aboard)</Text>
+        <Text style={styles.hint}>
+          Assign this staff member — typically a teacher — to a route so they show up in
+          the emergency "who's on the bus" lookup. The bus comes from the route.
+        </Text>
+        <View style={styles.chipRow}>
+          <TouchableOpacity
+            style={[styles.chip, !routeId && styles.chipActive]}
+            onPress={() => setRouteId('')}
+          >
+            <Text style={[styles.chipText, !routeId && styles.chipTextActive]}>None</Text>
+          </TouchableOpacity>
+          {routes.map((r) => (
+            <TouchableOpacity
+              key={r.id}
+              style={[styles.chip, routeId === r.id && styles.chipActive]}
+              onPress={() => setRouteId(r.id)}
+            >
+              <Text style={[styles.chipText, routeId === r.id && styles.chipTextActive]}>
+                {r.name}
               </Text>
             </TouchableOpacity>
           ))}

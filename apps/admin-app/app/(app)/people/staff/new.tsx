@@ -4,13 +4,14 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, useToast } from '@yaanam/ui';
-import { useCreateMember } from '@yaanam/api-client';
+import { useCreateMember, useRoutes } from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
 /** Roles an admin may provision here (PRD-01 FR-13). Mirrors the backend STAFF_ROLES. */
 const ROLES = [
   { value: 'DRIVER', label: 'Driver' },
   { value: 'CONDUCTOR', label: 'Conductor' },
+  { value: 'TEACHER', label: 'Teacher' },
   { value: 'ADMIN', label: 'Admin' },
   { value: 'TRANSPORT_MANAGER', label: 'Transport Manager' },
 ] as const;
@@ -20,8 +21,10 @@ export default function NewStaffScreen() {
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<string>('DRIVER');
   const [email, setEmail] = useState('');
+  const [routeId, setRouteId] = useState('');
 
   const createMember = useCreateMember();
+  const { data: routes = [] } = useRoutes();
   const toast = useToast();
 
   const handleSave = () => {
@@ -39,6 +42,7 @@ export default function NewStaffScreen() {
         phone: phoneDigits,
         role,
         email: email.trim() || undefined,
+        routeId: routeId || undefined,
       },
       {
         onSuccess: () => { toast.success('Staff member added'); goBackTo('people/staff/new'); },
@@ -104,6 +108,33 @@ export default function NewStaffScreen() {
             >
               <Text style={[styles.chipText, role === r.value && styles.chipTextActive]}>
                 {r.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </Card>
+
+      <Card style={styles.section}>
+        <Text style={styles.sectionTitle}>Route Assignment</Text>
+        <Text style={styles.hint}>
+          Mark this staff member — typically a teacher — as riding a route so we know
+          who's aboard in an emergency. The bus is the one assigned to the route.
+        </Text>
+        <View style={styles.chipRow}>
+          <TouchableOpacity
+            style={[styles.chip, !routeId && styles.chipActive]}
+            onPress={() => setRouteId('')}
+          >
+            <Text style={[styles.chipText, !routeId && styles.chipTextActive]}>None</Text>
+          </TouchableOpacity>
+          {routes.map((r) => (
+            <TouchableOpacity
+              key={r.id}
+              style={[styles.chip, routeId === r.id && styles.chipActive]}
+              onPress={() => setRouteId(r.id)}
+            >
+              <Text style={[styles.chipText, routeId === r.id && styles.chipTextActive]}>
+                {r.name}
               </Text>
             </TouchableOpacity>
           ))}

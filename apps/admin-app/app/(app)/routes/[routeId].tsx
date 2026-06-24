@@ -7,7 +7,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge, useToast } from '@yaanam/ui';
 import {
   useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useReactivateRoute, useDeleteRoute,
-  useStops, useCreateStop, useAddStop, useUpdateStop,
+  useStops, useCreateStop, useAddStop, useUpdateStop, useVehicles,
 } from '@yaanam/api-client';
 import type { Stop } from '@yaanam/api-client';
 import { goBackTo } from '../../../lib/nav';
@@ -31,6 +31,7 @@ export default function RouteDetailScreen() {
 
   const { data: route, isLoading } = useRouteById(isNew ? '' : routeId);
   const { data: allStops = [] } = useStops();
+  const { data: vehicles = [] } = useVehicles();
   const createRoute = useCreateRoute();
   const updateRoute = useUpdateRoute();
   const deactivateRoute = useDeactivateRoute();
@@ -43,6 +44,7 @@ export default function RouteDetailScreen() {
 
   const [name, setName] = useState('');
   const [direction, setDirection] = useState<typeof DIRECTIONS[number]>('PICKUP');
+  const [vehicleId, setVehicleId] = useState('');
   const [editing, setEditing] = useState(isNew);
 
   // Stop creation form
@@ -62,6 +64,7 @@ export default function RouteDetailScreen() {
     if (route) {
       setName(route.name);
       setDirection(route.direction);
+      setVehicleId(route.vehicleId ?? '');
     }
   }, [route]);
 
@@ -79,8 +82,9 @@ export default function RouteDetailScreen() {
         },
       );
     } else {
+      // vehicleId '' clears the designated bus on the backend.
       updateRoute.mutate(
-        { id: routeId, name: name.trim() },
+        { id: routeId, name: name.trim(), vehicleId },
         {
           onSuccess: () => { toast.success('Route updated'); setEditing(false); },
           onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed'),
@@ -222,6 +226,11 @@ export default function RouteDetailScreen() {
   const noStops = !isNew && !!route && routeStops.length === 0;
   const noRiders = !isNew && !!route && routeStops.length > 0 && eligibleRiders === 0;
 
+  // Seat capacity (fleet-integrity §1): seats used vs the designated bus's capacity.
+  const seatsUsed = route?.seatsUsed ?? 0;
+  const capacity = route?.capacity ?? null;
+  const capacityFull = capacity != null && seatsUsed >= capacity;
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {!isNew && route && (
@@ -287,9 +296,65 @@ export default function RouteDetailScreen() {
         )}
 
         {editing && (
-          <Button title={isNew ? 'Create Route' : 'Save Name'} onPress={handleSave} loading={isSaving} fullWidth />
+          <Button title={isNew ? 'Create Route' : 'Save Changes'} onPress={handleSave} loading={isSaving} fullWidth />
         )}
       </Card>
+
+      {/* Designated bus & seat capacity — shown for existing routes */}
+      {!isNew && route && (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Bus & Capacity</Text>
+
+          {/* Seats used vs the designated bus's capacity. */}
+          <View style={[styles.capacityRow, capacityFull && styles.capacityRowFull]}>
+            <Text style={[styles.capacityValue, capacityFull && styles.capacityValueFull]}>
+              {capacity != null ? `${seatsUsed} / ${capacity}` : `${seatsUsed} / —`}
+            </Text>
+            <Text style={[styles.capacityLabel, capacityFull && styles.capacityValueFull]}>
+              {capacity == null
+                ? 'seats used · no bus assigned'
+                : capacityFull
+                  ? `seats used · bus is full`
+                  : `seats used · ${capacity - seatsUsed} free`}
+            </Text>
+          </View>
+
+          <Text style={styles.label}>Designated Bus</Text>
+          {editing ? (
+            <View style={styles.chipRow}>
+              <TouchableOpacity
+                style={[styles.chip, !vehicleId && styles.chipActive]}
+                onPress={() => setVehicleId('')}
+              >
+                <Text style={[styles.chipText, !vehicleId && styles.chipTextActive]}>None</Text>
+              </TouchableOpacity>
+              {vehicles
+                .filter((v) => v.status === 'ACTIVE' || v.id === vehicleId)
+                .map((v) => (
+                  <TouchableOpacity
+                    key={v.id}
+                    style={[styles.chip, vehicleId === v.id && styles.chipActive]}
+                    onPress={() => setVehicleId(v.id)}
+                  >
+                    <Text style={[styles.chipText, vehicleId === v.id && styles.chipTextActive]}>
+                      {v.regNumber} · {v.capacity} seats
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+            </View>
+          ) : (
+            <Text style={styles.valueText}>
+              {route.vehicle ? `${route.vehicle.regNumber} · ${route.vehicle.capacity} seats` : 'No bus assigned'}
+            </Text>
+          )}
+          {editing && (
+            <Text style={styles.hint}>
+              Assign the bus that serves this route. Its capacity is enforced when
+              students are added — a full bus blocks new assignments.
+            </Text>
+          )}
+        </Card>
+      )}
 
       {/* Stops list — shown for existing routes */}
       {!isNew && (
@@ -476,4 +541,13 @@ const styles = StyleSheet.create({
   warnBanner: { backgroundColor: colors.warningBg, borderWidth: 1, borderColor: colors.warning, gap: spacing[1] },
   warnBannerTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.warningDark },
   warnBannerText: { fontSize: fontSizes.sm, color: colors.warningDark, lineHeight: 18 },
+  capacityRow: {
+    flexDirection: 'row', alignItems: 'baseline', gap: spacing[2],
+    backgroundColor: colors.backgroundMuted, borderRadius: radius.lg,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+  },
+  capacityRowFull: { backgroundColor: colors.warningBg },
+  capacityValue: { fontSize: fontSizes.xl, fontWeight: fontWeights.extrabold, color: colors.primary },
+  capacityValueFull: { color: colors.warningDark },
+  capacityLabel: { fontSize: fontSizes.sm, color: colors.textSecondary },
 });

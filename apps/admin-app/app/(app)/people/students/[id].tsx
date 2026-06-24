@@ -50,8 +50,23 @@ export default function StudentDetailScreen() {
     return onRoute.length ? onRoute : stops;
   })();
 
+  // Seat-capacity guard (fleet-integrity §1): only a MOVE onto a different route can
+  // overfill — staying on the current route (the student already holds a seat) never
+  // does. The backend hard-blocks regardless; this is the friendly pre-check.
+  const selectedRoute = routes.find((r) => r.id === routeId);
+  const movingToNewRoute = !!routeId && routeId !== student?.routeId;
+  const wouldOverfill =
+    !!selectedRoute &&
+    selectedRoute.capacity != null &&
+    movingToNewRoute &&
+    (selectedRoute.seatsUsed ?? 0) >= selectedRoute.capacity;
+
   const handleSave = () => {
     if (!name.trim()) { toast.error('Name is required'); return; }
+    if (wouldOverfill) {
+      toast.error(`Route bus is full (${selectedRoute!.seatsUsed ?? 0}/${selectedRoute!.capacity})`);
+      return;
+    }
     updateStudent.mutate(
       { id, name: name.trim(), regId: regId.trim() || undefined, ageGroupId, routeId: routeId || undefined, stopId: stopId || undefined },
       {
@@ -223,18 +238,32 @@ export default function StudentDetailScreen() {
             >
               <Text style={[styles.chipText, !routeId && styles.chipTextActive]}>None</Text>
             </TouchableOpacity>
-            {routes.map((r) => (
-              <TouchableOpacity
-                key={r.id}
-                style={[styles.chip, routeId === r.id && styles.chipActive]}
-                onPress={() => { setRouteId(r.id); setStopId(''); }}
-              >
-                <Text style={[styles.chipText, routeId === r.id && styles.chipTextActive]}>{r.name}</Text>
-              </TouchableOpacity>
-            ))}
+            {routes.map((r) => {
+              const full = r.capacity != null && (r.seatsUsed ?? 0) >= r.capacity && r.id !== student.routeId;
+              return (
+                <TouchableOpacity
+                  key={r.id}
+                  style={[styles.chip, routeId === r.id && styles.chipActive]}
+                  onPress={() => { setRouteId(r.id); setStopId(''); }}
+                >
+                  <Text style={[styles.chipText, routeId === r.id && styles.chipTextActive]}>
+                    {r.name}{r.capacity != null ? ` · ${r.seatsUsed ?? 0}/${r.capacity}${full ? ' FULL' : ''}` : ''}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         ) : (
           <Text style={styles.valueText}>{routes.find((r) => r.id === routeId)?.name ?? '—'}</Text>
+        )}
+
+        {editing && wouldOverfill && (
+          <View style={styles.capacityWarn}>
+            <Text style={styles.capacityWarnText}>
+              ⚠ Route bus is full ({selectedRoute!.seatsUsed ?? 0}/{selectedRoute!.capacity}). Pick another route or
+              assign a bigger bus before moving this student here.
+            </Text>
+          </View>
         )}
 
         {(editing && routeId) && (
@@ -265,6 +294,7 @@ export default function StudentDetailScreen() {
           title="Save Changes"
           onPress={handleSave}
           loading={updateStudent.isPending}
+          disabled={wouldOverfill}
           fullWidth
           style={styles.saveBtn}
         />
@@ -359,6 +389,12 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
   chipTextActive: { color: colors.white },
+  capacityWarn: {
+    backgroundColor: colors.warningBg, borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.warning,
+    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
+  },
+  capacityWarnText: { fontSize: fontSizes.sm, color: colors.warningDark, lineHeight: 18 },
   saveBtn: { marginTop: spacing[2] },
   guardianRow: {
     flexDirection: 'row', alignItems: 'center', gap: spacing[3],

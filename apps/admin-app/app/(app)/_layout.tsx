@@ -61,6 +61,7 @@ export default function AppLayout() {
       {/* ── Secondary section screens (reached via SubNav, kept as hidden routes) ── */}
       <Drawer.Screen name="dashboard/trends" options={{ title: 'Trends', ...SECTION }} />
       <Drawer.Screen name="trips/exceptions" options={{ title: 'Exceptions', ...SECTION }} />
+      <Drawer.Screen name="routes/emergency" options={{ title: 'Emergency Contacts', ...SECTION }} />
       <Drawer.Screen name="complaints/kpi" options={{ title: 'Complaint KPIs', ...SECTION }} />
       <Drawer.Screen name="payments/reconciliation" options={{ title: 'Reconciliation', ...SECTION }} />
       <Drawer.Screen name="payments/fee-plans" options={{ title: 'Fee Plans', ...SECTION }} />

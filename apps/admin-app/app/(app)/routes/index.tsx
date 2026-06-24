@@ -7,8 +7,10 @@ import {
 } from '@yaanam/ui';
 import { useRoutes } from '@yaanam/api-client';
 import { AdminScreen, HeaderAction } from '../../../components/AdminScreen';
+import { SubNav } from '../../../components/SubNav';
 import { GridList } from '../../../components/widgets';
 import { useResponsive } from '../../../hooks/useResponsive';
+import { SUBNAV } from '../../../lib/nav';
 
 /** Status filter chips — `''` = all (deactivated routes set status INACTIVE). */
 const STATUS_FILTERS = [
@@ -28,6 +30,7 @@ export default function RoutesScreen() {
       title="Routes"
       subtitle={isLoading ? undefined : `${list.length} route${list.length === 1 ? '' : 's'}`}
       headerRight={<HeaderAction label="+ Add Route" onPress={() => router.push('/(app)/routes/new' as never)} />}
+      subnav={<SubNav segments={SUBNAV.routes} value="routes" />}
     >
       {isLoading ? (
         <View style={styles.skeletonWrap}>
@@ -70,6 +73,8 @@ export default function RoutesScreen() {
             renderItem={(item) => {
               const noStops = (item.stops?.length ?? 0) === 0;
               const noRiders = (item.eligibleRiderCount ?? 0) === 0;
+              const seatsUsed = item.seatsUsed ?? 0;
+              const capacityFull = item.capacity != null && seatsUsed >= item.capacity;
               return (
                 <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/routes/${item.id}` as never)}>
                   <Card shadow="sm" style={styles.card}>
@@ -89,6 +94,15 @@ export default function RoutesScreen() {
                         📍 {item.stops.map((rs: any) => rs.stop.name).join('  →  ')}
                       </Text>
                     ) : null}
+                    {/* Seat capacity: assigned active students vs the designated bus. */}
+                    <Text
+                      style={[styles.seatLine, capacityFull && styles.seatLineFull]}
+                      numberOfLines={1}
+                    >
+                      {item.vehicle
+                        ? `🚍 ${item.vehicle.regNumber} · ${seatsUsed}/${item.capacity} seats${capacityFull ? ' · FULL' : ''}`
+                        : `🚍 No bus assigned · ${seatsUsed} assigned`}
+                    </Text>
                     {/* Empty-route guard: a route with no stops or no stop-pinned active
                         riders can't be scheduled — flag it so the admin can fix it. */}
                     {noStops || noRiders ? (
@@ -141,6 +155,8 @@ const styles = StyleSheet.create({
   metricValueSmall: { fontSize: fontSizes.sm, fontWeight: fontWeights.bold, color: colors.textPrimary },
   metricLabel: { fontSize: fontSizes.xs, color: colors.textSecondary },
   stops: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 20 },
+  seatLine: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
+  seatLineFull: { color: colors.warningDark, fontWeight: fontWeights.semibold },
   warnRow: {
     backgroundColor: colors.warningBg, borderRadius: radius.md,
     paddingHorizontal: spacing[3], paddingVertical: spacing[2],
