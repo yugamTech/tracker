@@ -227,10 +227,29 @@ export const NOTIFICATION_EVENT_SPECS: Record<NotifCategory, NotificationEventSp
     templateId: 'complaint-update.v1',
     recipients: 'guardian who filed the complaint',
     title: (vars) => v(vars, 'status') === 'RESOLVED' ? 'Complaint resolved' : 'Complaint update',
+    // Name WHO handled it (resolverName) when known, so the parent sees who acted.
+    body: (vars) => {
+      const by = v(vars, 'resolverName') ? ` by ${v(vars, 'resolverName')}` : '';
+      return v(vars, 'note')
+        ? `Your complaint was resolved${by}: ${v(vars, 'note')}`
+        : `Your complaint is now ${v(vars, 'status', 'updated')}${by}.`;
+    },
+  },
+  // Parent marked a resolution NOT satisfactory: the complaint was reopened and
+  // escalated. Targets higher authority (FOUNDER/SUPER_ADMIN, else ADMIN/
+  // TRANSPORT_MANAGER) — recipient resolution happens in RatingsService.
+  [NotifCategory.COMPLAINT_ESCALATED]: {
+    eventType: NotifCategory.COMPLAINT_ESCALATED,
+    channels: [NotifChannel.PUSH],
+    dedupWindowMs: 60_000,
+    priority: NotifPriority.HIGH,
+    templateId: 'complaint-escalated.v1',
+    recipients: 'higher authority (FOUNDER/SUPER_ADMIN, else ADMIN/TRANSPORT_MANAGER)',
+    title: () => 'Complaint reopened — needs attention',
     body: (vars) =>
-      v(vars, 'note')
-        ? `Your complaint was resolved: ${v(vars, 'note')}`
-        : `Your complaint is now ${v(vars, 'status', 'updated')}.`,
+      `A parent was not satisfied with a resolved ${v(vars, 'category', 'complaint').replace(/_/g, ' ').toLowerCase()} complaint (rated ${v(vars, 'rating', '?')}★)${
+        v(vars, 'comment') ? `: ${v(vars, 'comment')}` : ''
+      }. It has been reopened for further action.`,
   },
   [NotifCategory.PAYMENT_DUE]: {
     eventType: NotifCategory.PAYMENT_DUE,

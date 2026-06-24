@@ -37,6 +37,10 @@ export enum NotifCategory {
   PICKUP_CANCELLED = 'PICKUP_CANCELLED',
   OVERSPEED = 'OVERSPEED',
   COMPLAINT_UPDATE = 'COMPLAINT_UPDATE',
+  // Raised when a parent marks a resolution NOT satisfactory: the complaint is
+  // reopened and escalated to higher authority (FOUNDER/SUPER_ADMIN, else
+  // ADMIN/TRANSPORT_MANAGER) so they can take further action.
+  COMPLAINT_ESCALATED = 'COMPLAINT_ESCALATED',
   PAYMENT_DUE = 'PAYMENT_DUE',
   PAYMENT_SUCCESS = 'PAYMENT_SUCCESS',
 }

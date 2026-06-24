@@ -45,8 +45,8 @@ export const useAllComplaints = (params?: ComplaintFilters) =>
 export const useUpdateComplaintStatus = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status, note }: { id: string; status: string; note?: string }) =>
-      complaintsApi.updateComplaintStatus(id, status, note),
+    mutationFn: ({ id, status, note, override }: { id: string; status: string; note?: string; override?: boolean }) =>
+      complaintsApi.updateComplaintStatus(id, status, note, override),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: complaintKeys.all });
       qc.invalidateQueries({ queryKey: ['complaints', 'all'] });

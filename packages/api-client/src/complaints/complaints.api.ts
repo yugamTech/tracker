@@ -37,8 +37,8 @@ export const complaintsApi = {
     return data.data as Complaint[];
   },
 
-  updateComplaintStatus: async (id: string, status: string, note?: string) => {
-    const { data } = await apiClient.patch(`/complaints/${id}/status`, { status, note });
+  updateComplaintStatus: async (id: string, status: string, note?: string, override?: boolean) => {
+    const { data } = await apiClient.patch(`/complaints/${id}/status`, { status, note, override });
     return data.data as Complaint;
   },
 };

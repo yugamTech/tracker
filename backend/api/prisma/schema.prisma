@@ -27,6 +27,7 @@ model Person {
   structuredMessages StructuredMessage[]
   drivenTrips        Trip[]                   @relation("TripDriver")
   conductedTrips     Trip[]                   @relation("TripConductor")
+  raisedComplaints   Complaint[]              @relation("ComplaintRaiser")
 }
 
 enum PersonStatus {
@@ -666,6 +667,10 @@ model Complaint {
   createdAt   DateTime        @default(now())
   resolvedAt  DateTime?
 
+  // `raisedBy` is the personId of the guardian who filed the complaint. The
+  // relation lets the admin queue/detail join through to the parent's name/phone
+  // ("who raised it") without a second lookup — previously raisedBy was never joined.
+  raiser              Person                @relation("ComplaintRaiser", fields: [raisedBy], references: [id])
   student             Student?              @relation(fields: [studentId], references: [id])
   trip                Trip?                 @relation(fields: [tripId], references: [id])
   events              ComplaintEvent[]
@@ -674,6 +679,7 @@ model Complaint {
 
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
+  @@index([raisedBy])
 }
 
 enum ComplaintStatus {
@@ -708,10 +714,16 @@ model ComplaintAttachment {
   complaint Complaint @relation(fields: [complaintId], references: [id])
 }
 
+// The parent's satisfaction step after a complaint is RESOLVED. 1:1 with the
+// complaint. `satisfied` is the explicit yes/no the close/escalate gate keys off
+// (a high star count is not assumed to mean satisfied). `ratedBy` is the parent
+// personId who submitted it — always the complaint's raiser.
 model ResolutionRating {
   id          String   @id @default(uuid())
   complaintId String   @unique
+  ratedBy     String
   rating      Int
+  satisfied   Boolean
   comment     String?
   ts          DateTime @default(now())
 

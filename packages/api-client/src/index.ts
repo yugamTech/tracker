@@ -123,6 +123,11 @@ export type { CreateComplaintDto } from './complaints/complaints.api';
 export { complaintKeys, useMyComplaints, useComplaintById, useCreateComplaint, useAllComplaints, useUpdateComplaintStatus } from './complaints/complaints.hooks';
 export type { ComplaintFilters } from './complaints/complaints.hooks';
 
+// Ratings (complaint resolution satisfaction)
+export { ratingsApi } from './ratings/ratings.api';
+export type { ResolutionRating, ResolutionRatingInput } from './ratings/ratings.api';
+export { useSubmitResolutionRating } from './ratings/ratings.hooks';
+
 // Payments
 export { paymentsApi } from './payments/payments.api';
 export { paymentKeys, useMyInvoices, useInvoiceById, useMandate, useInitiatePayment, useCreateMandate } from './payments/payments.hooks';

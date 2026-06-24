@@ -6,7 +6,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { ComplaintsService } from './complaints.service';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
 import { ActiveMembershipDec } from '../../common/decorators/active-membership.decorator';
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsBoolean } from 'class-validator';
 import { Role } from '@yaanam/types';
 import type { ActiveMembership } from '@yaanam/types';
 
@@ -20,6 +20,9 @@ class CreateComplaintDto {
 class UpdateComplaintStatusDto {
   @IsString() status!: string;
   @IsOptional() @IsString() note?: string;
+  // Explicit admin decision to CLOSE without the parent's feedback. Recorded on
+  // the audit trail by the service; ignored for any non-CLOSE transition.
+  @IsOptional() @IsBoolean() override?: boolean;
 }
 
 @ApiTags('complaints')
@@ -77,6 +80,6 @@ export class ComplaintsController {
     @Body() dto: UpdateComplaintStatusDto,
     @ActiveMembershipDec() membership: ActiveMembership,
   ) {
-    return this.complaintsService.updateStatus(id, dto.status, membership.personId, dto.note);
+    return this.complaintsService.updateStatus(id, dto.status, membership.personId, dto.note, dto.override);
   }
 }

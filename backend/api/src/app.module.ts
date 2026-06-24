@@ -21,6 +21,7 @@ import { DailyChecksModule } from './modules/daily-checks/daily-checks.module';
 import { DriverProfilesModule } from './modules/driver-profiles/driver-profiles.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ComplaintsModule } from './modules/complaints/complaints.module';
+import { RatingsModule } from './modules/ratings/ratings.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 
@@ -47,6 +48,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     DriverProfilesModule,
     NotificationsModule,
     ComplaintsModule,
+    RatingsModule,
     PaymentsModule,
     AnalyticsModule,
   ],
