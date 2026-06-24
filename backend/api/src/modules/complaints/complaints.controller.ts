@@ -65,7 +65,13 @@ export class ComplaintsController {
     return this.complaintsService.findById(id, tenantId);
   }
 
+  // Status changes (incl. closing/resolving a complaint) are an admin action —
+  // a parent can CREATE and VIEW their own complaints, but must never be able to
+  // mutate a complaint's status. Gated to ADMIN / TRANSPORT_MANAGER, mirroring
+  // `listAll` above (RolesGuard is a no-op on the other methods without @Roles).
   @Patch(':id/status')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
   updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateComplaintStatusDto,
