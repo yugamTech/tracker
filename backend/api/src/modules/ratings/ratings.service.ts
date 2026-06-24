@@ -60,8 +60,9 @@ export class RatingsService {
     const [, updated] = await this.prisma.$transaction([
       this.prisma.resolutionRating.upsert({
         where: { complaintId },
-        create: { complaintId, ratedBy: personId, rating, satisfied, comment },
-        update: { ratedBy: personId, rating, satisfied, comment, ts: new Date() },
+        // `?? null` so re-rating (after a reopen→resolve) can clear a prior comment.
+        create: { complaintId, ratedBy: personId, rating, satisfied, comment: comment ?? null },
+        update: { ratedBy: personId, rating, satisfied, comment: comment ?? null, ts: new Date() },
       }),
       this.prisma.complaint.update({
         where: { id: complaintId },
