@@ -3,18 +3,22 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator
 import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, useToast } from '@yaanam/ui';
 import { useComplaintById, useUpdateComplaintStatus } from '@yaanam/api-client';
+import { COMPLAINT_TRANSITIONS, ComplaintStatus } from '@yaanam/types';
 
-const STATUS_FLOW = ['RECEIVED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'] as const;
-type ComplaintStatus = typeof STATUS_FLOW[number];
-
-const STATUS_V: Record<string, 'warning' | 'info' | 'success' | 'default'> = {
-  RECEIVED: 'warning', IN_PROGRESS: 'info', RESOLVED: 'success', CLOSED: 'default',
+const STATUS_V: Record<string, 'warning' | 'info' | 'success' | 'default' | 'error'> = {
+  RECEIVED: 'warning', IN_PROGRESS: 'info', COUNSELLING_CALL: 'info', ADMIN_CALL: 'info',
+  VISIT: 'info', RESOLVED: 'success', PARENT_RATING: 'success', REOPENED: 'error', CLOSED: 'default',
 };
 
 const EVENT_COLORS: Record<string, string> = {
   RECEIVED: colors.gray400,
   IN_PROGRESS: '#F59E0B',
+  COUNSELLING_CALL: '#F59E0B',
+  ADMIN_CALL: '#F59E0B',
+  VISIT: '#F59E0B',
   RESOLVED: '#10B981',
+  PARENT_RATING: '#10B981',
+  REOPENED: '#EF4444',
   ESCALATED: '#EF4444',
   CLOSED: colors.gray400,
 };
@@ -48,12 +52,20 @@ export default function AdminComplaintDetailScreen() {
   const student = (complaint as any).student;
   const trip = (complaint as any).trip;
   const route = trip?.route;
-  const currentIdx = STATUS_FLOW.indexOf(complaint.status as ComplaintStatus);
-  const nextStatus = currentIdx >= 0 && currentIdx < STATUS_FLOW.length - 1
-    ? STATUS_FLOW[currentIdx + 1]
-    : null;
+  const raiser = (complaint as any).raiser as { name?: string; phone?: string } | undefined;
+  const rating = (complaint as any).resolutionRating as
+    | { rating: number; satisfied: boolean; comment?: string; ts: string }
+    | null
+    | undefined;
+  // Only valid next statuses are offered (single-sourced from @yaanam/types so the
+  // backend's validation and these buttons never drift). RESOLVED & CLOSED get the
+  // primary highlight as the usual forward actions.
+  const allowed = COMPLAINT_TRANSITIONS[complaint.status] ?? [];
+  // The parent has responded once a resolution rating exists — the close gate.
+  const parentResponded = !!rating;
 
   const handleStatusChange = (toStatus: string) => {
+    if (toStatus === 'CLOSED') { handleClose(); return; }
     if (toStatus === 'RESOLVED') {
       // Resolution requires a note so the parent sees what was done.
       setPendingStatus(toStatus);
@@ -62,7 +74,7 @@ export default function AdminComplaintDetailScreen() {
     }
     Alert.alert(
       'Update Status',
-      `Move to ${toStatus.replace('_', ' ')}?`,
+      `Move to ${toStatus.replace(/_/g, ' ')}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -73,6 +85,32 @@ export default function AdminComplaintDetailScreen() {
               { onError: () => toast.error('Failed to update status.') },
             ),
         },
+      ],
+    );
+  };
+
+  const doClose = (override?: boolean) =>
+    updateStatus(
+      { id: complaint.id, status: 'CLOSED', override },
+      { onError: () => toast.error('Failed to close complaint.') },
+    );
+
+  // Close gate: free to close once the parent has responded; otherwise require an
+  // explicit, recorded override (the backend rejects an un-overridden close too).
+  const handleClose = () => {
+    if (parentResponded) {
+      Alert.alert('Close Complaint', 'Close this complaint? The parent has submitted their feedback.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Close', onPress: () => doClose() },
+      ]);
+      return;
+    }
+    Alert.alert(
+      'Parent hasn’t responded',
+      'The parent has not rated the resolution yet. Closing now will be recorded as an admin override.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Close anyway (override)', style: 'destructive', onPress: () => doClose(true) },
       ],
     );
   };
@@ -99,6 +137,13 @@ export default function AdminComplaintDetailScreen() {
             <Badge label={complaint.status.replace('_', ' ')} variant={STATUS_V[complaint.status] ?? 'default'} size="sm" />
           </View>
           <Text style={styles.description}>{complaint.description ?? '—'}</Text>
+          {/* WHO raised it — the parent's name + phone (raisedBy resolved server-side). */}
+          {raiser?.name && (
+            <Text style={styles.meta}>
+              Raised by: <Text style={styles.metaStrong}>{raiser.name}</Text>
+              {raiser.phone ? `  ·  ${raiser.phone}` : ''}
+            </Text>
+          )}
           {student && (
             <Text style={styles.meta}>Student: {student.name ?? student.id}</Text>
           )}
@@ -133,27 +178,63 @@ export default function AdminComplaintDetailScreen() {
           </Card>
         )}
 
-        {/* Status transition controls */}
+        {/* Parent satisfaction — surfaced before the admin can close. */}
+        {rating && (
+          <Card>
+            <Text style={styles.sectionLabel}>Parent Satisfaction</Text>
+            <View style={styles.satRow}>
+              <Text style={styles.satStars}>
+                {'★'.repeat(rating.rating)}{'☆'.repeat(5 - rating.rating)}
+              </Text>
+              <Badge
+                label={rating.satisfied ? 'Satisfied' : 'Not satisfied'}
+                variant={rating.satisfied ? 'success' : 'error'}
+                size="sm"
+              />
+            </View>
+            {rating.comment ? <Text style={styles.satComment}>“{rating.comment}”</Text> : null}
+            <Text style={styles.meta}>
+              Rated: {new Date(rating.ts).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          </Card>
+        )}
+
+        {/* Status transition controls — only valid next statuses (from @yaanam/types). */}
         <Card>
           <Text style={styles.sectionLabel}>Update Status</Text>
-          <View style={styles.statusButtons}>
-            {STATUS_FLOW.filter((s) => s !== complaint.status).map((s) => (
-              <TouchableOpacity
-                key={s}
-                style={[
-                  styles.statusBtn,
-                  s === nextStatus && styles.statusBtnPrimary,
-                  isPending && styles.statusBtnDisabled,
-                ]}
-                onPress={() => handleStatusChange(s)}
-                disabled={isPending}
-              >
-                <Text style={[styles.statusBtnText, s === nextStatus && styles.statusBtnTextPrimary]}>
-                  {s.replace('_', ' ')}
+          {allowed.length === 0 ? (
+            <Text style={styles.meta}>This complaint is closed — no further changes.</Text>
+          ) : (
+            <>
+              {allowed.includes(ComplaintStatus.CLOSED) && !parentResponded && (
+                <Text style={styles.closeHint}>
+                  ⚠ Parent hasn’t rated the resolution yet — closing requires an override.
                 </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+              )}
+              <View style={styles.statusButtons}>
+                {allowed.map((s) => {
+                  const isPrimary = s === ComplaintStatus.RESOLVED || s === ComplaintStatus.CLOSED;
+                  const label = s === ComplaintStatus.CLOSED && !parentResponded ? 'CLOSE (OVERRIDE)' : s.replace(/_/g, ' ');
+                  return (
+                    <TouchableOpacity
+                      key={s}
+                      style={[
+                        styles.statusBtn,
+                        isPrimary && styles.statusBtnPrimary,
+                        isPending && styles.statusBtnDisabled,
+                      ]}
+                      onPress={() => handleStatusChange(s)}
+                      disabled={isPending}
+                    >
+                      <Text style={[styles.statusBtnText, isPrimary && styles.statusBtnTextPrimary]}>
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </>
+          )}
         </Card>
 
         {/* Event log */}
@@ -169,6 +250,7 @@ export default function AdminComplaintDetailScreen() {
                   </View>
                   <View style={styles.timelineBody}>
                     <Text style={styles.timelineType}>{ev.toStatus.replace('_', ' ')}</Text>
+                    {ev.actorName ? <Text style={styles.timelineActor}>by {ev.actorName}</Text> : null}
                     {ev.note ? <Text style={styles.timelineNote}>{ev.note}</Text> : null}
                     <Text style={styles.timelineTime}>
                       {new Date(ev.ts ?? ev.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -227,6 +309,12 @@ const styles = StyleSheet.create({
   category: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   description: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 22 },
   meta: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: spacing[2] },
+  metaStrong: { color: colors.textPrimary, fontWeight: fontWeights.semibold },
+  satRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  satStars: { fontSize: fontSizes.lg, color: '#F59E0B', letterSpacing: 2 },
+  satComment: { fontSize: fontSizes.sm, color: colors.textPrimary, fontStyle: 'italic', marginTop: spacing[2], lineHeight: 20 },
+  closeHint: { fontSize: fontSizes.xs, color: colors.warning, marginBottom: spacing[2], lineHeight: 18 },
+  timelineActor: { fontSize: fontSizes.xs, color: colors.textSecondary, fontWeight: fontWeights.medium },
   sectionLabel: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.textSecondary, marginBottom: spacing[3] },
   sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   tripRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] },

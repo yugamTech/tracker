@@ -16,9 +16,10 @@ import { useResponsive } from '../../../hooks/useResponsive';
 import { SUBNAV } from '../../../lib/nav';
 
 const STATUS_V: Record<string, BadgeVariant> = {
-  RECEIVED: 'warning', IN_PROGRESS: 'info', RESOLVED: 'success', CLOSED: 'default',
+  RECEIVED: 'warning', IN_PROGRESS: 'info', RESOLVED: 'success',
+  PARENT_RATING: 'success', REOPENED: 'error', CLOSED: 'default',
 };
-const STATUS_OPTIONS = ['ALL', 'RECEIVED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
+const STATUS_OPTIONS = ['ALL', 'RECEIVED', 'IN_PROGRESS', 'RESOLVED', 'REOPENED', 'CLOSED'];
 const CATEGORY_OPTIONS = ['ALL', 'TIMING', 'BEHAVIOUR', 'SAFETY', 'VEHICLE', 'ROUTE', 'OTHER'];
 
 export default function AdminComplaintsScreen() {
@@ -137,6 +138,9 @@ export default function AdminComplaintsScreen() {
                       <Badge label={item.status.replace('_', ' ')} variant={STATUS_V[item.status] ?? 'default'} size="sm" />
                     </View>
                     <Text style={styles.desc} numberOfLines={2}>{item.description ?? '—'}</Text>
+                    {(item as any).raiser?.name ? (
+                      <Text style={styles.raiser} numberOfLines={1}>🙋 Raised by {(item as any).raiser.name}</Text>
+                    ) : null}
                     {route ? (
                       <Text style={styles.routeTag} numberOfLines={1}>🛣️ {route.name} · {trip.direction === 'PICKUP' ? 'Pickup' : 'Drop'}</Text>
                     ) : null}
@@ -296,6 +300,7 @@ const styles = StyleSheet.create({
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[2] },
   category: { flex: 1, fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   desc: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 20 },
+  raiser: { fontSize: fontSizes.xs, color: colors.textSecondary, fontWeight: fontWeights.medium },
   routeTag: { fontSize: fontSizes.xs, color: colors.primary, fontWeight: fontWeights.medium },
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing[1] },
   student: { flex: 1, fontSize: fontSizes.xs, color: colors.textMuted },

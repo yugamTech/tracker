@@ -11,6 +11,8 @@ const EVENT_COLORS: Record<string, string> = {
   ASSIGNED: '#0EA5E9',
   IN_PROGRESS: '#F59E0B',
   RESOLVED: '#10B981',
+  PARENT_RATING: '#10B981',
+  REOPENED: '#EF4444',
   ESCALATED: '#EF4444',
   CLOSED: colors.gray400,
 };
@@ -52,6 +54,10 @@ export default function ComplaintDetailScreen() {
   }
 
   const events = (complaint as any).events ?? [];
+  const rating = (complaint as any).resolutionRating as
+    | { rating: number; satisfied: boolean; comment?: string; ts: string }
+    | null
+    | undefined;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -85,6 +91,7 @@ export default function ComplaintDetailScreen() {
                   </View>
                   <View style={styles.timelineBody}>
                     <Text style={styles.timelineType}>{ev.toStatus.replace('_', ' ')}</Text>
+                    {ev.actorName ? <Text style={styles.timelineActor}>by {ev.actorName}</Text> : null}
                     {ev.note ? <Text style={styles.timelineNote}>{ev.note}</Text> : null}
                     <Text style={styles.timelineTime}>
                       {new Date(ev.ts ?? ev.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -96,7 +103,8 @@ export default function ComplaintDetailScreen() {
           </>
         )}
 
-        {complaint.status === 'RESOLVED' && (
+        {/* Satisfaction step — only while RESOLVED and not yet rated. */}
+        {complaint.status === 'RESOLVED' && !rating && (
           <View style={styles.ratingCta}>
             <Text style={styles.ratingCtaText}>How was the resolution?</Text>
             <Button
@@ -106,6 +114,27 @@ export default function ComplaintDetailScreen() {
               fullWidth
             />
           </View>
+        )}
+
+        {/* The feedback the parent already submitted. */}
+        {rating && (
+          <Card>
+            <Text style={styles.sectionTitle}>Your feedback</Text>
+            <View style={styles.feedbackRow}>
+              <Text style={styles.feedbackStars}>
+                {'★'.repeat(rating.rating)}{'☆'.repeat(5 - rating.rating)}
+              </Text>
+              <Text style={[styles.feedbackBadge, { color: rating.satisfied ? colors.success : colors.error }]}>
+                {rating.satisfied ? 'Satisfied' : 'Not resolved'}
+              </Text>
+            </View>
+            {rating.comment ? <Text style={styles.feedbackComment}>{rating.comment}</Text> : null}
+            {!rating.satisfied && (
+              <Text style={styles.feedbackEscalated}>
+                We've reopened this complaint and escalated it for further action.
+              </Text>
+            )}
+          </Card>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -129,8 +158,14 @@ const styles = StyleSheet.create({
   timelineConnector: { width: 2, flex: 1, backgroundColor: colors.border, marginVertical: 4 },
   timelineBody: { flex: 1, paddingBottom: spacing[4], gap: 2 },
   timelineType: { fontSize: fontSizes.xs, fontWeight: fontWeights.bold, color: colors.textSecondary, textTransform: 'uppercase' },
+  timelineActor: { fontSize: fontSizes.xs, color: colors.textSecondary, fontWeight: fontWeights.medium },
   timelineNote: { fontSize: fontSizes.sm, color: colors.textPrimary },
   timelineTime: { fontSize: fontSizes.xs, color: colors.textMuted },
+  feedbackRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing[2] },
+  feedbackStars: { fontSize: fontSizes.lg, color: '#F59E0B', letterSpacing: 2 },
+  feedbackBadge: { fontSize: fontSizes.sm, fontWeight: fontWeights.bold },
+  feedbackComment: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: spacing[2], lineHeight: 20 },
+  feedbackEscalated: { fontSize: fontSizes.xs, color: colors.error, marginTop: spacing[2] },
   ratingCta: {
     backgroundColor: colors.primaryBg, borderRadius: radius.xl, padding: spacing[5],
     gap: spacing[3], borderWidth: 1, borderColor: '#C7D2FE',
