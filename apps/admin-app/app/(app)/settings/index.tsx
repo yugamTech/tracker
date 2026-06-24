@@ -32,10 +32,10 @@ export default function SettingsScreen() {
     {
       title: 'School',
       items: [
-        { label: 'School Profile', icon: '🏫', tint: colors.primaryBg },
-        { label: 'Bell Timings', icon: '⏰', tint: colors.warningBg },
-        { label: 'Alert Numbers', icon: '🚨', tint: colors.errorBg },
-        { label: 'Feature Flags', icon: '🚩', tint: colors.accentBg },
+        { label: 'School Profile', icon: '🏫', tint: colors.primaryBg, onPress: () => router.push('/(app)/settings/school' as never) },
+        { label: 'Bell Timings', icon: '⏰', tint: colors.warningBg, onPress: () => router.push('/(app)/settings/bell-timings' as never) },
+        { label: 'Alert Numbers', icon: '🚨', tint: colors.errorBg, onPress: () => router.push('/(app)/settings/alert-numbers' as never) },
+        { label: 'Feature Flags', icon: '🚩', tint: colors.accentBg, onPress: () => router.push('/(app)/settings/feature-flags' as never) },
       ],
     },
     {
@@ -43,7 +43,7 @@ export default function SettingsScreen() {
       items: [
         { label: 'Profile', icon: '👤', tint: colors.infoBg, onPress: () => router.push('/(app)/settings/profile' as never) },
         { label: 'Notification Config', icon: '🔔', tint: colors.primaryBg, onPress: () => router.push('/(app)/settings/notifications' as never) },
-        { label: 'Privacy & Security', icon: '🔒', tint: colors.successBg },
+        { label: 'Privacy & Security', icon: '🔒', tint: colors.successBg, onPress: () => router.push('/(app)/settings/privacy' as never) },
       ],
     },
   ];

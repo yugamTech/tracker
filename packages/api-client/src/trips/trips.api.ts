@@ -188,6 +188,21 @@ export interface DriverHistoryResponse {
   summary: DriverEfficiency;
 }
 
+/**
+ * One day of tenant-wide operations trend (GET /trips/trends). Rates are 0–1 or
+ * null when nothing ran that day, so charts can render a continuous series.
+ */
+export interface TripTrendDay {
+  /** `YYYY-MM-DD` (local calendar day). */
+  date: string;
+  tripsTotal: number;
+  tripsCompleted: number;
+  /** On-time starts / started trips that day, or null if none started. */
+  onTimeRate: number | null;
+  /** Boarded / expected-to-board riders that day, or null if none expected. */
+  boardingRate: number | null;
+}
+
 export const tripsApi = {
   getMyTrips: async (params?: { page?: number; limit?: number }) => {
     const { data } = await apiClient.get('/trips', { params });
@@ -213,6 +228,12 @@ export const tripsApi = {
   getDriverHistory: async () => {
     const { data } = await apiClient.get('/trips/history');
     return data.data as DriverHistoryResponse;
+  },
+
+  /** Tenant-wide daily operations trend over the last `days` days (admin only). */
+  getTrends: async (days = 7) => {
+    const { data } = await apiClient.get('/trips/trends', { params: { days } });
+    return data.data as TripTrendDay[];
   },
 
   /** Trips on a single calendar day (`YYYY-MM-DD`), morning→evening. */

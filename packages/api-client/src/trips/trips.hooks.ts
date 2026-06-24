@@ -14,6 +14,7 @@ export const tripKeys = {
     [...tripKeys.all, 'completion-exceptions', resolved ?? 'open'] as const,
   overdue: () => [...tripKeys.all, 'overdue'] as const,
   lifecycleAlarms: () => [...tripKeys.all, 'lifecycle-alarms'] as const,
+  trends: (days: number) => [...tripKeys.all, 'trends', days] as const,
 };
 
 export const useTodayTrips = () =>
@@ -50,6 +51,13 @@ export const useDriverHistory = () =>
   useQuery({
     queryKey: tripKeys.history(),
     queryFn: tripsApi.getDriverHistory,
+  });
+
+/** Tenant-wide daily operations trend over the last `days` days (admin Dashboard → Trends). */
+export const useTripTrends = (days = 7) =>
+  useQuery({
+    queryKey: tripKeys.trends(days),
+    queryFn: () => tripsApi.getTrends(days),
   });
 
 export const useTripById = (tripId: string) =>

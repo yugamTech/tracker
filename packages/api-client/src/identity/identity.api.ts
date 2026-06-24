@@ -218,8 +218,61 @@ export const identityApi = {
     return data.data as Array<{ id: string; name: string; pickupTime: string; dropTime: string; _count: { students: number } }>;
   },
 
-  getMyTenant: async () => {
+  getMyTenant: async (): Promise<Tenant> => {
     const { data } = await apiClient.get('/tenants/me');
-    return data.data as { id: string; name: string; timezone: string; locale: string };
+    return data.data as Tenant;
+  },
+
+  updateMyTenant: async (dto: UpdateTenantDto): Promise<Tenant> => {
+    const { data } = await apiClient.patch('/tenants/me', dto);
+    return data.data as Tenant;
   },
 };
+
+/** Per-tenant feature toggle state. `wip` = visible but flagged work-in-progress. */
+export type FeatureFlagState = 'on' | 'off' | 'wip';
+
+/** A single school-day bell entry. `time` is "HH:MM" (24-hour). */
+export interface BellTiming {
+  id: string;
+  label: string;
+  time: string;
+}
+
+/** A single emergency / alert contact. */
+export interface AlertNumber {
+  id: string;
+  label: string;
+  phone: string;
+}
+
+/** Branding config persisted on the tenant (stored now; live theming lands later). */
+export interface BrandingConfig {
+  primaryColor?: string;
+  tagline?: string;
+}
+
+/** The tenant (school) profile + settings, as returned by GET /tenants/me. */
+export interface Tenant {
+  id: string;
+  name: string;
+  timezone: string;
+  locale: string;
+  featureFlags: Record<string, FeatureFlagState>;
+  brandingConfig: BrandingConfig;
+  bellTimings: BellTiming[];
+  alertNumbers: AlertNumber[];
+  status: string;
+  createdAt?: string;
+}
+
+/** Patch payload for the school profile / settings screens — only supplied keys change. */
+export interface UpdateTenantDto {
+  name?: string;
+  timezone?: string;
+  locale?: string;
+  featureFlags?: Record<string, FeatureFlagState>;
+  brandingConfig?: BrandingConfig;
+  bellTimings?: BellTiming[];
+  alertNumbers?: AlertNumber[];
+}

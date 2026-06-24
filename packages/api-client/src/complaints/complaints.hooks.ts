@@ -4,6 +4,7 @@ import { complaintsApi, type CreateComplaintDto } from './complaints.api';
 export const complaintKeys = {
   all: ['complaints'] as const,
   detail: (id: string) => ['complaints', id] as const,
+  kpi: ['complaints', 'kpi'] as const,
 };
 
 export const useMyComplaints = () =>
@@ -41,6 +42,9 @@ export const useAllComplaints = (params?: ComplaintFilters) =>
     queryKey: ['complaints', 'all', params],
     queryFn: () => complaintsApi.getAllComplaints(params),
   });
+
+export const useComplaintKpi = () =>
+  useQuery({ queryKey: complaintKeys.kpi, queryFn: complaintsApi.getKpi });
 
 export const useUpdateComplaintStatus = () => {
   const qc = useQueryClient();

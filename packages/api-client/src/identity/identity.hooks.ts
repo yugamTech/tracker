@@ -154,3 +154,16 @@ export const useAgeGroups = () =>
 
 export const useMyTenant = () =>
   useQuery({ queryKey: identityKeys.tenant, queryFn: identityApi.getMyTenant });
+
+export const useUpdateMyTenant = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: Parameters<typeof identityApi.updateMyTenant>[0]) => identityApi.updateMyTenant(dto),
+    onSuccess: (updated) => {
+      // Seed the cache with the server's response so the Settings screens reflect
+      // the saved state immediately, then revalidate.
+      qc.setQueryData(identityKeys.tenant, updated);
+      qc.invalidateQueries({ queryKey: identityKeys.tenant });
+    },
+  });
+};

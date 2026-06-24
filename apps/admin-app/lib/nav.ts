@@ -162,6 +162,12 @@ export const PARENT_ROUTE: Record<string, string> = {
   'complaints/[id]': '/(app)/complaints',
   // Settings
   'settings/notifications': '/(app)/settings',
+  'settings/profile': '/(app)/settings',
+  'settings/school': '/(app)/settings',
+  'settings/bell-timings': '/(app)/settings',
+  'settings/alert-numbers': '/(app)/settings',
+  'settings/feature-flags': '/(app)/settings',
+  'settings/privacy': '/(app)/settings',
 };
 
 /**

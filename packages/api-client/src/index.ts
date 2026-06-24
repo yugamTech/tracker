@@ -9,11 +9,15 @@ export { useRequestOtp, useVerifyOtp, useMemberships, useSwitchContext, authKeys
 
 // Identity
 export { identityApi } from './identity/identity.api';
-export type { Person, Membership, Student, Member, Parent, ParentStudent, DeleteEligibility } from './identity/identity.api';
+export type {
+  Person, Membership, Student, Member, Parent, ParentStudent, DeleteEligibility,
+  Tenant, UpdateTenantDto, FeatureFlagState, BellTiming, AlertNumber, BrandingConfig,
+} from './identity/identity.api';
 export {
   identityKeys,
   useMe,
   useUpdateMe,
+  useUpdateMyTenant,
   useMyStudents,
   useStudents,
   useStudentById,
@@ -46,7 +50,7 @@ export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, use
 
 // Trips
 export { tripsApi, pickupCancelInfo, PICKUP_CANCEL_CUTOFF_MINUTES } from './trips/trips.api';
-export type { ScheduleTripDto, TripStartExceptionWithTrip, TripCompletionExceptionWithTrip, OverdueTrip, LifecycleAlarmTrip, TripFilters, UpdateTripDto, PickupCancelInfo, HistoryTrip, DriverEfficiency, DriverHistoryResponse } from './trips/trips.api';
+export type { ScheduleTripDto, TripStartExceptionWithTrip, TripCompletionExceptionWithTrip, OverdueTrip, LifecycleAlarmTrip, TripFilters, UpdateTripDto, PickupCancelInfo, HistoryTrip, DriverEfficiency, DriverHistoryResponse, TripTrendDay } from './trips/trips.api';
 export {
   tripKeys,
   useTodayTrips,
@@ -54,6 +58,7 @@ export {
   useFilteredTrips,
   useTripDates,
   useDriverHistory,
+  useTripTrends,
   useTripById,
   useOverdueTrips,
   useLifecycleAlarms,
@@ -119,8 +124,8 @@ export type { KycInput, KycErrors } from './driver-profiles/driver-profiles.vali
 
 // Complaints
 export { complaintsApi } from './complaints/complaints.api';
-export type { CreateComplaintDto } from './complaints/complaints.api';
-export { complaintKeys, useMyComplaints, useComplaintById, useCreateComplaint, useAllComplaints, useUpdateComplaintStatus } from './complaints/complaints.hooks';
+export type { CreateComplaintDto, ComplaintKpi } from './complaints/complaints.api';
+export { complaintKeys, useMyComplaints, useComplaintById, useCreateComplaint, useAllComplaints, useComplaintKpi, useUpdateComplaintStatus } from './complaints/complaints.hooks';
 export type { ComplaintFilters } from './complaints/complaints.hooks';
 
 // Ratings (complaint resolution satisfaction)
