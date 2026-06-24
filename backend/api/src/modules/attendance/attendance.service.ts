@@ -56,6 +56,29 @@ export class AttendanceService {
       };
     }
 
+    // Idempotency for BOARDED: a re-mark of an already-BOARDED rider must NOT
+    // create a second AttendanceEvent nor re-fire the boarding push. The
+    // notification dedup window (60s) can lapse, so without this guard a second
+    // tap minutes later would double-notify the guardians and double the audit
+    // trail. Return the existing boarding event unchanged so the caller (and the
+    // trip:attendance fan-out) still sees a consistent event.
+    if (data.type === 'BOARDED') {
+      const rider = await this.prisma.tripRider.findFirst({
+        where: { tripId: data.tripId, studentId: data.studentId },
+        select: { boardStatus: true },
+      });
+      if (rider?.boardStatus === 'BOARDED') {
+        const existing = await this.prisma.attendanceEvent.findFirst({
+          where: { tripId: data.tripId, studentId: data.studentId, type: 'BOARDED' },
+          orderBy: { ts: 'desc' },
+          include: { student: { select: { name: true } } },
+        });
+        if (existing) return existing;
+        // Defensive: status is BOARDED but no event row exists (shouldn't happen)
+        // — fall through and create one so the caller always gets an event.
+      }
+    }
+
     const event = await this.prisma.attendanceEvent.create({
       data: {
         tripId: data.tripId,
@@ -94,12 +117,25 @@ export class AttendanceService {
       select: { personId: true },
     });
     if (!guardians.length) return;
+    // Enrich the push so it names the child, the boarding stop, and the
+    // route/direction — "<child> boarded at <stop> — <route> (pickup)" instead
+    // of a bare "Boarded the bus".
+    const rider = await this.prisma.tripRider.findFirst({
+      where: { tripId, studentId },
+      select: {
+        stop: { select: { name: true } },
+        trip: { select: { direction: true, route: { select: { name: true } } } },
+      },
+    });
     await this.notifications.dispatch({
       eventType: NotifCategory.BOARDING,
       tenantId,
       recipientIds: guardians.map((g) => g.personId),
       variables: {
         studentName,
+        ...(rider?.stop?.name ? { stopName: rider.stop.name } : {}),
+        ...(rider?.trip?.route?.name ? { routeName: rider.trip.route.name } : {}),
+        ...(rider?.trip?.direction ? { direction: rider.trip.direction } : {}),
         time: new Date().toISOString(),
         deepLink: `/track/${tripId}`,
       },

@@ -37,6 +37,25 @@ export interface NotificationEventSpec {
 
 const v = (vars: Vars, key: string, fallback = ''): string => vars[key] ?? fallback;
 
+/** "PICKUP" → "pickup", "DROP" → "drop", anything else → '' (used for phrasing). */
+const directionWord = (vars: Vars): string => {
+  const d = v(vars, 'direction').toUpperCase();
+  return d === 'PICKUP' ? 'pickup' : d === 'DROP' ? 'drop' : '';
+};
+
+/**
+ * Human label for the route a trip runs, e.g. "Route A (pickup)". Degrades to the
+ * route name alone when direction is absent, and to a generic "your child’s route"
+ * when even the name wasn't supplied — so a template never renders a dangling blank.
+ */
+const routePhrase = (vars: Vars): string => {
+  const route = v(vars, 'routeName');
+  const dir = directionWord(vars);
+  if (route && dir) return `${route} (${dir})`;
+  if (route) return route;
+  return 'your child’s route';
+};
+
 /**
  * The single source of truth for what each event does. dispatch() looks the
  * eventType up here; if there is no spec it logs and no-ops (never throws).
@@ -49,8 +68,11 @@ export const NOTIFICATION_EVENT_SPECS: Record<NotifCategory, NotificationEventSp
     priority: NotifPriority.SAFETY_CRITICAL,
     templateId: 'boarding.v1',
     recipients: 'guardians of studentId',
-    title: () => 'Boarded the bus',
-    body: (vars) => `${v(vars, 'studentName', 'Your child')} boarded${v(vars, 'stopName') ? ` at ${v(vars, 'stopName')}` : ''}.`,
+    // Name the child in the title (guardians may track more than one) and the
+    // stop + route/direction in the body.
+    title: (vars) => `${v(vars, 'studentName', 'Your child')} boarded the bus`,
+    body: (vars) =>
+      `${v(vars, 'studentName', 'Your child')} boarded${v(vars, 'stopName') ? ` at ${v(vars, 'stopName')}` : ''}${v(vars, 'routeName') ? ` — ${routePhrase(vars)}` : ''}.`,
   },
   // NOT_BOARDED maps to ALIGHTING — the closest existing category in the enum.
   [NotifCategory.ALIGHTING]: {
@@ -70,8 +92,8 @@ export const NOTIFICATION_EVENT_SPECS: Record<NotifCategory, NotificationEventSp
     priority: NotifPriority.MEDIUM,
     templateId: 'trip-start.v1',
     recipients: 'all guardians on trip',
-    title: () => 'Trip started',
-    body: () => 'The bus has started its trip.',
+    title: (vars) => (v(vars, 'routeName') ? `${v(vars, 'routeName')} — trip started` : 'Trip started'),
+    body: (vars) => `The bus on ${routePhrase(vars)} has started its trip. Track it live.`,
   },
   // Trip-start governance (2B): raised when a driver starts a trip outside the
   // clean-start rule. Targets tenant admins so they can review/resolve the alarm.
@@ -148,8 +170,8 @@ export const NOTIFICATION_EVENT_SPECS: Record<NotifCategory, NotificationEventSp
     priority: NotifPriority.MEDIUM,
     templateId: 'trip-end.v1',
     recipients: 'all guardians on trip',
-    title: () => 'Trip completed',
-    body: () => 'The bus has completed its trip.',
+    title: (vars) => (v(vars, 'routeName') ? `${v(vars, 'routeName')} — trip completed` : 'Trip completed'),
+    body: (vars) => `The bus on ${routePhrase(vars)} has completed its trip.`,
   },
   // Arrival alarms (PRD-03 §4.1). The dedup window is generous (1h) so a single
   // approach to a stop fires each stage once — entityId carries (trip, stop), so
@@ -193,8 +215,9 @@ export const NOTIFICATION_EVENT_SPECS: Record<NotifCategory, NotificationEventSp
     priority: NotifPriority.HIGH,
     templateId: 'pickup-cancelled.v1',
     recipients: 'driver + tenant admins',
-    title: () => 'Pickup cancelled',
-    body: (vars) => `A pickup was cancelled${v(vars, 'studentName') ? ` for ${v(vars, 'studentName')}` : ''}.`,
+    title: (vars) => (v(vars, 'studentName') ? `Pickup cancelled — ${v(vars, 'studentName')}` : 'Pickup cancelled'),
+    body: (vars) =>
+      `${v(vars, 'studentName') ? `${v(vars, 'studentName')}’s` : 'A'} pickup${v(vars, 'routeName') ? ` on ${routePhrase(vars)}` : ''} was cancelled.`,
   },
   [NotifCategory.COMPLAINT_UPDATE]: {
     eventType: NotifCategory.COMPLAINT_UPDATE,
@@ -216,8 +239,9 @@ export const NOTIFICATION_EVENT_SPECS: Record<NotifCategory, NotificationEventSp
     priority: NotifPriority.MEDIUM,
     templateId: 'payment-due.v1',
     recipients: 'guardian on the invoice',
-    title: () => 'Payment due',
-    body: (vars) => `An invoice${v(vars, 'amount') ? ` of ${v(vars, 'amount')}` : ''} is due.`,
+    title: (vars) => (v(vars, 'studentName') ? `Payment due — ${v(vars, 'studentName')}` : 'Payment due'),
+    body: (vars) =>
+      `An invoice${v(vars, 'amount') ? ` of ${v(vars, 'amount')}` : ''}${v(vars, 'studentName') ? ` for ${v(vars, 'studentName')}` : ''} is due${v(vars, 'dueDate') ? ` by ${v(vars, 'dueDate')}` : ''}.`,
   },
   [NotifCategory.PAYMENT_SUCCESS]: {
     eventType: NotifCategory.PAYMENT_SUCCESS,
@@ -226,8 +250,9 @@ export const NOTIFICATION_EVENT_SPECS: Record<NotifCategory, NotificationEventSp
     priority: NotifPriority.MEDIUM,
     templateId: 'payment-success.v1',
     recipients: 'guardian on the invoice',
-    title: () => 'Payment successful',
-    body: (vars) => `Payment${v(vars, 'amount') ? ` of ${v(vars, 'amount')}` : ''} received. Thank you.`,
+    title: (vars) => (v(vars, 'studentName') ? `Payment received — ${v(vars, 'studentName')}` : 'Payment successful'),
+    body: (vars) =>
+      `Payment${v(vars, 'amount') ? ` of ${v(vars, 'amount')}` : ''}${v(vars, 'studentName') ? ` for ${v(vars, 'studentName')}` : ''} received. Thank you.`,
   },
   // OVERSPEED exists in the enum but has no spec in this phase — dispatch() no-ops it.
   [NotifCategory.OVERSPEED]: undefined,

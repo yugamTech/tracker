@@ -1141,7 +1141,7 @@ export class TripsService {
   private async notifyGuardiansOnTrip(tripId: string, eventType: NotifCategory) {
     const trip = await this.prisma.trip.findUnique({
       where: { id: tripId },
-      select: { tenantId: true },
+      select: { tenantId: true, direction: true, route: { select: { name: true } } },
     });
     if (!trip) return;
     const riders = await this.prisma.tripRider.findMany({
@@ -1155,11 +1155,18 @@ export class TripsService {
     });
     const recipientIds = [...new Set(guardians.map((g) => g.personId))];
     if (!recipientIds.length) return;
+    // Trip-wide fan-out: a single child name can't apply (the trip carries many),
+    // so identify the trip by its route + direction instead of a vague "the bus".
     await this.notifications.dispatch({
       eventType,
       tenantId: trip.tenantId,
       recipientIds,
-      variables: { tripId, deepLink: `/track/${tripId}` },
+      variables: {
+        tripId,
+        ...(trip.route?.name ? { routeName: trip.route.name } : {}),
+        direction: trip.direction,
+        deepLink: `/track/${tripId}`,
+      },
       entityId: tripId,
     });
   }
@@ -1178,7 +1185,7 @@ export class TripsService {
   ) {
     const trip = await this.prisma.trip.findUnique({
       where: { id: tripId },
-      select: { tenantId: true, vehicleId: true },
+      select: { tenantId: true, vehicleId: true, direction: true, route: { select: { name: true } } },
     });
     if (!trip) return;
     const recipientIds = new Set<string>();
@@ -1217,6 +1224,8 @@ export class TripsService {
       variables: {
         tripId,
         ...(student ? { studentName: student.studentName } : {}),
+        ...(trip.route?.name ? { routeName: trip.route.name } : {}),
+        direction: trip.direction,
         deepLink: `/track/${tripId}`,
       },
       entityId: student ? `pickup:${tripId}:${student.studentId}` : tripId,
