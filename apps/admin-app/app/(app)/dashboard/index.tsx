@@ -6,7 +6,7 @@ import {
   Card, Badge, StatusDot, Skeleton, EmptyState, AnimatedPressable, Divider,
 } from '@yaanam/ui';
 import type { BadgeVariant } from '@yaanam/ui';
-import { useFleet, useTodayTrips, useLifecycleAlarms } from '@yaanam/api-client';
+import { useFleet, useTodayTrips, useLifecycleAlarms, useTripTrends, useComplaintKpi } from '@yaanam/api-client';
 import type { FleetEntry } from '@yaanam/api-client';
 import { AdminScreen } from '../../../components/AdminScreen';
 import { SubNav } from '../../../components/SubNav';
@@ -28,6 +28,10 @@ export default function DashboardScreen() {
   const { data: fleet, isLoading: fleetLoading } = useFleet();
   const { data: trips, isLoading: tripsLoading } = useTodayTrips();
   const { data: lifecycleAlarms, isLoading: alarmsLoading } = useLifecycleAlarms();
+  // Today's on-time / boarding rates come from the last day of the trend series;
+  // open-complaint count from the complaint KPI rollup. Both degrade to '—' / 0.
+  const { data: trends, isLoading: trendsLoading } = useTripTrends(7);
+  const { data: complaintKpi, isLoading: kpiLoading } = useComplaintKpi();
 
   const list = fleet ?? [];
   const active = list.filter((f) => ACTIVE.has(f.status));
@@ -37,6 +41,8 @@ export default function DashboardScreen() {
   // Started-not-completed alarms (PRD-02a): Stage-1 overdue (still live) + Stage-2
   // abandoned-pending-ack. Red when any need attention.
   const alarms = lifecycleAlarms ?? [];
+  const today = trends?.[trends.length - 1];
+  const openComplaints = complaintKpi?.open ?? 0;
 
   return (
     <AdminScreen
@@ -71,6 +77,15 @@ export default function DashboardScreen() {
           </Kpi>
         </View>
 
+        {/* Today's performance + open service load (real, at-a-glance) */}
+        <TodayStrip
+          loading={trendsLoading}
+          onTimeRate={today?.onTimeRate ?? null}
+          boardingRate={today?.boardingRate ?? null}
+          openComplaints={openComplaints}
+          complaintsLoading={kpiLoading}
+        />
+
         {/* Main + side region */}
         <View style={[styles.region, isDesktop && styles.regionDesktop]}>
           <View style={isDesktop ? styles.mainCol : undefined}>
@@ -87,6 +102,51 @@ export default function DashboardScreen() {
 
 function Kpi({ desktop, children }: { desktop: boolean; children: React.ReactNode }) {
   return <View style={desktop ? styles.kpiCellDesktop : styles.kpiCellPhone}>{children}</View>;
+}
+
+const pct = (v: number) => `${Math.round(v * 100)}%`;
+
+/**
+ * A compact "Today" strip: on-time % and boarding % for today (from the trend
+ * feed's latest day) plus the open-complaint count (tappable → Complaints). Rates
+ * read '—' before any trips start, so it never shows a misleading 0%.
+ */
+function TodayStrip({
+  loading, onTimeRate, boardingRate, openComplaints, complaintsLoading,
+}: {
+  loading: boolean;
+  onTimeRate: number | null;
+  boardingRate: number | null;
+  openComplaints: number;
+  complaintsLoading: boolean;
+}) {
+  return (
+    <Card shadow="sm" style={styles.todayCard}>
+      <TodayStat label="On-time today" value={loading ? '—' : onTimeRate == null ? '—' : pct(onTimeRate)} />
+      <View style={styles.todayDivider} />
+      <TodayStat label="Boarding today" value={loading ? '—' : boardingRate == null ? '—' : pct(boardingRate)} />
+      <View style={styles.todayDivider} />
+      <AnimatedPressable
+        scaleTo={0.97}
+        onPress={() => router.push('/(app)/complaints' as never)}
+        style={styles.todayStat}
+      >
+        <Text style={[styles.todayValue, openComplaints > 0 && { color: colors.warning }]}>
+          {complaintsLoading ? '—' : openComplaints}
+        </Text>
+        <Text style={styles.todayLabel}>Open complaints ›</Text>
+      </AnimatedPressable>
+    </Card>
+  );
+}
+
+function TodayStat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <View style={styles.todayStat}>
+      <Text style={styles.todayValue}>{value}</Text>
+      <Text style={styles.todayLabel}>{label}</Text>
+    </View>
+  );
 }
 
 function PanelHeader({ title, count }: { title: string; count?: number }) {
@@ -197,6 +257,12 @@ const styles = StyleSheet.create({
   kpiRowPhone: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing[3] },
   kpiCellDesktop: { flex: 1 },
   kpiCellPhone: { width: '48%' },
+
+  todayCard: { flexDirection: 'row', alignItems: 'stretch' },
+  todayStat: { flex: 1, alignItems: 'center', gap: 2, paddingHorizontal: spacing[1] },
+  todayValue: { fontSize: fontSizes.xl, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
+  todayLabel: { fontSize: fontSizes.xs, fontWeight: fontWeights.semibold, color: colors.textSecondary },
+  todayDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginVertical: spacing[1] },
 
   region: { gap: spacing[4] },
   regionDesktop: { flexDirection: 'row', alignItems: 'flex-start' },
