@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
 import { router } from 'expo-router';
 import {
-  colors, spacing, radius, fontSizes, fontWeights,
+  colors, spacing, fontSizes, fontWeights,
   Card, Button, Divider,
 } from '@yaanam/ui';
 import { useAuthStore } from '../../../store/auth.store';

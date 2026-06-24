@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import {
-  colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
+  colors, spacing, fontSizes, fontWeights, letterSpacing,
   Card, Skeleton, EmptyState,
 } from '@yaanam/ui';
 import { useComplaintKpi } from '@yaanam/api-client';
