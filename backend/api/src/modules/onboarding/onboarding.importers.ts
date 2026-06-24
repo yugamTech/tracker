@@ -85,7 +85,12 @@ function intField(row: ParsedRow, field: string, errors: RowError[], opts: { min
   return n;
 }
 
-function floatField(row: ParsedRow, field: string, errors: RowError[]): number | null {
+function floatField(
+  row: ParsedRow,
+  field: string,
+  errors: RowError[],
+  opts: { min?: number; max?: number } = {},
+): number | null {
   const v = row.values[field]?.trim();
   if (!v) {
     errors.push({ row: row.rowNumber, field, message: `${field} is required` });
@@ -94,6 +99,12 @@ function floatField(row: ParsedRow, field: string, errors: RowError[]): number |
   const n = Number(v);
   if (Number.isNaN(n)) {
     errors.push({ row: row.rowNumber, field, message: `${field} must be a number` });
+    return null;
+  }
+  if ((opts.min !== undefined && n < opts.min) || (opts.max !== undefined && n > opts.max)) {
+    const range =
+      opts.min !== undefined && opts.max !== undefined ? ` between ${opts.min} and ${opts.max}` : '';
+    errors.push({ row: row.rowNumber, field, message: `${field} must be a number${range}` });
     return null;
   }
   return n;
@@ -143,8 +154,8 @@ const routesStopsImporter: Importer = async (prisma, ctx, rows) => {
     const dirRaw = req(row, 'direction', errors);
     const stopName = req(row, 'stopName', errors);
     const sequence = intField(row, 'sequence', errors, { min: 1 });
-    const lat = floatField(row, 'lat', errors);
-    const lng = floatField(row, 'lng', errors);
+    const lat = floatField(row, 'lat', errors, { min: -90, max: 90 });
+    const lng = floatField(row, 'lng', errors, { min: -180, max: 180 });
     let geofence: number | undefined;
     if (row.values.geofenceRadius?.trim()) {
       const g = intField(row, 'geofenceRadius', errors, { min: 0 });

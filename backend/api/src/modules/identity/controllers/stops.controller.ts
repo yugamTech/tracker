@@ -5,21 +5,24 @@ import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { StopsService } from '../stops.service';
 import { TenantId } from '../../../common/decorators/tenant-id.decorator';
-import { IsString, IsNumber, IsOptional } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Min, Max } from 'class-validator';
 import { Role } from '@yaanam/types';
 
+// Latitude is bounded to [-90, 90] and longitude to [-180, 180]; a value outside
+// that range is a typo (swapped lat/lng, extra digit) that would put a stop in the
+// ocean and break geofencing — reject it at the edge with a clear message.
 class CreateStopDto {
   @IsString() name!: string;
-  @IsNumber() lat!: number;
-  @IsNumber() lng!: number;
-  @IsOptional() @IsNumber() geofenceRadius?: number;
+  @IsNumber() @Min(-90, { message: 'lat must be between -90 and 90' }) @Max(90, { message: 'lat must be between -90 and 90' }) lat!: number;
+  @IsNumber() @Min(-180, { message: 'lng must be between -180 and 180' }) @Max(180, { message: 'lng must be between -180 and 180' }) lng!: number;
+  @IsOptional() @IsNumber() @Min(0, { message: 'geofenceRadius must be ≥ 0' }) geofenceRadius?: number;
 }
 
 class UpdateStopDto {
   @IsOptional() @IsString() name?: string;
-  @IsOptional() @IsNumber() lat?: number;
-  @IsOptional() @IsNumber() lng?: number;
-  @IsOptional() @IsNumber() geofenceRadius?: number;
+  @IsOptional() @IsNumber() @Min(-90, { message: 'lat must be between -90 and 90' }) @Max(90, { message: 'lat must be between -90 and 90' }) lat?: number;
+  @IsOptional() @IsNumber() @Min(-180, { message: 'lng must be between -180 and 180' }) @Max(180, { message: 'lng must be between -180 and 180' }) lng?: number;
+  @IsOptional() @IsNumber() @Min(0, { message: 'geofenceRadius must be ≥ 0' }) geofenceRadius?: number;
 }
 
 @ApiTags('stops')
