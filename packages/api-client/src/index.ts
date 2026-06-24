@@ -9,7 +9,7 @@ export { useRequestOtp, useVerifyOtp, useMemberships, useSwitchContext, authKeys
 
 // Identity
 export { identityApi } from './identity/identity.api';
-export type { Person, Membership, Student, Member, Parent, ParentStudent } from './identity/identity.api';
+export type { Person, Membership, Student, Member, Parent, ParentStudent, DeleteEligibility } from './identity/identity.api';
 export {
   identityKeys,
   useMe,
@@ -25,8 +25,10 @@ export {
   useUpdateMember,
   useDeactivateMember,
   useReactivateMember,
+  useDeleteMember,
   useDeactivateStudent,
   useReactivateStudent,
+  useDeleteStudent,
   useParents,
   useAgeGroups,
   useMyTenant,
@@ -40,7 +42,7 @@ export { vehicleKeys, useVehicles, useVehicleById, useCreateVehicle, useUpdateVe
 // Routes & Stops
 export { routesApi, stopsApi } from './routes/routes.api';
 export type { Route, RouteStudent, Stop } from './routes/routes.api';
-export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useReactivateRoute, useStops, useCreateStop, useAddStop } from './routes/routes.hooks';
+export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useReactivateRoute, useDeleteRoute, useStops, useCreateStop, useAddStop, useUpdateStop } from './routes/routes.hooks';
 
 // Trips
 export { tripsApi, pickupCancelInfo, PICKUP_CANCEL_CUTOFF_MINUTES } from './trips/trips.api';

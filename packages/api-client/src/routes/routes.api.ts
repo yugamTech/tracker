@@ -1,5 +1,11 @@
 import { apiClient } from '../axios';
 
+/** Hard-delete eligibility for a record (embedded in detail payloads). */
+export interface DeleteEligibility {
+  canDelete: boolean;
+  reason: string | null;
+}
+
 export interface Stop {
   id: string;
   tenantId: string;
@@ -30,6 +36,8 @@ export interface Route {
   eligibleRiderCount?: number;
   /** Full student list (route detail payload only). */
   students?: RouteStudent[];
+  /** Hard-delete eligibility (route detail payload only). */
+  deletable?: DeleteEligibility;
 }
 
 export const routesApi = {
@@ -60,6 +68,12 @@ export const routesApi = {
 
   reactivate: async (id: string): Promise<Route> => {
     const { data } = await apiClient.post(`/routes/${id}/reactivate`);
+    return data.data;
+  },
+
+  /** Permanent hard-delete (only when the route has no trip history). */
+  remove: async (id: string): Promise<{ id: string; deleted: boolean }> => {
+    const { data } = await apiClient.delete(`/routes/${id}`);
     return data.data;
   },
 

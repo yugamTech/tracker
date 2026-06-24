@@ -55,6 +55,17 @@ export const useReactivateRoute = () => {
   });
 };
 
+export const useDeleteRoute = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => routesApi.remove(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: routeKeys.route(id) });
+      qc.invalidateQueries({ queryKey: routeKeys.all });
+    },
+  });
+};
+
 export const useStops = () =>
   useQuery({ queryKey: routeKeys.stops, queryFn: stopsApi.list });
 
@@ -73,6 +84,20 @@ export const useAddStop = () => {
       routesApi.addStop(routeId, { stopId, sequence }),
     onSuccess: (_data, { routeId }) => {
       qc.invalidateQueries({ queryKey: routeKeys.route(routeId) });
+      qc.invalidateQueries({ queryKey: routeKeys.all });
+    },
+  });
+};
+
+export const useUpdateStop = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...dto }: { id: string } & Parameters<typeof stopsApi.update>[1]) =>
+      stopsApi.update(id, dto),
+    // A stop is embedded in route detail payloads (route.stops[].stop), so refresh
+    // both the stops list and every route query.
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: routeKeys.stops });
       qc.invalidateQueries({ queryKey: routeKeys.all });
     },
   });

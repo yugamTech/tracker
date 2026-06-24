@@ -1,4 +1,7 @@
 import { apiClient } from '../axios';
+import type { DeleteEligibility } from '../routes/routes.api';
+
+export type { DeleteEligibility };
 
 export interface Person {
   id: string;
@@ -33,6 +36,8 @@ export interface Student {
     isPrimary?: boolean;
     person: { id: string; name: string; phone: string; email?: string };
   }>;
+  /** Hard-delete eligibility (student detail payload only). */
+  deletable?: DeleteEligibility;
 }
 
 export interface Member {
@@ -46,6 +51,8 @@ export interface Member {
     id: string;
     vehicle: { id: string; regNumber: string };
   }>;
+  /** Hard-delete eligibility (member detail payload only). */
+  deletable?: DeleteEligibility;
 }
 
 export interface ParentStudent {
@@ -132,6 +139,12 @@ export const identityApi = {
     return data.data;
   },
 
+  /** Permanent hard-delete (only when the student has no operational history). */
+  deleteStudent: async (id: string): Promise<{ id: string; deleted: boolean }> => {
+    const { data } = await apiClient.delete(`/students/${id}`);
+    return data.data;
+  },
+
   listMembers: async (role?: string, includeInactive?: boolean): Promise<Member[]> => {
     const params: Record<string, string> = {};
     if (role) params.role = role;
@@ -173,6 +186,12 @@ export const identityApi = {
 
   reactivateMember: async (id: string): Promise<Member> => {
     const { data } = await apiClient.post(`/members/${id}/reactivate`);
+    return data.data;
+  },
+
+  /** Permanent hard-delete (only when the staff member has no run-trip history). */
+  deleteMember: async (id: string): Promise<{ id: string; deleted: boolean; personDeleted: boolean }> => {
+    const { data } = await apiClient.delete(`/members/${id}`);
     return data.data;
   },
 

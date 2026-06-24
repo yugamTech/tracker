@@ -76,6 +76,14 @@ export const useReactivateStudent = () => {
   });
 };
 
+export const useDeleteStudent = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => identityApi.deleteStudent(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['identity', 'students'] }),
+  });
+};
+
 export const useMembers = (role?: string, includeInactive?: boolean) =>
   useQuery({
     queryKey: identityKeys.members(role, includeInactive),
@@ -124,6 +132,14 @@ export const useReactivateMember = () => {
       qc.invalidateQueries({ queryKey: identityKeys.member(id) });
       qc.invalidateQueries({ queryKey: ['identity', 'members'] });
     },
+  });
+};
+
+export const useDeleteMember = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => identityApi.deleteMember(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['identity', 'members'] }),
   });
 };
 
