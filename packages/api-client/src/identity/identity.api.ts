@@ -51,6 +51,11 @@ export interface Member {
     id: string;
     vehicle: { id: string; regNumber: string };
   }>;
+  /** Route(s) this staff member rides/supervises (teacher-on-route). Form manages one. */
+  routeStaff?: Array<{
+    id: string;
+    route: { id: string; name: string; direction: string };
+  }>;
   /** Hard-delete eligibility (member detail payload only). */
   deletable?: DeleteEligibility;
 }
@@ -165,6 +170,8 @@ export const identityApi = {
     phone: string;
     role: string;
     email?: string;
+    /** Optional route to assign (teacher-on-route). */
+    routeId?: string;
   }): Promise<Member> => {
     const { data } = await apiClient.post('/members', dto);
     return data.data;
@@ -174,6 +181,8 @@ export const identityApi = {
     name: string;
     email: string;
     role: string;
+    /** Route assignment: a route id assigns, an empty string clears it. */
+    routeId: string;
   }>): Promise<Member> => {
     const { data } = await apiClient.patch(`/members/${id}`, dto);
     return data.data;

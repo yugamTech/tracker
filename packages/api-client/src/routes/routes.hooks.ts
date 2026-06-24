@@ -5,10 +5,23 @@ export const routeKeys = {
   all: ['routes'] as const,
   route: (id: string) => ['routes', id] as const,
   stops: ['stops'] as const,
+  emergency: ['routes', 'emergency'] as const,
 };
 
 export const useRoutes = () =>
   useQuery({ queryKey: routeKeys.all, queryFn: routesApi.list });
+
+/**
+ * Emergency "who's on which bus/route" directory. Polls on an interval so an
+ * admin opening it in an emergency always sees current crew without a manual
+ * refresh.
+ */
+export const useEmergencyDirectory = () =>
+  useQuery({
+    queryKey: routeKeys.emergency,
+    queryFn: routesApi.emergencyDirectory,
+    refetchInterval: 30000,
+  });
 
 export const useRouteById = (id: string) =>
   useQuery({ queryKey: routeKeys.route(id), queryFn: () => routesApi.getById(id), enabled: !!id });

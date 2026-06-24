@@ -41,8 +41,8 @@ export { vehicleKeys, useVehicles, useVehicleById, useCreateVehicle, useUpdateVe
 
 // Routes & Stops
 export { routesApi, stopsApi } from './routes/routes.api';
-export type { Route, RouteStudent, Stop } from './routes/routes.api';
-export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useReactivateRoute, useDeleteRoute, useStops, useCreateStop, useAddStop, useUpdateStop } from './routes/routes.hooks';
+export type { Route, RouteStudent, RouteVehicle, Stop, EmergencyRouteEntry, EmergencyContact, EmergencyTeacher } from './routes/routes.api';
+export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useReactivateRoute, useDeleteRoute, useEmergencyDirectory, useStops, useCreateStop, useAddStop, useUpdateStop } from './routes/routes.hooks';
 
 // Trips
 export { tripsApi, pickupCancelInfo, PICKUP_CANCEL_CUTOFF_MINUTES } from './trips/trips.api';

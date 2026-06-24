@@ -71,6 +71,7 @@ model Membership {
   person             Person              @relation(fields: [personId], references: [id])
   tenant             Tenant              @relation(fields: [tenantId], references: [id])
   vehicleAssignments VehicleAssignment[]
+  routeStaff         RouteStaff[]
   driverProfile      DriverProfile?
 
   @@unique([personId, tenantId, role])
@@ -112,6 +113,10 @@ enum PoliceVerificationStatus {
 enum Role {
   PARENT
   TEACHER_RIDER
+  // A teacher/staff member who travels on a route/bus to supervise children. This
+  // is the lightweight "who's aboard" role (RouteStaff association) — NOT a
+  // billed rider (TEACHER_RIDER) and NOT trip crew (DRIVER/CONDUCTOR).
+  TEACHER
   DRIVER
   CONDUCTOR
   ADMIN
@@ -230,6 +235,7 @@ model Vehicle {
   tenant      Tenant              @relation(fields: [tenantId], references: [id])
   assignments VehicleAssignment[]
   trips       Trip[]
+  routes      Route[]
 
   @@unique([tenantId, regNumber])
   @@index([tenantId])
@@ -259,14 +265,42 @@ model Route {
   name      String
   direction Direction
   status    RouteStatus @default(ACTIVE)
+  // The bus designated to serve this route. Optional — a route can exist before a
+  // bus is assigned. This is the route-level link the per-Trip vehicleId never gave
+  // us: it exists at student-assignment time (before any trip is scheduled), so it
+  // anchors seat-capacity enforcement and the emergency "which bus serves route X"
+  // lookup. A trip may still override the actual bus on a given day via Trip.vehicleId.
+  vehicleId String?
 
-  tenant    Tenant      @relation(fields: [tenantId], references: [id])
+  tenant    Tenant       @relation(fields: [tenantId], references: [id])
+  vehicle   Vehicle?     @relation(fields: [vehicleId], references: [id])
   stops     RouteStop[]
   students  Student[]
   ageGroups AgeGroup[]
   trips     Trip[]
+  staff     RouteStaff[]
 
   @@index([tenantId])
+  @@index([vehicleId])
+}
+
+// Lightweight staff↔route association (PRD fleet-integrity §2). Records that a
+// staff member — typically a TEACHER — rides/supervises a given route so we know
+// who is aboard for the emergency lookup. Deliberately NOT a TripRider: no billing,
+// no per-trip roster, no boarding state. The bus is derived from Route.vehicleId.
+model RouteStaff {
+  id           String   @id @default(uuid())
+  tenantId     String
+  routeId      String
+  membershipId String
+  createdAt    DateTime @default(now())
+
+  route      Route      @relation(fields: [routeId], references: [id])
+  membership Membership @relation(fields: [membershipId], references: [id])
+
+  @@unique([routeId, membershipId])
+  @@index([tenantId])
+  @@index([membershipId])
 }
 
 enum Direction {

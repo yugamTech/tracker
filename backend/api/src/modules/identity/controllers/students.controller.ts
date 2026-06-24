@@ -61,8 +61,8 @@ export class StudentsController {
 
   @Patch(':id')
   @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
-  update(@Param('id') id: string, @Body() dto: UpdateStudentDto) {
-    return this.studentsService.update(id, dto);
+  update(@TenantId() tenantId: string, @Param('id') id: string, @Body() dto: UpdateStudentDto) {
+    return this.studentsService.update(id, tenantId, dto);
   }
 
   /** Soft-delete: flips the student to INACTIVE (never a hard delete). Tenant-scoped. */

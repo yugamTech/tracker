@@ -13,12 +13,16 @@ class CreateMemberDto {
   @IsString() phone!: string;
   @IsIn(STAFF_ROLES) role!: Role;
   @IsOptional() @IsString() email?: string;
+  // Optional route to assign this staff member to (teacher-on-route, §2).
+  @IsOptional() @IsString() routeId?: string;
 }
 
 class UpdateMemberDto {
   @IsOptional() @IsString() name?: string;
   @IsOptional() @IsString() email?: string;
   @IsOptional() @IsIn(STAFF_ROLES) role?: Role;
+  // Route assignment: a route id assigns, an empty string clears it.
+  @IsOptional() @IsString() routeId?: string;
 }
 
 // Staff management is admin-only: every endpoint here exposes or mutates staff

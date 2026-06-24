@@ -16,6 +16,9 @@ class CreateRouteDto {
 class UpdateRouteDto {
   @IsOptional() @IsString() name?: string;
   @IsOptional() @IsString() status?: 'ACTIVE' | 'INACTIVE';
+  // The designated bus for this route. A non-empty id sets it; an empty string
+  // clears it. Validated tenant-scoped in the service.
+  @IsOptional() @IsString() vehicleId?: string;
 }
 
 class AddStopDto {
@@ -33,6 +36,17 @@ export class RoutesController {
   @Get()
   list(@TenantId() tenantId: string) {
     return this.routesService.list(tenantId);
+  }
+
+  /**
+   * Emergency "who's on which bus/route" directory. Declared BEFORE `:id` so the
+   * literal path isn't captured as a route id. Admin/manager only — it exposes
+   * staff phone numbers.
+   */
+  @Get('emergency')
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  emergencyDirectory(@TenantId() tenantId: string) {
+    return this.routesService.emergencyDirectory(tenantId);
   }
 
   @Get(':id')

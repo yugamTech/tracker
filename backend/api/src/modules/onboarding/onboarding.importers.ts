@@ -478,8 +478,13 @@ const studentsImporter: Importer = async (prisma, ctx, rows) => {
   const ageGroups = await prisma.ageGroup.findMany({ where: { tenantId: ctx.tenantId }, select: { id: true, name: true } });
   const ageGroupByName = new Map(ageGroups.map((a) => [norm(a.name), a.id]));
 
-  const routes = await prisma.route.findMany({ where: { tenantId: ctx.tenantId }, select: { id: true, name: true } });
+  const routes = await prisma.route.findMany({
+    where: { tenantId: ctx.tenantId },
+    select: { id: true, name: true, vehicle: { select: { capacity: true } } },
+  });
   const routeByName = new Map(routes.map((r) => [norm(r.name), r.id]));
+  // Seat capacity per route from its designated bus (null → no limit to enforce).
+  const capacityByRoute = new Map(routes.map((r) => [r.id, r.vehicle?.capacity ?? null]));
 
   const stops = await prisma.stop.findMany({ where: { tenantId: ctx.tenantId }, select: { id: true, name: true } });
   const stopByName = new Map(stops.map((s) => [norm(s.name), s.id]));
@@ -497,9 +502,30 @@ const studentsImporter: Importer = async (prisma, ctx, rows) => {
 
   const existingStudents = await prisma.student.findMany({
     where: { tenantId: ctx.tenantId, regId: { not: null } },
-    select: { id: true, regId: true },
+    select: { id: true, regId: true, status: true },
   });
   const studentIdByReg = new Map(existingStudents.map((s) => [norm(s.regId as string), s.id]));
+  // Status of each known student (by regId) — an INACTIVE student an update touches
+  // keeps its status, so it doesn't occupy a seat for the capacity projection.
+  const statusByReg = new Map(existingStudents.map((s) => [norm(s.regId as string), s.status]));
+
+  // Seat-capacity projection (FR fleet-integrity §1): start from students NOT in
+  // this file (they keep their seat), then add each file row as it's planned. A row
+  // that would push a route past its bus capacity becomes a row error, never an
+  // overfill. Students this file re-assigns (regId present) are excluded from the
+  // baseline because the file's assignment supersedes their current one.
+  const fileRegIds = new Set(
+    rows.map((r) => r.values.regId?.trim()).filter((v): v is string => !!v).map(norm),
+  );
+  const activeAssigned = await prisma.student.findMany({
+    where: { tenantId: ctx.tenantId, status: 'ACTIVE', routeId: { not: null } },
+    select: { regId: true, routeId: true },
+  });
+  const occupancy = new Map<string, number>();
+  for (const s of activeAssigned) {
+    if (s.regId && fileRegIds.has(norm(s.regId))) continue; // superseded by this file
+    occupancy.set(s.routeId as string, (occupancy.get(s.routeId as string) ?? 0) + 1);
+  }
 
   const seenReg = new Set<string>();
   let willCreate = 0;
@@ -556,6 +582,27 @@ const studentsImporter: Importer = async (prisma, ctx, rows) => {
     }
 
     if (errors.length > before || !name || !ageGroupId) continue;
+
+    // Over-capacity guard: only seats that will actually be occupied count — a new
+    // student (created ACTIVE) or an update to a student that's already ACTIVE.
+    if (routeId) {
+      const regKey = regId ? norm(regId) : null;
+      const isUpdate = regKey ? statusByReg.has(regKey) : false;
+      const willOccupy = isUpdate ? statusByReg.get(regKey as string) === 'ACTIVE' : true;
+      const cap = capacityByRoute.get(routeId) ?? null;
+      if (willOccupy && cap != null) {
+        const used = occupancy.get(routeId) ?? 0;
+        if (used + 1 > cap) {
+          errors.push({
+            row: row.rowNumber,
+            field: 'routeName',
+            message: `route "${routeName}" bus is full (${used}/${cap}) — this row would over-fill it`,
+          });
+          continue;
+        }
+        occupancy.set(routeId, used + 1);
+      }
+    }
 
     planRows.push({
       name, regId, ageGroupId, routeId, stopId,

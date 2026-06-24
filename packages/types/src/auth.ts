@@ -1,6 +1,9 @@
 export enum Role {
   PARENT = 'PARENT',
   TEACHER_RIDER = 'TEACHER_RIDER',
+  // Teacher/staff who rides a route to supervise children (lightweight
+  // "who's aboard" association — not a billed rider, not trip crew).
+  TEACHER = 'TEACHER',
   DRIVER = 'DRIVER',
   CONDUCTOR = 'CONDUCTOR',
   ADMIN = 'ADMIN',

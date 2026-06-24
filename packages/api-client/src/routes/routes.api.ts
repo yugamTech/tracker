@@ -24,6 +24,15 @@ export interface RouteStudent {
   stop?: Stop | null;
 }
 
+/** Designated bus embedded in route payloads (subset used by the UI). */
+export interface RouteVehicle {
+  id: string;
+  regNumber: string;
+  capacity: number;
+  type?: string;
+  status?: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
+}
+
 export interface Route {
   id: string;
   tenantId: string;
@@ -34,10 +43,49 @@ export interface Route {
   _count?: { students: number };
   /** ACTIVE students pinned to a stop on this route — the roster a trip would carry (list payload). */
   eligibleRiderCount?: number;
+  /** Designated bus for this route (null when none set). */
+  vehicleId?: string | null;
+  vehicle?: RouteVehicle | null;
+  /** ACTIVE students assigned to the route (seats taken on the designated bus). */
+  seatsUsed?: number;
+  /** Designated bus capacity, or null when no bus is set. */
+  capacity?: number | null;
   /** Full student list (route detail payload only). */
   students?: RouteStudent[];
   /** Hard-delete eligibility (route detail payload only). */
   deletable?: DeleteEligibility;
+}
+
+/** A contactable person in the emergency directory (driver/conductor). */
+export interface EmergencyContact {
+  id: string;
+  name: string;
+  phone: string;
+}
+
+/** A staff member (typically a teacher) assigned to ride a route. */
+export interface EmergencyTeacher {
+  membershipId: string;
+  name: string;
+  phone: string;
+  role: string;
+}
+
+/** One route's "who's aboard" entry in the emergency directory (fleet-integrity §3). */
+export interface EmergencyRouteEntry {
+  routeId: string;
+  routeName: string;
+  direction: 'PICKUP' | 'DROP';
+  status: 'ACTIVE' | 'INACTIVE';
+  vehicle: RouteVehicle | null;
+  seatsUsed: number;
+  capacity: number | null;
+  /** Driver(s) on this route from today's / live trips. */
+  drivers: EmergencyContact[];
+  /** Conductor(s) on this route from today's / live trips. */
+  conductors: EmergencyContact[];
+  /** Teachers / staff assigned to this route (RouteStaff). */
+  teachers: EmergencyTeacher[];
 }
 
 export const routesApi = {
@@ -56,8 +104,14 @@ export const routesApi = {
     return data.data;
   },
 
-  update: async (id: string, dto: Partial<{ name: string; status: string }>): Promise<Route> => {
+  update: async (id: string, dto: Partial<{ name: string; status: string; vehicleId: string }>): Promise<Route> => {
     const { data } = await apiClient.patch(`/routes/${id}`, dto);
+    return data.data;
+  },
+
+  /** Emergency "who's on which bus/route" directory (admin/manager only). */
+  emergencyDirectory: async (): Promise<EmergencyRouteEntry[]> => {
+    const { data } = await apiClient.get('/routes/emergency');
     return data.data;
   },
 

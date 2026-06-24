@@ -4,19 +4,26 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { Role } from '@yaanam/types';
 import { normalizeIndianPhone } from './phone.util';
 import type { DeleteEligibility } from './students.service';
 
+/** Interactive-transaction client handed to the per-tx helpers below. */
+type PrismaTx = Prisma.TransactionClient;
+
 /**
  * Roles an admin may provision through the staff endpoint (PRD-01 FR-13).
  * PARENT / TEACHER_RIDER are onboarded via students.service (guardian linkage),
  * and FOUNDER / SUPER_ADMIN are provisioned by a higher authority — never here.
+ * TEACHER is the lightweight "rides a route to supervise" staff role (fleet-
+ * integrity §2) — provisioned here and assignable to a route via RouteStaff.
  */
 export const STAFF_ROLES: Role[] = [
   Role.DRIVER,
   Role.CONDUCTOR,
+  Role.TEACHER,
   Role.ADMIN,
   Role.TRANSPORT_MANAGER,
 ];
@@ -24,6 +31,9 @@ export const STAFF_ROLES: Role[] = [
 const MEMBER_INCLUDE = {
   person: true,
   vehicleAssignments: { include: { vehicle: true } },
+  // The route(s) this staff member is assigned to (teacher-on-route, §2). The bus
+  // is derived via route.vehicleId; the form manages a single assignment.
+  routeStaff: { include: { route: { select: { id: true, name: true, direction: true } } } },
 } as const;
 
 @Injectable()
@@ -113,6 +123,9 @@ export class MembersService {
     phone: string;
     role: Role;
     email?: string;
+    // Optional route to mark this staff member (esp. a teacher) as riding/
+    // supervising — a RouteStaff link (§2). The bus is derived from the route.
+    routeId?: string;
   }) {
     if (!STAFF_ROLES.includes(data.role)) {
       throw new BadRequestException(`Role ${data.role} cannot be provisioned via the staff endpoint`);
@@ -130,7 +143,7 @@ export class MembersService {
       });
 
       // Idempotent on the (personId, tenantId, role) unique triple.
-      await tx.membership.upsert({
+      const membership = await tx.membership.upsert({
         where: {
           personId_tenantId_role: {
             personId: person.id,
@@ -147,11 +160,35 @@ export class MembersService {
         },
       });
 
+      if (data.routeId) {
+        await this.assignRoute(tx, data.tenantId, membership.id, data.routeId);
+      }
+
       return tx.membership.findFirstOrThrow({
-        where: { personId: person.id, tenantId: data.tenantId, role: data.role },
+        where: { id: membership.id },
         include: MEMBER_INCLUDE,
       });
     });
+  }
+
+  /**
+   * Set a staff member's route assignment (teacher-on-route, §2). The form manages
+   * a SINGLE assignment, so this clears any existing RouteStaff for the membership
+   * and, when a route is given, links the new one. An empty/undefined routeId just
+   * clears it. The route must belong to the tenant (NFR-05). Runs inside the
+   * caller's transaction.
+   */
+  private async assignRoute(
+    tx: PrismaTx,
+    tenantId: string,
+    membershipId: string,
+    routeId: string,
+  ) {
+    await tx.routeStaff.deleteMany({ where: { membershipId } });
+    if (!routeId) return;
+    const route = await tx.route.findFirst({ where: { id: routeId, tenantId }, select: { id: true } });
+    if (!route) throw new NotFoundException(`Route ${routeId} not found`);
+    await tx.routeStaff.create({ data: { tenantId, routeId, membershipId } });
   }
 
   /**
@@ -163,7 +200,7 @@ export class MembersService {
   async update(
     id: string,
     tenantId: string,
-    data: { name?: string; email?: string; role?: Role },
+    data: { name?: string; email?: string; role?: Role; routeId?: string },
   ) {
     const membership = await this.prisma.membership.findFirst({
       where: { id, tenantId },
@@ -184,6 +221,12 @@ export class MembersService {
             ...(data.email !== undefined ? { email: data.email } : {}),
           },
         });
+      }
+
+      // Route assignment (teacher-on-route): undefined leaves it untouched; an
+      // empty string clears it; a route id (re)assigns. Single assignment via form.
+      if (data.routeId !== undefined) {
+        await this.assignRoute(tx, tenantId, membership.id, data.routeId);
       }
 
       if (data.role && data.role !== membership.role) {
@@ -300,6 +343,7 @@ export class MembersService {
       // Required FKs onto the membership must go first.
       await tx.driverProfile.deleteMany({ where: { membershipId: id } });
       await tx.vehicleAssignment.deleteMany({ where: { membershipId: id } });
+      await tx.routeStaff.deleteMany({ where: { membershipId: id } });
       await tx.membership.delete({ where: { id } });
 
       // Delete the Person only when nothing else references it (run sequentially —

@@ -12,6 +12,34 @@ export interface DeleteEligibility {
 export class StudentsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Hard seat-capacity guard (fleet-integrity §1). Assigning/moving a student onto
+   * a route must never exceed its designated bus's capacity. Seats used = ACTIVE
+   * students on the route, EXCLUDING the student being assigned (so editing a child
+   * already on the route, or moving within it, never falsely trips). A route with
+   * no designated bus has no enforceable limit, so it's a no-op there. Throws a
+   * clear "Route bus is full (X/Y)" on overflow. Tenant-scoped (NFR-05).
+   */
+  private async assertRouteCapacity(tenantId: string, routeId: string, excludeStudentId?: string) {
+    const route = await this.prisma.route.findFirst({
+      where: { id: routeId, tenantId },
+      select: { vehicle: { select: { capacity: true } } },
+    });
+    if (!route?.vehicle) return; // no designated bus → no capacity to enforce
+    const capacity = route.vehicle.capacity;
+    const used = await this.prisma.student.count({
+      where: {
+        tenantId,
+        routeId,
+        status: 'ACTIVE',
+        ...(excludeStudentId ? { id: { not: excludeStudentId } } : {}),
+      },
+    });
+    if (used + 1 > capacity) {
+      throw new BadRequestException(`Route bus is full (${used}/${capacity})`);
+    }
+  }
+
   list(tenantId: string) {
     return this.prisma.student.findMany({
       where: { tenantId },
@@ -60,6 +88,12 @@ export class StudentsService {
     relation?: string;
   }) {
     const { parentName, parentPhone, relation, ...studentData } = data;
+
+    // Seat-capacity hard block — checked before any write so the API (and any
+    // caller) can never overfill a route's designated bus.
+    if (studentData.routeId) {
+      await this.assertRouteCapacity(data.tenantId, studentData.routeId);
+    }
 
     // No parent details → plain student create (kept for back-compat / bulk paths).
     if (!parentPhone) {
@@ -119,7 +153,16 @@ export class StudentsService {
     });
   }
 
-  update(id: string, data: Partial<{ name: string; routeId: string; stopId: string; status: 'ACTIVE' | 'INACTIVE' }>) {
+  async update(
+    id: string,
+    tenantId: string,
+    data: Partial<{ name: string; routeId: string; stopId: string; status: 'ACTIVE' | 'INACTIVE' }>,
+  ) {
+    // Seat-capacity hard block when assigning/moving onto a route (excluding self,
+    // so a no-op edit or stop change on the same route never trips it).
+    if (data.routeId) {
+      await this.assertRouteCapacity(tenantId, data.routeId, id);
+    }
     return this.prisma.student.update({ where: { id }, data });
   }
 
