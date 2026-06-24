@@ -6,7 +6,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Avatar, Badge, useToast } from '@yaanam/ui';
 import {
-  useStudentById, useUpdateStudent, useDeactivateStudent, useReactivateStudent, useAgeGroups, useRoutes, useStops,
+  useStudentById, useUpdateStudent, useDeactivateStudent, useReactivateStudent, useDeleteStudent, useAgeGroups, useRoutes, useStops,
 } from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
 
@@ -20,6 +20,7 @@ export default function StudentDetailScreen() {
   const updateStudent = useUpdateStudent();
   const deactivateStudent = useDeactivateStudent();
   const reactivateStudent = useReactivateStudent();
+  const deleteStudent = useDeleteStudent();
   const toast = useToast();
 
   const [name, setName] = useState('');
@@ -73,6 +74,26 @@ export default function StudentDetailScreen() {
             reactivateStudent.mutate(id, {
               onSuccess: () => { toast.success('Student reactivated'); goBackTo('people/students/[id]'); },
               onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to reactivate'),
+            }),
+        },
+      ],
+    );
+  };
+
+  const handleHardDelete = () => {
+    if (!student) return;
+    Alert.alert(
+      'Delete student permanently',
+      `${student.name} will be permanently deleted along with their parent links. This cannot be undone. Use “Deactivate” instead if you only want to remove them from rosters.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete permanently',
+          style: 'destructive',
+          onPress: () =>
+            deleteStudent.mutate(id, {
+              onSuccess: () => { toast.success('Student deleted'); goBackTo('people/students/[id]'); },
+              onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to delete'),
             }),
         },
       ],
@@ -278,6 +299,30 @@ export default function StudentDetailScreen() {
           />
         </Card>
       )}
+
+      {/* Permanent hard-delete — shown only when the record has no operational
+          history (DPDP erasure of a wrongly-added student); else we explain why. */}
+      <Card style={styles.section}>
+        <Text style={styles.sectionTitle}>Delete permanently</Text>
+        {student.deletable?.canDelete ? (
+          <>
+            <Text style={styles.hint}>
+              This student has no trip history, so they can be permanently erased. This cannot be undone — prefer “Deactivate” unless you’re removing a record added by mistake.
+            </Text>
+            <Button
+              title="Delete Student Permanently"
+              variant="danger"
+              onPress={handleHardDelete}
+              loading={deleteStudent.isPending}
+              fullWidth
+            />
+          </>
+        ) : (
+          <Text style={styles.hint}>
+            {student.deletable?.reason ?? 'This student has trip history — deactivate instead of deleting.'}
+          </Text>
+        )}
+      </Card>
     </ScrollView>
   );
 }

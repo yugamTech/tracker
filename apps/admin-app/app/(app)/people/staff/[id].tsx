@@ -11,6 +11,7 @@ import {
   useUpdateMember,
   useDeactivateMember,
   useReactivateMember,
+  useDeleteMember,
   useDriverProfile,
   useUpsertDriverProfile,
 } from '@yaanam/api-client';
@@ -37,6 +38,7 @@ export default function StaffDetailScreen() {
   const updateMember = useUpdateMember();
   const deactivateMember = useDeactivateMember();
   const reactivateMember = useReactivateMember();
+  const deleteMember = useDeleteMember();
   const toast = useToast();
 
   const [name, setName] = useState('');
@@ -85,6 +87,25 @@ export default function StaffDetailScreen() {
             reactivateMember.mutate(id, {
               onSuccess: () => { toast.success('Staff member reactivated'); goBackTo('people/staff/[id]'); },
               onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to reactivate'),
+            }),
+        },
+      ],
+    );
+  };
+
+  const handleHardDelete = () => {
+    Alert.alert(
+      'Delete staff member permanently',
+      `${member.person.name} will be permanently deleted from this school. This cannot be undone. Use “Deactivate” instead if you only want to revoke their access.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete permanently',
+          style: 'destructive',
+          onPress: () =>
+            deleteMember.mutate(id, {
+              onSuccess: () => { toast.success('Staff member deleted'); goBackTo('people/staff/[id]'); },
+              onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to delete'),
             }),
         },
       ],
@@ -211,6 +232,30 @@ export default function StaffDetailScreen() {
           />
         </Card>
       )}
+
+      {/* Permanent hard-delete — shown only when the staff member has no run-trip
+          history (DPDP erasure of a wrongly-added record); else we explain why. */}
+      <Card style={styles.section}>
+        <Text style={styles.sectionTitle}>Delete permanently</Text>
+        {member.deletable?.canDelete ? (
+          <>
+            <Text style={styles.hint}>
+              This staff member has never driven or conducted a trip that ran, so they can be permanently erased. This cannot be undone — prefer “Deactivate” unless you’re removing a record added by mistake.
+            </Text>
+            <Button
+              title="Delete Staff Member Permanently"
+              variant="danger"
+              onPress={handleHardDelete}
+              loading={deleteMember.isPending}
+              fullWidth
+            />
+          </>
+        ) : (
+          <Text style={styles.hint}>
+            {member.deletable?.reason ?? 'This staff member has trip history — deactivate instead of deleting.'}
+          </Text>
+        )}
+      </Card>
     </ScrollView>
   );
 }
