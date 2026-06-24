@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../../infra/database/prisma.service';
 import { Role } from '@yaanam/types';
 import { normalizeIndianPhone } from './phone.util';
+import type { DeleteEligibility } from './students.service';
 
 /**
  * Roles an admin may provision through the staff endpoint (PRD-01 FR-13).
@@ -91,7 +92,8 @@ export class MembersService {
       include: MEMBER_INCLUDE,
     });
     if (!member) throw new NotFoundException(`Member ${id} not found`);
-    return member;
+    const deletable = await this.deleteEligibility(id, tenantId);
+    return { ...member, deletable };
   }
 
   /**
@@ -246,5 +248,77 @@ export class MembersService {
       data: { status: 'ACTIVE' },
       include: MEMBER_INCLUDE,
     });
+  }
+
+  /**
+   * Whether a staff member can be HARD-deleted (vs deactivated): eligible only if
+   * the person never drove or conducted a trip that RAN (a trip with a startedAt) in
+   * this tenant. Otherwise their operational history must survive — deactivate
+   * instead. Tenant-scoped (NFR-05).
+   */
+  async deleteEligibility(id: string, tenantId: string): Promise<DeleteEligibility> {
+    const membership = await this.prisma.membership.findFirst({
+      where: { id, tenantId },
+      select: { id: true, personId: true },
+    });
+    if (!membership) throw new NotFoundException(`Member ${id} not found`);
+    const ran = await this.prisma.trip.count({
+      where: {
+        tenantId,
+        startedAt: { not: null },
+        OR: [{ driverId: membership.personId }, { conductorId: membership.personId }],
+      },
+    });
+    if (ran > 0) {
+      return {
+        canDelete: false,
+        reason: 'This staff member has driven or conducted a trip that ran — deactivate instead of deleting.',
+      };
+    }
+    return { canDelete: true, reason: null };
+  }
+
+  /**
+   * HARD-delete a staff member — ONLY when eligible (no run-trip history; re-checked
+   * here). Removes the tenant Membership and its dependents (driver profile, vehicle
+   * assignments). The global Person is deleted too ONLY when it becomes fully
+   * orphaned — no other membership (any school), not a guardian, no trip still
+   * referencing them (e.g. a future SCHEDULED assignment), and no structured
+   * message — otherwise the Person identity is preserved. Tenant-scoped (NFR-05).
+   */
+  async hardDelete(id: string, tenantId: string) {
+    const membership = await this.prisma.membership.findFirst({
+      where: { id, tenantId },
+      select: { id: true, personId: true },
+    });
+    if (!membership) throw new NotFoundException(`Member ${id} not found`);
+    const eligibility = await this.deleteEligibility(id, tenantId);
+    if (!eligibility.canDelete) throw new BadRequestException(eligibility.reason);
+
+    const personId = membership.personId;
+    const personDeleted = await this.prisma.$transaction(async (tx) => {
+      // Required FKs onto the membership must go first.
+      await tx.driverProfile.deleteMany({ where: { membershipId: id } });
+      await tx.vehicleAssignment.deleteMany({ where: { membershipId: id } });
+      await tx.membership.delete({ where: { id } });
+
+      // Delete the Person only when nothing else references it (run sequentially —
+      // an interactive transaction is single-connection).
+      const otherMemberships = await tx.membership.count({ where: { personId } });
+      const guardianships = await tx.guardianship.count({ where: { personId } });
+      const trips = await tx.trip.count({
+        where: { OR: [{ driverId: personId }, { conductorId: personId }] },
+      });
+      const messages = await tx.structuredMessage.count({ where: { senderId: personId } });
+      if (otherMemberships === 0 && guardianships === 0 && trips === 0 && messages === 0) {
+        await tx.deviceToken.deleteMany({ where: { personId } });
+        await tx.consent.deleteMany({ where: { personId } });
+        await tx.notificationPreference.deleteMany({ where: { personId } });
+        await tx.person.delete({ where: { id: personId } });
+        return true;
+      }
+      return false;
+    });
+    return { id, deleted: true, personDeleted };
   }
 }

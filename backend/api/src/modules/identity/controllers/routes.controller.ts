@@ -66,6 +66,17 @@ export class RoutesController {
     return this.routesService.reactivate(id, tenantId);
   }
 
+  /**
+   * HARD-delete — permanent, ONLY when no trip ever referenced this route. Blocks
+   * with a clear message otherwise ("has trip history — deactivate instead").
+   * Distinct from deactivate (reversible). Tenant-scoped.
+   */
+  @Delete(':id')
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  remove(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.routesService.hardDelete(id, tenantId);
+  }
+
   @Post(':id/stops')
   @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
   addStop(@TenantId() tenantId: string, @Param('id') routeId: string, @Body() dto: AddStopDto) {

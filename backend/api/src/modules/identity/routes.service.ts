@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../infra/database/prisma.service';
+import type { DeleteEligibility } from './students.service';
 
 @Injectable()
 export class RoutesService {
@@ -39,7 +40,8 @@ export class RoutesService {
       },
     });
     if (!route) throw new NotFoundException(`Route ${id} not found`);
-    return route;
+    const deletable = await this.deleteEligibility(id, tenantId);
+    return { ...route, deletable };
   }
 
   create(data: { tenantId: string; name: string; direction: 'PICKUP' | 'DROP' }) {
@@ -83,6 +85,38 @@ export class RoutesService {
   async removeStop(routeId: string, tenantId: string, stopId: string) {
     await this.assertOwned(routeId, tenantId);
     return this.prisma.routeStop.deleteMany({ where: { routeId, stopId } });
+  }
+
+  /**
+   * Whether a route can be HARD-deleted (vs deactivated): eligible only if NO trip
+   * has ever referenced it. A single trip (any status) means it carries history —
+   * block and tell the admin to deactivate instead. Tenant-scoped (NFR-05).
+   */
+  async deleteEligibility(id: string, tenantId: string): Promise<DeleteEligibility> {
+    await this.assertOwned(id, tenantId);
+    const trips = await this.prisma.trip.count({ where: { routeId: id } });
+    if (trips > 0) {
+      return { canDelete: false, reason: 'This route has trip history — deactivate it instead of deleting.' };
+    }
+    return { canDelete: true, reason: null };
+  }
+
+  /**
+   * HARD-delete a route — ONLY when no trip ever referenced it (re-checked here).
+   * Detaches assigned students (routeId/stopId → null) and age groups (routeId →
+   * null), removes its stop links, then deletes the route, all in one transaction.
+   * Tenant-scoped (NFR-05).
+   */
+  async hardDelete(id: string, tenantId: string) {
+    const eligibility = await this.deleteEligibility(id, tenantId);
+    if (!eligibility.canDelete) throw new BadRequestException(eligibility.reason);
+    await this.prisma.$transaction([
+      this.prisma.student.updateMany({ where: { routeId: id }, data: { routeId: null, stopId: null } }),
+      this.prisma.ageGroup.updateMany({ where: { routeId: id }, data: { routeId: null } }),
+      this.prisma.routeStop.deleteMany({ where: { routeId: id } }),
+      this.prisma.route.delete({ where: { id } }),
+    ]);
+    return { id, deleted: true };
   }
 
   private async assertOwned(routeId: string, tenantId: string) {

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
@@ -77,5 +77,16 @@ export class StudentsController {
   @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
   reactivate(@TenantId() tenantId: string, @Param('id') id: string) {
     return this.studentsService.reactivate(id, tenantId);
+  }
+
+  /**
+   * HARD-delete (DPDP erasure) — permanent, ONLY when the student has zero
+   * operational history (no run-trip / attendance). Blocks with a clear message
+   * otherwise. Distinct from deactivate (which is reversible). Tenant-scoped.
+   */
+  @Delete(':id')
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  remove(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.studentsService.hardDelete(id, tenantId);
   }
 }

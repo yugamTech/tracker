@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { IsString, IsOptional, IsIn } from 'class-validator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
@@ -74,5 +74,16 @@ export class MembersController {
   @Post(':id/reactivate')
   reactivate(@TenantId() tenantId: string, @Param('id') id: string) {
     return this.membersService.reactivate(id, tenantId);
+  }
+
+  /**
+   * HARD-delete — permanent, ONLY when the staff member never drove/conducted a
+   * trip that ran. Blocks with a clear message otherwise. Removes the membership
+   * (and the global Person when fully orphaned). Distinct from deactivate
+   * (reversible). Tenant-scoped.
+   */
+  @Delete(':id')
+  remove(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.membersService.hardDelete(id, tenantId);
   }
 }
