@@ -174,6 +174,21 @@ export class TripsController {
     return this.tripsService.getDriverHistory(actor);
   }
 
+  /** Tenant-wide daily operations trends for the admin Dashboard → Trends screen
+   *  (on-time rate, boarding rate, trips completed over the last `?days` days,
+   *  default 7). Admin/manager only. Declared before `:id` so "trends" isn't
+   *  captured as a trip id. */
+  @Get('trends')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  trends(
+    @ActiveMembershipDec() actor: ActiveMembership,
+    @Query('days') days?: string,
+  ) {
+    const parsed = days ? Number(days) : undefined;
+    return this.tripsService.getTrends(actor, Number.isFinite(parsed) ? parsed : undefined);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @ActiveMembershipDec() actor: ActiveMembership) {
     return this.tripsService.findById(id, actor);

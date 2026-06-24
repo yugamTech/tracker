@@ -394,6 +394,85 @@ export class TripsService {
     };
   }
 
+  /**
+   * Tenant-wide daily operations trend over the last `days` calendar days (incl.
+   * today), for the admin Dashboard → Trends screen. Actor-scoped exactly like the
+   * rest of the module, so an admin sees the whole tenant. Reuses the same on-time
+   * (no start exception) and boarding-rate definitions as `getDriverHistory`.
+   *
+   * Returns one bucket per day in chronological order — empty days are included
+   * with zero counts / null rates so charts render a continuous series.
+   */
+  async getTrends(actor: ActiveMembership, days = 7) {
+    const span = Math.min(Math.max(Math.trunc(days) || 7, 1), 90);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    const start = new Date(end);
+    start.setDate(start.getDate() - (span - 1));
+    start.setHours(0, 0, 0, 0);
+
+    const trips = await this.prisma.trip.findMany({
+      where: { AND: [this.scopeForActor(actor), { date: { gte: start, lte: end } }] },
+      select: {
+        date: true,
+        status: true,
+        riders: { select: { boardStatus: true } },
+        startExceptions: { select: { id: true } },
+      },
+    });
+
+    const dayKey = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    interface Bucket {
+      date: string;
+      tripsTotal: number;
+      tripsCompleted: number;
+      started: number;
+      onTime: number;
+      boardedSum: number;
+      expectedSum: number;
+    }
+    // Seed a bucket for every day in the window (insertion order = chronological).
+    const buckets = new Map<string, Bucket>();
+    for (let i = 0; i < span; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const key = dayKey(d);
+      buckets.set(key, {
+        date: key, tripsTotal: 0, tripsCompleted: 0, started: 0, onTime: 0, boardedSum: 0, expectedSum: 0,
+      });
+    }
+
+    const STARTED = new Set<string>([TripStatus.STARTED, TripStatus.IN_PROGRESS, TripStatus.COMPLETED]);
+
+    for (const t of trips) {
+      const b = buckets.get(dayKey(t.date));
+      if (!b) continue;
+      b.tripsTotal += 1;
+      if (t.status === TripStatus.COMPLETED) b.tripsCompleted += 1;
+      if (STARTED.has(t.status)) {
+        b.started += 1;
+        // On-time = started AND not flagged as an off-protocol start.
+        if (t.startExceptions.length === 0) b.onTime += 1;
+      }
+      const boarded = t.riders.filter((r) => r.boardStatus === RiderStatus.BOARDED).length;
+      const notBoarded = t.riders.filter((r) => r.boardStatus === RiderStatus.NOT_BOARDED).length;
+      const expectedStill = t.riders.filter((r) => r.boardStatus === RiderStatus.EXPECTED).length;
+      b.boardedSum += boarded;
+      // Riders who were meant to board (excludes CANCELLED pickups).
+      b.expectedSum += boarded + notBoarded + expectedStill;
+    }
+
+    return [...buckets.values()].map((b) => ({
+      date: b.date,
+      tripsTotal: b.tripsTotal,
+      tripsCompleted: b.tripsCompleted,
+      onTimeRate: b.started > 0 ? b.onTime / b.started : null,
+      boardingRate: b.expectedSum > 0 ? b.boardedSum / b.expectedSum : null,
+    }));
+  }
+
   /** Validated status transition + trip:status fan-out. */
   private async transition(
     id: string,

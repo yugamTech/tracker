@@ -43,6 +43,12 @@ model Tenant {
   locale         String       @default("en")
   featureFlags   Json         @default("{}")
   brandingConfig Json         @default("{}")
+  // School-day bell schedule: [{ id, label, time: "HH:MM" }]. Editable in
+  // Settings → Bell Timings; a simple default-schedule reference for now.
+  bellTimings    Json         @default("[]")
+  // Emergency / alert contacts: [{ id, label, phone }]. Editable in
+  // Settings → Alert Numbers; surfaced to staff/parents in later phases.
+  alertNumbers   Json         @default("[]")
   status         TenantStatus @default(ACTIVE)
   createdAt      DateTime     @default(now())
 

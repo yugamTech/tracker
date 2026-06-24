@@ -119,6 +119,127 @@ export class ComplaintsService {
   }
 
   /**
+   * Service KPIs for the admin Complaints → KPIs screen. Computed live from the
+   * complaint rows (volumes are modest; mirrors the in-JS aggregation style of
+   * TripsService.getDriverHistory rather than a raw-SQL rollup).
+   *
+   * Buckets (by lifecycle position):
+   *  - open            = in-flight (RECEIVED/IN_PROGRESS/COUNSELLING_CALL/ADMIN_CALL/VISIT/REOPENED)
+   *  - awaitingClosure = resolution delivered, not yet closed (RESOLVED/PARENT_RATING)
+   *  - closed          = CLOSED
+   *
+   * NOTE: as real complaint data lands the schema may evolve (e.g. severity-weighted
+   * SLA, per-category targets); this rollup is intentionally simple and additive.
+   */
+  async kpi(tenantId: string) {
+    const complaints = await this.prisma.complaint.findMany({
+      where: { tenantId },
+      select: {
+        status: true,
+        category: true,
+        createdAt: true,
+        resolvedAt: true,
+        trip: {
+          select: {
+            routeId: true,
+            route: { select: { name: true } },
+            driverId: true,
+            driver: { select: { name: true } },
+          },
+        },
+        resolutionRating: { select: { rating: true, satisfied: true } },
+      },
+    });
+
+    const total = complaints.length;
+
+    const OPEN = new Set<string>([
+      ComplaintStatus.RECEIVED,
+      ComplaintStatus.IN_PROGRESS,
+      ComplaintStatus.COUNSELLING_CALL,
+      ComplaintStatus.ADMIN_CALL,
+      ComplaintStatus.VISIT,
+      ComplaintStatus.REOPENED,
+    ]);
+    const AWAITING = new Set<string>([ComplaintStatus.RESOLVED, ComplaintStatus.PARENT_RATING]);
+
+    let open = 0;
+    let awaitingClosure = 0;
+    let closed = 0;
+
+    // Breakdowns keyed by id; value carries a display name + running count.
+    const byStatus = new Map<string, number>();
+    const byCategory = new Map<string, number>();
+    const byRoute = new Map<string, { routeId: string | null; routeName: string; count: number }>();
+    const byDriver = new Map<string, { driverId: string | null; driverName: string; count: number }>();
+
+    let resolutionMsSum = 0;
+    let resolvedWithTime = 0;
+
+    let ratingCount = 0;
+    let ratingSum = 0;
+    let satisfiedCount = 0;
+
+    for (const c of complaints) {
+      if (c.status === ComplaintStatus.CLOSED) closed += 1;
+      else if (AWAITING.has(c.status)) awaitingClosure += 1;
+      else if (OPEN.has(c.status)) open += 1;
+
+      byStatus.set(c.status, (byStatus.get(c.status) ?? 0) + 1);
+      byCategory.set(c.category, (byCategory.get(c.category) ?? 0) + 1);
+
+      const routeKey = c.trip?.routeId ?? '__none__';
+      const routeName = c.trip?.route?.name ?? 'Unlinked';
+      const route = byRoute.get(routeKey) ?? { routeId: c.trip?.routeId ?? null, routeName, count: 0 };
+      route.count += 1;
+      byRoute.set(routeKey, route);
+
+      const driverKey = c.trip?.driverId ?? '__none__';
+      const driverName = c.trip?.driver?.name ?? 'Unassigned';
+      const driver = byDriver.get(driverKey) ?? { driverId: c.trip?.driverId ?? null, driverName, count: 0 };
+      driver.count += 1;
+      byDriver.set(driverKey, driver);
+
+      if (c.resolvedAt) {
+        resolutionMsSum += c.resolvedAt.getTime() - c.createdAt.getTime();
+        resolvedWithTime += 1;
+      }
+
+      if (c.resolutionRating) {
+        ratingCount += 1;
+        ratingSum += c.resolutionRating.rating;
+        if (c.resolutionRating.satisfied) satisfiedCount += 1;
+      }
+    }
+
+    const toSortedArray = <T>(m: Map<string, T>, count: (t: T) => number) =>
+      [...m.values()].sort((a, b) => count(b) - count(a));
+
+    return {
+      total,
+      open,
+      awaitingClosure,
+      closed,
+      resolutionRate: total > 0 ? closed / total : null,
+      avgResolutionHours:
+        resolvedWithTime > 0 ? resolutionMsSum / resolvedWithTime / 3_600_000 : null,
+      byStatus: [...byStatus.entries()]
+        .map(([status, count]) => ({ status, count }))
+        .sort((a, b) => b.count - a.count),
+      byCategory: [...byCategory.entries()]
+        .map(([category, count]) => ({ category, count }))
+        .sort((a, b) => b.count - a.count),
+      byRoute: toSortedArray(byRoute, (r) => r.count),
+      byDriver: toSortedArray(byDriver, (d) => d.count),
+      rating: {
+        count: ratingCount,
+        avg: ratingCount > 0 ? ratingSum / ratingCount : null,
+        satisfiedRate: ratingCount > 0 ? satisfiedCount / ratingCount : null,
+      },
+    };
+  }
+
+  /**
    * Admin/manager status change. Enforces the validated lifecycle (previously any
    * string was accepted) and the close gate, then appends the ComplaintEvent audit
    * row and notifies the parent.

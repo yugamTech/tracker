@@ -63,6 +63,15 @@ export class ComplaintsController {
     return this.complaintsService.listByTenant(tenantId, { status, category, routeId, driverId, dateFrom, dateTo });
   }
 
+  // Service KPIs for the admin Complaints → KPIs screen. Admin-only, tenant-scoped.
+  // Declared before the `:id` route so "kpi" isn't captured as a complaint id.
+  @Get('kpi')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.TRANSPORT_MANAGER)
+  kpi(@TenantId() tenantId: string) {
+    return this.complaintsService.kpi(tenantId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @TenantId() tenantId: string) {
     return this.complaintsService.findById(id, tenantId);
