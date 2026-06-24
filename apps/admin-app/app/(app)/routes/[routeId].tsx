@@ -6,13 +6,24 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge, useToast } from '@yaanam/ui';
 import {
-  useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useReactivateRoute,
-  useStops, useCreateStop, useAddStop,
+  useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useReactivateRoute, useDeleteRoute,
+  useStops, useCreateStop, useAddStop, useUpdateStop,
 } from '@yaanam/api-client';
 import type { Stop } from '@yaanam/api-client';
 import { goBackTo } from '../../../lib/nav';
 
 const DIRECTIONS = ['PICKUP', 'DROP'] as const;
+
+/**
+ * Client-side lat/lng range check (mirrors the backend DTO @Min/@Max). Returns a
+ * clear message for an out-of-range or non-numeric coordinate, or null when valid.
+ */
+function validateLatLng(lat: number, lng: number): string | null {
+  if (isNaN(lat) || isNaN(lng)) return 'Enter valid lat/lng';
+  if (lat < -90 || lat > 90) return 'Latitude must be between -90 and 90';
+  if (lng < -180 || lng > 180) return 'Longitude must be between -180 and 180';
+  return null;
+}
 
 export default function RouteDetailScreen() {
   const { routeId } = useLocalSearchParams<{ routeId: string }>();
@@ -26,6 +37,8 @@ export default function RouteDetailScreen() {
   const reactivateRoute = useReactivateRoute();
   const createStop = useCreateStop();
   const addStop = useAddStop();
+  const updateStop = useUpdateStop();
+  const deleteRoute = useDeleteRoute();
   const toast = useToast();
 
   const [name, setName] = useState('');
@@ -37,6 +50,13 @@ export default function RouteDetailScreen() {
   const [newStopLat, setNewStopLat] = useState('');
   const [newStopLng, setNewStopLng] = useState('');
   const [showStopForm, setShowStopForm] = useState(false);
+
+  // Inline stop-edit form (one row at a time).
+  const [editStopId, setEditStopId] = useState<string | null>(null);
+  const [editStopName, setEditStopName] = useState('');
+  const [editStopLat, setEditStopLat] = useState('');
+  const [editStopLng, setEditStopLng] = useState('');
+  const [editStopRadius, setEditStopRadius] = useState('');
 
   useEffect(() => {
     if (route) {
@@ -112,7 +132,8 @@ export default function RouteDetailScreen() {
     const lat = parseFloat(newStopLat);
     const lng = parseFloat(newStopLng);
     if (!newStopName.trim()) { toast.error('Stop name is required'); return; }
-    if (isNaN(lat) || isNaN(lng)) { toast.error('Enter valid lat/lng'); return; }
+    const coordErr = validateLatLng(lat, lng);
+    if (coordErr) { toast.error(coordErr); return; }
     const existing = route?.stops ?? [];
     const nextSeq = existing.length ? Math.max(...existing.map((rs) => rs.sequence)) + 1 : 1;
     createStop.mutate(
@@ -134,6 +155,56 @@ export default function RouteDetailScreen() {
         },
         onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed'),
       },
+    );
+  };
+
+  const startEditStop = (stop: Stop) => {
+    setEditStopId(stop.id);
+    setEditStopName(stop.name);
+    setEditStopLat(String(stop.lat));
+    setEditStopLng(String(stop.lng));
+    setEditStopRadius(stop.geofenceRadius != null ? String(stop.geofenceRadius) : '');
+  };
+
+  const handleSaveStop = () => {
+    if (!editStopId) return;
+    if (!editStopName.trim()) { toast.error('Stop name is required'); return; }
+    const lat = parseFloat(editStopLat);
+    const lng = parseFloat(editStopLng);
+    const coordErr = validateLatLng(lat, lng);
+    if (coordErr) { toast.error(coordErr); return; }
+    let geofenceRadius: number | undefined;
+    if (editStopRadius.trim()) {
+      const r = parseInt(editStopRadius, 10);
+      if (isNaN(r) || r < 0) { toast.error('Geofence radius must be 0 or more'); return; }
+      geofenceRadius = r;
+    }
+    updateStop.mutate(
+      { id: editStopId, name: editStopName.trim(), lat, lng, ...(geofenceRadius !== undefined ? { geofenceRadius } : {}) },
+      {
+        onSuccess: () => { toast.success('Stop updated'); setEditStopId(null); },
+        onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to update stop'),
+      },
+    );
+  };
+
+  const handleHardDelete = () => {
+    if (!route) return;
+    Alert.alert(
+      'Delete route permanently',
+      `${route.name} will be permanently deleted. This cannot be undone. Its stop links are removed and any assigned students/age groups are detached.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete permanently',
+          style: 'destructive',
+          onPress: () =>
+            deleteRoute.mutate(routeId, {
+              onSuccess: () => { toast.success('Route deleted'); goBackTo('routes/[routeId]'); },
+              onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to delete'),
+            }),
+        },
+      ],
     );
   };
 
@@ -253,21 +324,47 @@ export default function RouteDetailScreen() {
           )}
           {routeStops
             .sort((a, b) => a.sequence - b.sequence)
-            .map((rs, i) => (
-              <View key={rs.stop.id} style={styles.stopRow}>
-                <View style={styles.stopSeq}>
-                  <Text style={styles.stopSeqText}>{rs.sequence}</Text>
+            .map((rs) =>
+              editStopId === rs.stop.id ? (
+                <View key={rs.stop.id} style={styles.stopForm}>
+                  <Text style={styles.label}>Stop Name *</Text>
+                  <TextInput style={styles.input} value={editStopName} onChangeText={setEditStopName} placeholder="Stop name" placeholderTextColor={colors.gray400} />
+                  <View style={styles.latLngRow}>
+                    <View style={styles.latLngField}>
+                      <Text style={styles.label}>Latitude</Text>
+                      <TextInput style={styles.input} value={editStopLat} onChangeText={setEditStopLat} keyboardType="decimal-pad" placeholder="28.4595" placeholderTextColor={colors.gray400} />
+                    </View>
+                    <View style={styles.latLngField}>
+                      <Text style={styles.label}>Longitude</Text>
+                      <TextInput style={styles.input} value={editStopLng} onChangeText={setEditStopLng} keyboardType="decimal-pad" placeholder="77.0266" placeholderTextColor={colors.gray400} />
+                    </View>
+                  </View>
+                  <Text style={styles.label}>Geofence radius (m)</Text>
+                  <TextInput style={styles.input} value={editStopRadius} onChangeText={setEditStopRadius} keyboardType="number-pad" placeholder="100" placeholderTextColor={colors.gray400} />
+                  <View style={styles.editStopActions}>
+                    <Button title="Cancel" variant="outline" size="sm" onPress={() => setEditStopId(null)} />
+                    <Button title="Save Stop" size="sm" onPress={handleSaveStop} loading={updateStop.isPending} />
+                  </View>
                 </View>
-                <View style={styles.stopInfo}>
-                  <Text style={styles.stopName}>{rs.stop.name}</Text>
-                  <Text style={styles.stopCoord}>
-                    {rs.stop.lat != null && rs.stop.lng != null
-                      ? `${rs.stop.lat.toFixed(4)}, ${rs.stop.lng.toFixed(4)}`
-                      : 'No coordinates'}
-                  </Text>
+              ) : (
+                <View key={rs.stop.id} style={styles.stopRow}>
+                  <View style={styles.stopSeq}>
+                    <Text style={styles.stopSeqText}>{rs.sequence}</Text>
+                  </View>
+                  <View style={styles.stopInfo}>
+                    <Text style={styles.stopName}>{rs.stop.name}</Text>
+                    <Text style={styles.stopCoord}>
+                      {rs.stop.lat != null && rs.stop.lng != null
+                        ? `${rs.stop.lat.toFixed(4)}, ${rs.stop.lng.toFixed(4)}`
+                        : 'No coordinates'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => startEditStop(rs.stop)} style={styles.editBtn}>
+                    <Text style={styles.editBtnText}>Edit</Text>
+                  </TouchableOpacity>
                 </View>
-              </View>
-            ))}
+              ),
+            )}
         </Card>
       )}
 
@@ -299,6 +396,32 @@ export default function RouteDetailScreen() {
             loading={reactivateRoute.isPending}
             fullWidth
           />
+        </Card>
+      )}
+
+      {/* Permanent hard-delete — only meaningful once the record exists, and only
+          permitted when it has no trip history (else we explain why). */}
+      {!isNew && route && (
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Delete permanently</Text>
+          {route.deletable?.canDelete ? (
+            <>
+              <Text style={styles.hint}>
+                This route has no trip history, so it can be permanently deleted. This cannot be undone — prefer “Deactivate” unless you’re erasing a record added by mistake.
+              </Text>
+              <Button
+                title="Delete Route Permanently"
+                variant="danger"
+                onPress={handleHardDelete}
+                loading={deleteRoute.isPending}
+                fullWidth
+              />
+            </>
+          ) : (
+            <Text style={styles.hint}>
+              {route.deletable?.reason ?? 'This route has trip history — deactivate it instead of deleting.'}
+            </Text>
+          )}
         </Card>
       )}
     </ScrollView>
@@ -340,6 +463,7 @@ const styles = StyleSheet.create({
   addStopBtn: { paddingHorizontal: spacing[3], paddingVertical: spacing[2], borderRadius: radius.lg, borderWidth: 1, borderColor: colors.primary },
   addStopText: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.semibold },
   stopForm: { gap: spacing[3], padding: spacing[3], backgroundColor: colors.gray50, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
+  editStopActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing[2] },
   latLngRow: { flexDirection: 'row', gap: spacing[3] },
   latLngField: { flex: 1, gap: spacing[1] },
   stopRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[2], borderTopWidth: 1, borderTopColor: colors.border },
