@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { resolveDevHost } from './dev-host';
 
 export const TOKEN_KEY = 'saarthi_access_token';
 export const REFRESH_KEY = 'saarthi_refresh_token';
@@ -84,6 +85,9 @@ export const createApiClient = (baseURL: string) => {
   return client;
 };
 
-// Default instance — apps override BASE_URL via their own constants
-export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
+// Default instance — apps override BASE_URL via their own constants.
+// resolveDevHost rewrites the host to the live Expo bundler IP in dev, so a
+// changed Wi-Fi IP never breaks the connection (no .env edits needed).
+export const API_BASE_URL =
+  resolveDevHost(process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000') + '/api/v1';
 export const apiClient = createApiClient(API_BASE_URL);
