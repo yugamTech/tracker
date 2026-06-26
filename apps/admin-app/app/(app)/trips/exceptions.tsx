@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, Alert, Modal, TextInput, ActivityIn
 import { router } from 'expo-router';
 import {
   colors, spacing, radius, fontSizes, fontWeights, fontFamilies,
-  Card, Skeleton, EmptyState, AnimatedPressable, Stagger, IconSplat, Icon, useToast,
+  Card, Skeleton, EmptyState, AnimatedPressable, Stagger, IconSplat, Icon, SegmentedControl, useToast,
   type SpotIconName, type IconName,
 } from '@yaanam/ui';
 import {
@@ -313,25 +313,14 @@ export default function TripExceptionsScreen() {
       subnav={<SubNav segments={SUBNAV.trips} value="exceptions" />}
     >
       <View style={styles.root}>
-        {/* Pinned status tabs */}
+        {/* Pinned status tabs — uses the shared SegmentedControl (proven to render
+            labels + handle switching) rather than a hand-rolled tab row. */}
         <View style={styles.toolbar}>
-          <View style={styles.tabs}>
-          {STATUS_TABS.map((t) => {
-            const active = view === t.key;
-            return (
-              <AnimatedPressable
-                key={t.key}
-                scaleTo={0.97}
-                onPress={() => setView(t.key)}
-                style={[styles.tab, active && styles.tabActive]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-              >
-                <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{t.label}</Text>
-              </AnimatedPressable>
-            );
-          })}
-          </View>
+          <SegmentedControl
+            segments={STATUS_TABS.map((t) => ({ label: t.label, value: t.key }))}
+            value={view}
+            onChange={setView}
+          />
         </View>
 
         {isError ? (
