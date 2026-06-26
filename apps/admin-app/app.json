@@ -17,14 +17,19 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "@maplibre/maplibre-react-native"
+      "@maplibre/maplibre-react-native",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": { "origin": false },
-      "eas": { "projectId": "saarthi-admin" }
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "saarthi-admin"
+      }
     }
   }
 }

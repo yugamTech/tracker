@@ -5,7 +5,32 @@ export const fontFamilies = {
   medium: Platform.select({ ios: 'System', android: 'Roboto-Medium', default: 'System' }),
   bold: Platform.select({ ios: 'System', android: 'Roboto-Bold', default: 'System' }),
   mono: Platform.select({ ios: 'Courier New', android: 'monospace', default: 'monospace' }),
+
+  // ── Poppins (admin redesign) ────────────────────────────────────────────────
+  // A warm rounded face: `display`/`displayHeavy` for headings & emphasis, the
+  // `body*` weights for prose. These resolve to the per-weight families that
+  // @expo-google-fonts/poppins registers; the admin app loads them at root. Apps
+  // that don't load Poppins fall back gracefully to the system face (the existing
+  // look), since RN ignores an unregistered fontFamily.
+  body: 'Poppins_400Regular',
+  bodyMedium: 'Poppins_500Medium',
+  bodySemibold: 'Poppins_600SemiBold',
+  display: 'Poppins_700Bold',
+  displayHeavy: 'Poppins_800ExtraBold',
 };
+
+/**
+ * Names of the Poppins weights the admin app must register via expo-font, keyed
+ * to match {@link fontFamilies}. The app imports the actual font modules from
+ * `@expo-google-fonts/poppins` and maps them under these exact keys.
+ */
+export const poppinsFontKeys = [
+  'Poppins_400Regular',
+  'Poppins_500Medium',
+  'Poppins_600SemiBold',
+  'Poppins_700Bold',
+  'Poppins_800ExtraBold',
+] as const;
 
 export const fontSizes = {
   xs: 11,

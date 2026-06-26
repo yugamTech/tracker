@@ -101,6 +101,30 @@ export const colors = {
   // not follow the light/dark text ramp — they read on a dark surface by design.
   trackingLive: '#22C55E', // bright GPS-live / completed-stop green
   trackingBus: '#FACC15',  // bus marker amber-yellow
+
+  // ── Admin redesign — per-domain hues ────────────────────────────────────────
+  // One hue per app area, so colour teaches the app. Each pairs a strong tone
+  // with a soft tinted background. (Additive — existing keys are untouched.)
+  trip: '#4F46E5',   tripBg: '#ECEBFF',   // indigo  — trips
+  people: '#0D9488', peopleBg: '#D5F4EF', // teal    — people
+  route: '#0284C7',  routeBg: '#D9EFFC',  // sky     — routes
+  fleet: '#7C3AED',  fleetBg: '#EFE5FF',  // violet  — live fleet
+  talk: '#DB2777',   talkBg: '#FCE2F0',   // pink    — complaints
+  pay: '#059669',    payBg: '#D6F5E6',    // emerald — payments
+  sun: '#EA8C00',    sunBg: '#FDEFD3',    // amber   — settings
+
+  // ── Admin redesign — severity ───────────────────────────────────────────────
+  crit: '#E11D48', critBg: '#FFE4EA', // rose  — critical
+  warn: '#EA8C00', warnBg: '#FDEFD3', // amber — needs attention
+  ok: '#059669',   okBg: '#D6F5E6',   // green — resolved / healthy
+
+  // ── Admin redesign — refined neutrals (warm slate) ──────────────────────────
+  ground: '#F4F6FB',          // app canvas
+  ink: '#16203B',             // primary text
+  ink2: '#52607A',            // secondary text
+  ink3: '#9AA6BE',            // tertiary / muted text
+  hairline: '#E7EBF3',        // border
+  hairlineStrong: '#D4DAE8',  // strong border
 } as const;
 
 export type ColorKey = keyof typeof colors;
