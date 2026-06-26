@@ -195,6 +195,16 @@ export class TripsController {
   }
 
   /**
+   * Read-only lifecycle-event timeline for a trip (immutable audit trail),
+   * actor-scoped like the trip read itself. Powers the admin trip post-mortem.
+   * Additive — no existing behaviour changes.
+   */
+  @Get(':id/lifecycle-events')
+  lifecycleEvents(@Param('id') id: string, @ActiveMembershipDec() actor: ActiveMembership) {
+    return this.tripsService.getLifecycleEvents(id, actor);
+  }
+
+  /**
    * Edit a SCHEDULED trip's plan (driver/vehicle/conductor/scheduledStart/
    * direction/route). Rejected once the trip has left SCHEDULED. Admin only,
    * tenant-scoped. Rebuilds the roster in the service if the route changes.

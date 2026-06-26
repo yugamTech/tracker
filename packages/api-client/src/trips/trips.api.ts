@@ -147,6 +147,25 @@ export type TripCompletionExceptionWithTrip = TripCompletionException & {
   };
 };
 
+/** The four immutable lifecycle actions an audit row can record (PRD-02a §5). */
+export type TripLifecycleAction = 'AUTO_ABORTED' | 'FORCE_ABORTED' | 'FORCE_COMPLETED' | 'ACKNOWLEDGED';
+
+/**
+ * One immutable lifecycle-audit row for a trip, as returned by the read-only
+ * timeline endpoint (oldest-first). `actor` is `"SYSTEM"` for the automated
+ * sweep, otherwise the acting person's id.
+ */
+export interface TripLifecycleEvent {
+  id: string;
+  tenantId: string;
+  tripId: string;
+  action: TripLifecycleAction;
+  actor: string;
+  reason: string | null;
+  /** ISO timestamp the event was recorded. */
+  createdAt: string;
+}
+
 /** One past trip in the driver's history feed, with real computed fields. */
 export interface HistoryTrip {
   id: string;
@@ -323,6 +342,12 @@ export const tripsApi = {
   getLifecycleAlarms: async () => {
     const { data } = await apiClient.get('/trips/lifecycle-alarms');
     return data.data as LifecycleAlarmTrip[];
+  },
+
+  /** Read-only lifecycle-event timeline for a trip (audit trail), oldest-first. */
+  getTripLifecycleEvents: async (tripId: string) => {
+    const { data } = await apiClient.get(`/trips/${tripId}/lifecycle-events`);
+    return data.data as TripLifecycleEvent[];
   },
 
   /** Admin force-complete a trip the driver ran but forgot to close (reason required). */

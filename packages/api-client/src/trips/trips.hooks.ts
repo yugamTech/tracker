@@ -14,6 +14,7 @@ export const tripKeys = {
     [...tripKeys.all, 'completion-exceptions', resolved ?? 'open'] as const,
   overdue: () => [...tripKeys.all, 'overdue'] as const,
   lifecycleAlarms: () => [...tripKeys.all, 'lifecycle-alarms'] as const,
+  lifecycleEvents: (id: string) => [...tripKeys.all, id, 'lifecycle-events'] as const,
   trends: (days: number) => [...tripKeys.all, 'trends', days] as const,
 };
 
@@ -79,6 +80,14 @@ export const useLifecycleAlarms = () =>
   useQuery({
     queryKey: tripKeys.lifecycleAlarms(),
     queryFn: tripsApi.getLifecycleAlarms,
+  });
+
+/** Read-only lifecycle-event timeline for a single trip (audit trail), oldest-first. */
+export const useTripLifecycleEvents = (tripId: string) =>
+  useQuery({
+    queryKey: tripKeys.lifecycleEvents(tripId),
+    queryFn: () => tripsApi.getTripLifecycleEvents(tripId),
+    enabled: !!tripId,
   });
 
 export const useCreateTrip = () => {
