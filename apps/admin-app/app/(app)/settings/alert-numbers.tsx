@@ -2,12 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import {
-  colors, spacing, radius, fontSizes, fontWeights,
-  Card, Button, TextField, EmptyState, AnimatedPressable, useToast,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, EmptyState, AnimatedPressable, useToast, IconSplat,
 } from '@yaanam/ui';
 import type { AlertNumber } from '@yaanam/api-client';
 import { useMyTenant, useUpdateMyTenant } from '@yaanam/api-client';
 import { isValidPhone, newRowId } from '../../../lib/settings';
+import { Field, FormInput, PhoneInput, ActionButton } from '../../../components/forms';
+
+const HUE = colors.crit;
 
 /**
  * Alert Numbers — the school's emergency / escalation contacts (e.g. principal,
@@ -26,7 +29,7 @@ export default function AlertNumbersScreen() {
   }, [tenant]);
 
   if (isLoading) {
-    return <View style={styles.loader}><ActivityIndicator color={colors.primary} /></View>;
+    return <View style={styles.loader}><ActivityIndicator color={HUE} /></View>;
   }
   if (!tenant) {
     return <View style={styles.loader}><Text style={styles.errorText}>Could not load your school</Text></View>;
@@ -43,7 +46,7 @@ export default function AlertNumbersScreen() {
       toast.error('Every contact needs a name and a number'); return;
     }
     const bad = cleaned.find((r) => !isValidPhone(r.phone));
-    if (bad) { toast.error(`“${bad.phone}” doesn’t look like a valid phone number`); return; }
+    if (bad) { toast.error(`"${bad.phone}" doesn't look like a valid phone number`); return; }
     updateTenant.mutate(
       { alertNumbers: cleaned },
       {
@@ -58,56 +61,55 @@ export default function AlertNumbersScreen() {
       <Text style={styles.intro}>Emergency contacts staff can call when something goes wrong on a route.</Text>
 
       {rows.length === 0 ? (
-        <Card shadow="sm" style={styles.emptyCard}>
+        <Card shadow="sm" radius={22} style={styles.emptyCard}>
           <EmptyState
-            icon={<Text style={{ fontSize: 34 }}>🚨</Text>}
+            icon={<IconSplat shape="b3" splatColor={colors.critBg} spot="route" size={56} />}
             title="No alert numbers yet"
             description="Add your first emergency contact below."
           />
         </Card>
       ) : (
         rows.map((row) => (
-          <Card key={row.id} shadow="sm" style={styles.rowCard}>
-            <TextField
-              label="Contact name / role"
-              value={row.label}
-              onChangeText={(t) => patchRow(row.id, { label: t })}
-              placeholder="e.g. Transport head"
-              autoCapitalize="words"
-            />
-            <TextField
-              label="Phone"
-              value={row.phone}
-              onChangeText={(t) => patchRow(row.id, { phone: t })}
-              placeholder="+91 98765 43210"
-              keyboardType="phone-pad"
-              error={row.phone && !isValidPhone(row.phone) ? 'Enter a valid number' : undefined}
-            />
-            <AnimatedPressable scaleTo={0.96} onPress={() => removeRow(row.id)} style={styles.remove}>
+          <Card key={row.id} shadow="sm" radius={22} style={styles.rowCard}>
+            <Field label="Contact name / role">
+              <FormInput
+                hue={HUE}
+                value={row.label}
+                onChangeText={(t) => patchRow(row.id, { label: t })}
+                placeholder="e.g. Transport head"
+                autoCapitalize="words"
+              />
+            </Field>
+            <Field label="Phone" hint={row.phone && !isValidPhone(row.phone) ? 'Enter a valid number' : undefined}>
+              <PhoneInput
+                hue={HUE}
+                value={row.phone}
+                onChangeText={(t) => patchRow(row.id, { phone: t })}
+              />
+            </Field>
+            <AnimatedPressable scaleTo={0.96} onPress={() => removeRow(row.id)} style={styles.remove} accessibilityRole="button">
               <Text style={styles.removeText}>Remove</Text>
             </AnimatedPressable>
           </Card>
         ))
       )}
 
-      <Button title="+ Add contact" variant="outline" onPress={addRow} fullWidth />
-      <Button title="Save alert numbers" onPress={handleSave} loading={updateTenant.isPending} fullWidth style={styles.saveBtn} />
+      <ActionButton title="+ Add contact" tone="outline" hue={HUE} onPress={addRow} fullWidth />
+      <ActionButton title="Save alert numbers" hue={HUE} onPress={handleSave} loading={updateTenant.isPending} fullWidth />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.backgroundMuted },
+  container: { flex: 1, backgroundColor: colors.ground },
   content: { padding: spacing[4], gap: spacing[3], paddingBottom: spacing[8] },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  errorText: { fontSize: fontSizes.base, color: colors.error },
+  errorText: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.base, color: colors.crit },
 
-  intro: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 20 },
+  intro: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 20 },
   emptyCard: { paddingVertical: spacing[4] },
 
-  rowCard: { gap: spacing[2] },
-  remove: { alignSelf: 'flex-end', paddingVertical: spacing[1], paddingHorizontal: spacing[2], borderRadius: radius.md },
-  removeText: { fontSize: fontSizes.sm, color: colors.error, fontWeight: fontWeights.semibold },
-
-  saveBtn: { marginTop: spacing[1] },
+  rowCard: { gap: spacing[3] },
+  remove: { alignSelf: 'flex-end', paddingVertical: spacing[1], paddingHorizontal: spacing[2] },
+  removeText: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.sm, color: colors.crit, fontWeight: fontWeights.extrabold },
 });

@@ -2,12 +2,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import {
-  colors, spacing, radius, fontSizes, fontWeights,
-  Card, Button, SegmentedControl, useToast,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, SegmentedControl, useToast,
 } from '@yaanam/ui';
 import type { FeatureFlagState } from '@yaanam/api-client';
 import { useMyTenant, useUpdateMyTenant } from '@yaanam/api-client';
 import { FEATURE_FLAGS, resolveFlag } from '../../../lib/settings';
+import { ActionButton } from '../../../components/forms';
+
+const HUE = colors.sun;
 
 const SEGMENTS = [
   { label: 'Off', value: 'off' },
@@ -42,7 +45,7 @@ export default function FeatureFlagsScreen() {
   }, [draft, tenant]);
 
   if (isLoading) {
-    return <View style={styles.loader}><ActivityIndicator color={colors.primary} /></View>;
+    return <View style={styles.loader}><ActivityIndicator color={HUE} /></View>;
   }
   if (!tenant) {
     return <View style={styles.loader}><Text style={styles.errorText}>Could not load your school</Text></View>;
@@ -61,12 +64,12 @@ export default function FeatureFlagsScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Text style={styles.intro}>
-        Turn optional features on or off for your school. <Text style={styles.wip}>WIP</Text> keeps a
-        feature visible but flagged as work-in-progress.
+        Turn optional features on or off for your school.{' '}
+        <Text style={styles.wip}>WIP</Text> keeps a feature visible but flagged as work-in-progress.
       </Text>
 
       {FEATURE_FLAGS.map((f) => (
-        <Card key={f.key} shadow="sm" style={styles.flagCard}>
+        <Card key={f.key} shadow="sm" radius={22} style={styles.flagCard}>
           <View style={styles.flagHead}>
             <Text style={styles.flagLabel}>{f.label}</Text>
             <StateDot state={draft[f.key]} />
@@ -80,37 +83,35 @@ export default function FeatureFlagsScreen() {
         </Card>
       ))}
 
-      <Button
+      <ActionButton
         title={dirty ? 'Save changes' : 'No changes'}
+        hue={HUE}
         onPress={handleSave}
         loading={updateTenant.isPending}
         disabled={!dirty}
         fullWidth
-        style={styles.saveBtn}
       />
     </ScrollView>
   );
 }
 
 function StateDot({ state }: { state?: FeatureFlagState }) {
-  const color = state === 'on' ? colors.success : state === 'wip' ? colors.warning : colors.textMuted;
+  const color = state === 'on' ? colors.ok : state === 'wip' ? colors.warn : colors.ink3;
   return <View style={[styles.dot, { backgroundColor: color }]} />;
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.backgroundMuted },
+  container: { flex: 1, backgroundColor: colors.ground },
   content: { padding: spacing[4], gap: spacing[3], paddingBottom: spacing[8] },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  errorText: { fontSize: fontSizes.base, color: colors.error },
+  errorText: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.base, color: colors.crit },
 
-  intro: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 20 },
-  wip: { fontWeight: fontWeights.bold, color: colors.warning },
+  intro: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 20 },
+  wip: { fontFamily: fontFamilies.displayHeavy, fontWeight: fontWeights.extrabold, color: colors.warn },
 
   flagCard: { gap: spacing[2] },
   flagHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] },
-  flagLabel: { flex: 1, fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  flagDesc: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18 },
-  dot: { width: 10, height: 10, borderRadius: radius.full },
-
-  saveBtn: { marginTop: spacing[2] },
+  flagLabel: { flex: 1, fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink },
+  flagDesc: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 18 },
+  dot: { width: 10, height: 10, borderRadius: 5 },
 });

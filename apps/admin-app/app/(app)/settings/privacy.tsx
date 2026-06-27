@@ -2,18 +2,19 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
 import { router } from 'expo-router';
 import {
-  colors, spacing, fontSizes, fontWeights,
-  Card, Button, Divider,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, Icon, type IconName,
 } from '@yaanam/ui';
 import { useAuthStore } from '../../../store/auth.store';
+import { ActionButton } from '../../../components/forms';
 
-interface InfoRow { icon: string; title: string; body: string; }
+interface InfoRow { icon: IconName; title: string; body: string; }
 
 const INFO: InfoRow[] = [
-  { icon: '📱', title: 'Phone-based login', body: 'You sign in with a one-time code sent to your phone — there is no password to leak.' },
-  { icon: '🏫', title: 'Your school’s data stays separate', body: 'Every record is scoped to your school. Staff from other schools can never see your students, routes or trips.' },
-  { icon: '🔑', title: 'Role-based access', body: 'Drivers, teachers and parents each see only what their role allows. Admin actions are limited to admins.' },
-  { icon: '🧾', title: 'Audit trail', body: 'Sensitive actions — complaint status changes, trip overrides — are recorded with who did them and when.' },
+  { icon: 'phone', title: 'Phone-based login', body: 'You sign in with a one-time code sent to your phone — there is no password to leak.' },
+  { icon: 'users', title: "Your school's data stays separate", body: "Every record is scoped to your school. Staff from other schools can never see your students, routes or trips." },
+  { icon: 'check', title: 'Role-based access', body: 'Drivers, teachers and parents each see only what their role allows. Admin actions are limited to admins.' },
+  { icon: 'flag', title: 'Audit trail', body: 'Sensitive actions — complaint status changes, trip overrides — are recorded with who did them and when.' },
 ];
 
 /**
@@ -33,34 +34,37 @@ export default function PrivacySecurityScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <Card shadow="sm" padding={0} style={styles.card}>
+      <Card shadow="sm" radius={22} style={styles.card}>
         {INFO.map((row, i) => (
           <View key={row.title}>
+            {i > 0 ? <View style={styles.divider} /> : null}
             <View style={styles.row}>
-              <Text style={styles.glyph}>{row.icon}</Text>
+              <View style={styles.iconChip}>
+                <Icon name={row.icon} size={18} color={colors.sun} />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowTitle}>{row.title}</Text>
                 <Text style={styles.rowBody}>{row.body}</Text>
               </View>
             </View>
-            {i < INFO.length - 1 ? <Divider inset={4} /> : null}
           </View>
         ))}
       </Card>
 
       <Text style={styles.sessionLabel}>SESSION</Text>
-      <Button title="Log out of this device" variant="danger" onPress={handleLogout} fullWidth />
+      <ActionButton title="Log out of this device" tone="danger" onPress={handleLogout} fullWidth />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.backgroundMuted },
+  container: { flex: 1, backgroundColor: colors.ground },
   content: { padding: spacing[4], gap: spacing[3], paddingBottom: spacing[8] },
-  card: { overflow: 'hidden' },
-  row: { flexDirection: 'row', gap: spacing[3], padding: spacing[4] },
-  glyph: { fontSize: 22 },
-  rowTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  rowBody: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 19, marginTop: 2 },
-  sessionLabel: { fontSize: fontSizes.xs, fontWeight: fontWeights.semibold, color: colors.textMuted, letterSpacing: 0.8, marginTop: spacing[2] },
+  card: { overflow: 'hidden', gap: 0 },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.hairline, marginHorizontal: spacing[4] },
+  row: { flexDirection: 'row', gap: spacing[3], padding: spacing[4], alignItems: 'flex-start' },
+  iconChip: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.sunBg, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  rowTitle: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink },
+  rowBody: { fontFamily: fontFamilies.body, fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 19, marginTop: 2 },
+  sessionLabel: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.xs, fontWeight: fontWeights.extrabold, color: colors.ink3, letterSpacing: 0.8 },
 });

@@ -2,11 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import {
-  colors, spacing, radius, fontSizes, fontWeights,
-  Card, Button, Chip, TextField, useToast, AnimatedPressable,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Chip, TextField, useToast, AnimatedPressable, IconSplat, Icon,
 } from '@yaanam/ui';
 import { useMyTenant, useUpdateMyTenant } from '@yaanam/api-client';
 import { TIMEZONE_OPTIONS, LOCALE_OPTIONS, BRAND_COLOR_PRESETS } from '../../../lib/settings';
+import { GroupCard, Field, ActionButton } from '../../../components/forms';
+
+const HUE = colors.sun;
 
 /**
  * School Profile (PRD-01) — edit the tenant's display name, timezone, locale and
@@ -35,7 +38,7 @@ export default function SchoolProfileScreen() {
   }, [tenant]);
 
   if (isLoading) {
-    return <View style={styles.loader}><ActivityIndicator color={colors.primary} /></View>;
+    return <View style={styles.loader}><ActivityIndicator color={HUE} /></View>;
   }
   if (!tenant) {
     return <View style={styles.loader}><Text style={styles.errorText}>Could not load your school</Text></View>;
@@ -60,101 +63,90 @@ export default function SchoolProfileScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Identity preview */}
-      <Card style={styles.headerCard}>
-        <View style={[styles.brandChip, { backgroundColor: primaryColor || colors.primary }]}>
-          <Text style={styles.brandGlyph}>🏫</Text>
-        </View>
-        <View style={{ flex: 1 }}>
+      <View style={styles.headerCard}>
+        <IconSplat shape="b2" splatColor={colors.sunBg} spot="cog" size={52} />
+        <View style={styles.headerInfo}>
           <Text style={styles.headerName} numberOfLines={1}>{name || 'Your school'}</Text>
           {tagline ? <Text style={styles.headerTagline} numberOfLines={1}>{tagline}</Text> : null}
         </View>
-      </Card>
+        <View style={[styles.colorDot, { backgroundColor: primaryColor || HUE }]} />
+      </View>
 
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Profile</Text>
-        <TextField
-          label="Display name"
-          required
-          value={name}
-          onChangeText={setName}
-          placeholder="e.g. Greenwood International School"
-          autoCapitalize="words"
-        />
+      <GroupCard title="Profile" spot="cog" hue={HUE}>
+        <Field label="Display name" required>
+          <TextField
+            label=""
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g. Greenwood International School"
+            autoCapitalize="words"
+          />
+        </Field>
 
-        <Text style={styles.label}>Timezone</Text>
-        <View style={styles.chipWrap}>
-          {TIMEZONE_OPTIONS.map((tz) => (
-            <Chip key={tz} label={tz} selected={timezone === tz} onPress={() => setTimezone(tz)} size="sm" />
-          ))}
-        </View>
+        <Field label="Timezone">
+          <View style={styles.chipWrap}>
+            {TIMEZONE_OPTIONS.map((tz) => (
+              <Chip key={tz} label={tz} selected={timezone === tz} onPress={() => setTimezone(tz)} size="sm" />
+            ))}
+          </View>
+        </Field>
 
-        <Text style={styles.label}>Language</Text>
-        <View style={styles.chipWrap}>
-          {LOCALE_OPTIONS.map((l) => (
-            <Chip key={l.value} label={l.label} selected={locale === l.value} onPress={() => setLocale(l.value)} size="sm" />
-          ))}
-        </View>
-      </Card>
+        <Field label="Language">
+          <View style={styles.chipWrap}>
+            {LOCALE_OPTIONS.map((l) => (
+              <Chip key={l.value} label={l.label} selected={locale === l.value} onPress={() => setLocale(l.value)} size="sm" />
+            ))}
+          </View>
+        </Field>
+      </GroupCard>
 
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Branding</Text>
-        <Text style={styles.hint}>
-          Saved now and applied to the apps’ theme in a later phase.
-        </Text>
+      <GroupCard title="Branding" icon="type" hue={HUE}>
+        <Text style={styles.hint}>Saved now and applied to the apps' theme in a later phase.</Text>
 
-        <Text style={styles.label}>Primary colour</Text>
-        <View style={styles.swatchRow}>
-          {BRAND_COLOR_PRESETS.map((c) => (
-            <AnimatedPressable key={c} scaleTo={0.9} onPress={() => setPrimaryColor(c)}>
-              <View style={[styles.swatch, { backgroundColor: c }, primaryColor === c && styles.swatchActive]}>
-                {primaryColor === c ? <Text style={styles.swatchCheck}>✓</Text> : null}
-              </View>
-            </AnimatedPressable>
-          ))}
-        </View>
+        <Field label="Primary colour">
+          <View style={styles.swatchRow}>
+            {BRAND_COLOR_PRESETS.map((c) => (
+              <AnimatedPressable key={c} scaleTo={0.9} onPress={() => setPrimaryColor(c)} accessibilityRole="button">
+                <View style={[styles.swatch, { backgroundColor: c }, primaryColor === c && styles.swatchActive]}>
+                  {primaryColor === c ? <Icon name="check" size={16} color={colors.white} /> : null}
+                </View>
+              </AnimatedPressable>
+            ))}
+          </View>
+        </Field>
 
-        <TextField
-          label="Tagline"
-          value={tagline}
-          onChangeText={setTagline}
-          placeholder="Optional — e.g. Safe rides, every day"
-          hint="Shown under the school name."
-        />
-      </Card>
+        <Field label="Tagline">
+          <TextField
+            label=""
+            value={tagline}
+            onChangeText={setTagline}
+            placeholder="Optional — e.g. Safe rides, every day"
+            hint="Shown under the school name."
+          />
+        </Field>
+      </GroupCard>
 
-      <Button
-        title="Save changes"
-        onPress={handleSave}
-        loading={updateTenant.isPending}
-        fullWidth
-        style={styles.saveBtn}
-      />
+      <ActionButton title="Save changes" hue={HUE} onPress={handleSave} loading={updateTenant.isPending} fullWidth />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.backgroundMuted },
+  container: { flex: 1, backgroundColor: colors.ground },
   content: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[8] },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  errorText: { fontSize: fontSizes.base, color: colors.error },
+  errorText: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.base, color: colors.crit },
 
   headerCard: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  brandChip: { width: 56, height: 56, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center' },
-  brandGlyph: { fontSize: 26 },
-  headerName: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  headerTagline: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  headerInfo: { flex: 1, minWidth: 0 },
+  headerName: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
+  headerTagline: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, marginTop: 2 },
+  colorDot: { width: 24, height: 24, borderRadius: 12 },
 
-  section: { gap: spacing[3] },
-  sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18, marginTop: -spacing[1] },
-  label: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary },
+  hint: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 19 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
 
   swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
-  swatch: { width: 40, height: 40, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
-  swatchActive: { borderColor: colors.textPrimary },
-  swatchCheck: { color: colors.white, fontSize: fontSizes.base, fontWeight: fontWeights.bold },
-
-  saveBtn: { marginTop: spacing[1] },
+  swatch: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
+  swatchActive: { borderColor: colors.ink },
 });
