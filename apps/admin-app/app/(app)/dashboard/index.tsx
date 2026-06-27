@@ -2,19 +2,20 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import {
-  colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
-  Card, Badge, StatusDot, Skeleton, EmptyState, AnimatedPressable, Divider,
+  colors, spacing, radius, fontSizes, fontWeights, fontFamilies,
+  Card, Badge, StatusDot, Skeleton, EmptyState, AnimatedPressable, Divider, Stagger,
+  IconSplat, Icon, type SpotIconName, type IconName,
 } from '@yaanam/ui';
 import type { BadgeVariant } from '@yaanam/ui';
 import { useFleet, useTodayTrips, useLifecycleAlarms, useTripTrends, useComplaintKpi } from '@yaanam/api-client';
 import type { FleetEntry } from '@yaanam/api-client';
 import { AdminScreen } from '../../../components/AdminScreen';
 import { SubNav } from '../../../components/SubNav';
-import { StatCard } from '../../../components/widgets';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { SUBNAV } from '../../../lib/nav';
 
 const ACTIVE = new Set(['STARTED', 'IN_PROGRESS']);
+const SPLAT_NEUTRAL = '#EEF1F6';
 
 function statusBadge(status: string): { label: string; variant: BadgeVariant } {
   if (ACTIVE.has(status)) return { label: 'Live', variant: 'info' };
@@ -51,30 +52,47 @@ export default function DashboardScreen() {
       subnav={<SubNav segments={SUBNAV.dashboard} value="overview" />}
     >
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* KPI row */}
+        {/* KPI grid — calm white tiles that light up only when something needs you. */}
         <View style={[styles.kpiRow, isDesktop ? styles.kpiRowDesktop : styles.kpiRowPhone]}>
-          <Kpi desktop={isDesktop}>
-            <StatCard label="Active Trips" value={fleetLoading ? '—' : active.length} icon="⬢" tone="primary" />
-          </Kpi>
-          <Kpi desktop={isDesktop}>
-            <StatCard label="Signal Lost" value={fleetLoading ? '—' : signalLost.length} icon="📡" tone={signalLost.length ? 'error' : 'neutral'} />
-          </Kpi>
-          <Kpi desktop={isDesktop}>
-            <StatCard label="Trips Today" value={tripsLoading ? '—' : tripList.length} icon="◆" tone="info" />
-          </Kpi>
-          <Kpi desktop={isDesktop}>
-            <StatCard label="Completed" value={tripsLoading ? '—' : completed} icon="✓" tone="success" />
-          </Kpi>
-          <Kpi desktop={isDesktop}>
-            <AnimatedPressable scaleTo={0.99} onPress={() => router.push('/(app)/trips/exceptions' as never)}>
-              <StatCard
-                label="Active & Overdue"
-                value={alarmsLoading ? '—' : alarms.length}
-                icon="⏱"
-                tone={alarms.length ? 'error' : 'neutral'}
-              />
-            </AnimatedPressable>
-          </Kpi>
+          <Stagger interval={60} itemStyle={isDesktop ? styles.kpiCellDesktop : styles.kpiCellPhone}>
+            <KpiTile
+              label="Active trips"
+              value={fleetLoading ? '—' : active.length}
+              spot="started"
+              valueColor={colors.fleet}
+            />
+            <KpiTile
+              label="Signal lost"
+              value={fleetLoading ? '—' : signalLost.length}
+              spot="signal"
+              alert={signalLost.length > 0}
+              alertBg={colors.critBg}
+              valueColor={signalLost.length ? colors.crit : colors.ink3}
+            />
+            <KpiTile
+              label="Trips today"
+              value={tripsLoading ? '—' : tripList.length}
+              spot="trip"
+              valueColor={colors.trip}
+            />
+            <KpiTile
+              label="Completed"
+              value={tripsLoading ? '—' : completed}
+              icon="checkc"
+              iconColor={colors.ok}
+              iconSplatBg={colors.okBg}
+              valueColor={colors.ok}
+            />
+            <KpiTile
+              label="Active & overdue"
+              value={alarmsLoading ? '—' : alarms.length}
+              spot="overdue"
+              alert={alarms.length > 0}
+              alertBg={colors.warnBg}
+              valueColor={alarms.length ? colors.warn : colors.ink3}
+              onPress={() => router.push('/(app)/trips/exceptions' as never)}
+            />
+          </Stagger>
         </View>
 
         {/* Today's performance + open service load (real, at-a-glance) */}
@@ -100,8 +118,45 @@ export default function DashboardScreen() {
   );
 }
 
-function Kpi({ desktop, children }: { desktop: boolean; children: React.ReactNode }) {
-  return <View style={desktop ? styles.kpiCellDesktop : styles.kpiCellPhone}>{children}</View>;
+/**
+ * A KPI tile in the reference's calm-card style: a painted spot/duotone icon
+ * badge, a big rounded-display value and a muted label. Stays white until its
+ * metric needs attention, when it washes in the severity tint with a corner glow.
+ */
+function KpiTile({
+  label, value, spot, icon, iconColor, iconSplatBg, valueColor, alert, alertBg, onPress,
+}: {
+  label: string;
+  value: string | number;
+  spot?: SpotIconName;
+  icon?: IconName;
+  iconColor?: string;
+  iconSplatBg?: string;
+  valueColor?: string;
+  alert?: boolean;
+  alertBg?: string;
+  onPress?: () => void;
+}) {
+  const body = (
+    <View style={[styles.kpi, alert && alertBg ? { backgroundColor: alertBg, borderColor: 'transparent' } : null]}>
+      <View style={styles.kpiTop}>
+        <Text style={styles.kpiLabel} numberOfLines={1}>{label}</Text>
+        <IconSplat
+          shape="b1"
+          splatColor={iconSplatBg ?? SPLAT_NEUTRAL}
+          spot={spot}
+          icon={icon}
+          iconColor={iconColor}
+          size={38}
+        />
+      </View>
+      <Text style={[styles.kpiValue, valueColor ? { color: valueColor } : null]}>{value}</Text>
+      {alert ? <View style={[styles.kpiGlow, { backgroundColor: valueColor ?? colors.warn }]} /> : null}
+    </View>
+  );
+  return onPress ? (
+    <AnimatedPressable scaleTo={0.98} onPress={onPress} accessibilityRole="button">{body}</AnimatedPressable>
+  ) : body;
 }
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -121,28 +176,44 @@ function TodayStrip({
   complaintsLoading: boolean;
 }) {
   return (
-    <Card shadow="sm" style={styles.todayCard}>
-      <TodayStat label="On-time today" value={loading ? '—' : onTimeRate == null ? '—' : pct(onTimeRate)} />
+    <Card shadow="sm" radius={22} style={styles.todayCard}>
+      <TodayStat
+        icon="clock"
+        iconColor={colors.ok}
+        label="On-time today"
+        value={loading ? '—' : onTimeRate == null ? '—' : pct(onTimeRate)}
+      />
       <View style={styles.todayDivider} />
-      <TodayStat label="Boarding today" value={loading ? '—' : boardingRate == null ? '—' : pct(boardingRate)} />
+      <TodayStat
+        icon="users"
+        iconColor={colors.route}
+        label="Boarding today"
+        value={loading ? '—' : boardingRate == null ? '—' : pct(boardingRate)}
+      />
       <View style={styles.todayDivider} />
       <AnimatedPressable
         scaleTo={0.97}
         onPress={() => router.push('/(app)/complaints' as never)}
         style={styles.todayStat}
+        accessibilityRole="button"
       >
-        <Text style={[styles.todayValue, openComplaints > 0 && { color: colors.warning }]}>
+        <Icon name="chat" size={18} color={openComplaints > 0 ? colors.talk : colors.ink3} />
+        <Text style={[styles.todayValue, openComplaints > 0 && { color: colors.talk }]}>
           {complaintsLoading ? '—' : openComplaints}
         </Text>
-        <Text style={styles.todayLabel}>Open complaints ›</Text>
+        <View style={styles.todayLabelRow}>
+          <Text style={styles.todayLabel}>Open complaints</Text>
+          <Icon name="chevron" size={12} color={colors.ink3} />
+        </View>
       </AnimatedPressable>
     </Card>
   );
 }
 
-function TodayStat({ label, value }: { label: string; value: string | number }) {
+function TodayStat({ icon, iconColor, label, value }: { icon: IconName; iconColor: string; label: string; value: string | number }) {
   return (
     <View style={styles.todayStat}>
+      <Icon name={icon} size={18} color={iconColor} />
       <Text style={styles.todayValue}>{value}</Text>
       <Text style={styles.todayLabel}>{label}</Text>
     </View>
@@ -153,14 +224,14 @@ function PanelHeader({ title, count }: { title: string; count?: number }) {
   return (
     <View style={styles.panelHeader}>
       <Text style={styles.panelTitle}>{title}</Text>
-      {count != null ? <Text style={styles.panelCount}>{count}</Text> : null}
+      {count != null ? <View style={styles.panelCountPill}><Text style={styles.panelCount}>{count}</Text></View> : null}
     </View>
   );
 }
 
 function FleetPanel({ loading, fleet }: { loading: boolean; fleet: FleetEntry[] }) {
   return (
-    <Card shadow="sm" padding={0} style={styles.panel}>
+    <Card shadow="sm" radius={22} padding={0} style={styles.panel}>
       <View style={styles.panelPad}>
         <PanelHeader title="Live fleet" count={loading ? undefined : fleet.length} />
       </View>
@@ -179,7 +250,7 @@ function FleetPanel({ loading, fleet }: { loading: boolean; fleet: FleetEntry[] 
         </View>
       ) : fleet.length === 0 ? (
         <EmptyState
-          icon={<Text style={{ fontSize: 36 }}>🚍</Text>}
+          icon={<IconSplat shape="b2" splatColor={colors.fleetBg} spot="bus" size={64} />}
           title="No active trips"
           description="Buses appear here once trips start for the day."
         />
@@ -212,7 +283,7 @@ function FleetPanel({ loading, fleet }: { loading: boolean; fleet: FleetEntry[] 
 
 function AttentionPanel({ loading, signalLost }: { loading: boolean; signalLost: FleetEntry[] }) {
   return (
-    <Card shadow="sm" padding={0} style={styles.panel}>
+    <Card shadow="sm" radius={22} padding={0} style={styles.panel}>
       <View style={styles.panelPad}>
         <PanelHeader title="Needs attention" count={loading ? undefined : signalLost.length} />
       </View>
@@ -224,13 +295,13 @@ function AttentionPanel({ loading, signalLost }: { loading: boolean; signalLost:
         </View>
       ) : signalLost.length === 0 ? (
         <View style={styles.allClear}>
-          <Text style={styles.allClearGlyph}>✓</Text>
+          <IconSplat shape="b1" splatColor={colors.okBg} icon="checkc" iconColor={colors.ok} size={52} />
           <Text style={styles.allClearText}>All buses reporting</Text>
         </View>
       ) : (
         signalLost.map((f, i) => (
           <View key={f.tripId} style={[styles.attnRow, i < signalLost.length - 1 && styles.rowBorder]}>
-            <Text style={styles.attnGlyph}>📡</Text>
+            <IconSplat shape="b2" splatColor={SPLAT_NEUTRAL} spot="signal" size={40} />
             <View style={{ flex: 1 }}>
               <Text style={styles.attnTitle}>{f.vehicleReg ?? 'Bus'} lost signal</Text>
               <Text style={styles.attnMeta}>{f.routeName}</Text>
@@ -242,7 +313,7 @@ function AttentionPanel({ loading, signalLost }: { loading: boolean; signalLost:
       <AnimatedPressable onPress={() => router.push('/(app)/fleet/exceptions' as never)} scaleTo={0.98}>
         <View style={styles.panelLink}>
           <Text style={styles.panelLinkText}>View all exceptions</Text>
-          <Text style={styles.panelLinkChevron}>›</Text>
+          <Icon name="chevron" size={15} color={colors.trip} />
         </View>
       </AnimatedPressable>
     </Card>
@@ -258,11 +329,33 @@ const styles = StyleSheet.create({
   kpiCellDesktop: { flex: 1 },
   kpiCellPhone: { width: '48%' },
 
-  todayCard: { flexDirection: 'row', alignItems: 'stretch' },
-  todayStat: { flex: 1, alignItems: 'center', gap: 2, paddingHorizontal: spacing[1] },
-  todayValue: { fontSize: fontSizes.xl, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
-  todayLabel: { fontSize: fontSizes.xs, fontWeight: fontWeights.semibold, color: colors.textSecondary },
-  todayDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginVertical: spacing[1] },
+  kpi: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    padding: 14,
+    minHeight: 104,
+    overflow: 'hidden',
+    shadowColor: '#16203B', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 1,
+  },
+  kpiTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing[2] },
+  kpiLabel: {
+    flex: 1, fontFamily: fontFamilies.display, fontSize: 12.5, fontWeight: fontWeights.bold,
+    color: colors.ink2, marginTop: 3,
+  },
+  kpiValue: {
+    fontFamily: fontFamilies.displayHeavy, fontSize: 32, fontWeight: fontWeights.extrabold,
+    color: colors.ink, letterSpacing: -0.5, marginTop: 6,
+  },
+  kpiGlow: { position: 'absolute', right: -18, bottom: -20, width: 64, height: 64, borderRadius: 32, opacity: 0.14 },
+
+  todayCard: { flexDirection: 'row', alignItems: 'stretch', paddingVertical: spacing[4] },
+  todayStat: { flex: 1, alignItems: 'center', gap: 4, paddingHorizontal: spacing[1] },
+  todayValue: { fontFamily: fontFamilies.displayHeavy, fontSize: 24, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.4 },
+  todayLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  todayLabel: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold, color: colors.ink2 },
+  todayDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.hairline, marginVertical: spacing[1] },
 
   region: { gap: spacing[4] },
   regionDesktop: { flexDirection: 'row', alignItems: 'flex-start' },
@@ -273,27 +366,25 @@ const styles = StyleSheet.create({
   panel: { overflow: 'hidden' },
   panelPad: { paddingHorizontal: spacing[4], paddingVertical: spacing[3] },
   panelHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  panelTitle: { fontSize: fontSizes.md, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
-  panelCount: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.textMuted },
+  panelTitle: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.md, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
+  panelCountPill: { backgroundColor: colors.gray100, borderRadius: radius.full, paddingHorizontal: 9, paddingVertical: 2, minWidth: 24, alignItems: 'center' },
+  panelCount: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.xs, fontWeight: fontWeights.extrabold, color: colors.ink2 },
 
   rowSkeleton: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[2] },
 
   fleetRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingHorizontal: spacing[4], paddingVertical: spacing[3] },
   rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderSubtle },
   fleetInfo: { flex: 1 },
-  fleetRoute: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  fleetMeta: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 1 },
+  fleetRoute: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink },
+  fleetMeta: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, marginTop: 1 },
 
-  allClear: { alignItems: 'center', paddingVertical: spacing[6], gap: spacing[2] },
-  allClearGlyph: { fontSize: 28, color: colors.success, fontWeight: fontWeights.bold },
-  allClearText: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  allClear: { alignItems: 'center', paddingVertical: spacing[5], gap: spacing[2] },
+  allClearText: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, fontWeight: fontWeights.semibold },
 
   attnRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingHorizontal: spacing[4], paddingVertical: spacing[3] },
-  attnGlyph: { fontSize: 20 },
-  attnTitle: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  attnMeta: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: 1 },
+  attnTitle: { fontFamily: fontFamilies.display, fontSize: fontSizes.sm, fontWeight: fontWeights.bold, color: colors.ink },
+  attnMeta: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3, marginTop: 1 },
 
   panelLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing[4], paddingVertical: spacing[3] },
-  panelLinkText: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.primary },
-  panelLinkChevron: { fontSize: 20, color: colors.primary, fontWeight: fontWeights.semibold },
+  panelLinkText: { fontFamily: fontFamilies.display, fontSize: fontSizes.sm, fontWeight: fontWeights.bold, color: colors.trip },
 });
