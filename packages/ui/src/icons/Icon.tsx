@@ -14,7 +14,8 @@ import { colors } from '../theme/colors';
 export type IconName =
   | 'bus' | 'alert' | 'clock' | 'search' | 'users' | 'route' | 'grid' | 'chat'
   | 'card' | 'cog' | 'check' | 'checkc' | 'x' | 'phone' | 'wifi' | 'pin'
-  | 'spark' | 'flag' | 'type' | 'move';
+  | 'spark' | 'flag' | 'type' | 'move'
+  | 'power' | 'plus' | 'chevron' | 'edit' | 'trash' | 'mail' | 'calendar';
 
 type Layer = 'f' | 's' | 'fs';
 type Part =
@@ -131,6 +132,38 @@ const ICONS: Record<IconName, Part[]> = {
   move: [
     p('M12 3v18M3 12h18'),
     p('m8 7 4-4 4 4M8 17l4 4 4-4M7 8l-4 4 4 4M17 8l4 4-4 4'),
+  ],
+  power: [
+    c(12, 12, 8.4, 'f'),
+    p('M16.95 7.05a7 7 0 1 1-9.9 0'),
+    p('M12 3v6.2'),
+  ],
+  plus: [
+    c(12, 12, 9, 'f'),
+    p('M12 7.2v9.6M7.2 12h9.6'),
+  ],
+  chevron: [
+    p('m9.5 6 6 6-6 6'),
+  ],
+  edit: [
+    p('M4 16.4 15 5.4l3.6 3.6L7.6 20H4z', 'f'),
+    p('M4 16.4 15 5.4l3.6 3.6L7.6 20H4v-3.6z'),
+    p('M13.2 7.2 16.8 10.8'),
+  ],
+  trash: [
+    p('M6.5 8h11l-1 11.5a1.6 1.6 0 0 1-1.6 1.5H9.1a1.6 1.6 0 0 1-1.6-1.5L6.5 8z', 'f'),
+    p('M6.5 8h11l-1 11.5a1.6 1.6 0 0 1-1.6 1.5H9.1a1.6 1.6 0 0 1-1.6-1.5L6.5 8z'),
+    p('M4 8h16M9.2 8V5.5h5.6V8M10.2 11.5v6M13.8 11.5v6'),
+  ],
+  mail: [
+    r(3, 5, 18, 14, 3.2, 'f'),
+    r(3, 5, 18, 14, 3.2, 's'),
+    p('m4 7.5 8 5.5 8-5.5'),
+  ],
+  calendar: [
+    r(3.5, 5, 17, 15, 3.2, 'f'),
+    r(3.5, 5, 17, 15, 3.2, 's'),
+    p('M3.5 9.6h17M8 3.4v3M16 3.4v3'),
   ],
 };
 
