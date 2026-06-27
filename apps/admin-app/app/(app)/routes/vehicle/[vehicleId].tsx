@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, ScrollView, StyleSheet,
-  TouchableOpacity, ActivityIndicator, Alert,
+  View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge, useToast } from '@yaanam/ui';
+import {
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, Badge, AnimatedPressable, IconSplat, Icon, useToast,
+} from '@yaanam/ui';
 import { useVehicleById, useCreateVehicle, useUpdateVehicle, useDeactivateVehicle, useReactivateVehicle } from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
+import { GroupCard, Field, FormInput, PillPicker, ActionButton, ReadValue } from '../../../../components/forms';
 
+const HUE = colors.fleet;
 const TYPES = ['BUS', 'MINI_BUS', 'VAN'];
 const STATUSES = ['ACTIVE', 'INACTIVE', 'MAINTENANCE'] as const;
 
@@ -103,175 +107,107 @@ export default function VehicleDetailScreen() {
   const isSaving = createVehicle.isPending || updateVehicle.isPending;
 
   if (!isNew && isLoading) {
-    return <View style={styles.loader}><ActivityIndicator color={colors.primary} /></View>;
+    return <View style={styles.loader}><ActivityIndicator color={colors.fleet} /></View>;
   }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      {!isNew && vehicle && (
-        <Card style={styles.header}>
+      {!isNew && vehicle ? (
+        <Card shadow="sm" radius={22} style={styles.header}>
+          <IconSplat shape="b2" splatColor={colors.fleetBg} spot="bus" size={48} />
           <View style={styles.headerInfo}>
-            <Text style={styles.regText}>{vehicle.regNumber}</Text>
+            <Text style={styles.regText} numberOfLines={1}>{vehicle.regNumber}</Text>
             <Badge label={vehicle.status} variant={vehicle.status === 'ACTIVE' ? 'active' : 'inactive'} size="sm" />
           </View>
-          <TouchableOpacity onPress={() => setEditing((e) => !e)} style={styles.editBtn}>
+          <AnimatedPressable onPress={() => setEditing((e) => !e)} style={styles.editBtn} accessibilityRole="button">
+            <Icon name={editing ? 'x' : 'edit'} size={14} color={HUE} />
             <Text style={styles.editBtnText}>{editing ? 'Cancel' : 'Edit'}</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         </Card>
-      )}
+      ) : null}
 
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>{isNew ? 'New Vehicle' : 'Vehicle Details'}</Text>
+      <GroupCard title={isNew ? 'New vehicle' : 'Vehicle details'} spot="bus" hue={HUE}>
+        <Field label="Registration number" required>
+          {editing
+            ? <FormInput hue={HUE} value={regNumber} onChangeText={setRegNumber} placeholder="e.g. HR26DL9900" autoCapitalize="characters" />
+            : <ReadValue value={regNumber} />}
+        </Field>
 
-        <Text style={styles.label}>Registration Number *</Text>
-        <TextInput
-          style={[styles.input, !editing && styles.inputDisabled]}
-          value={regNumber}
-          onChangeText={setRegNumber}
-          editable={editing}
-          placeholder="e.g. HR26DL9900"
-          placeholderTextColor={colors.gray400}
-          autoCapitalize="characters"
-        />
+        <Field label="Capacity (seats)" required>
+          {editing
+            ? <FormInput hue={HUE} value={capacity} onChangeText={setCapacity} keyboardType="number-pad" placeholder="e.g. 25" />
+            : <ReadValue value={capacity} />}
+        </Field>
 
-        <Text style={styles.label}>Capacity (seats) *</Text>
-        <TextInput
-          style={[styles.input, !editing && styles.inputDisabled]}
-          value={capacity}
-          onChangeText={setCapacity}
-          editable={editing}
-          keyboardType="number-pad"
-          placeholder="e.g. 25"
-          placeholderTextColor={colors.gray400}
-        />
+        <Field label="Type">
+          {editing
+            ? <PillPicker hue={HUE} value={type} onChange={setType} options={TYPES.map((t) => ({ label: t.replace('_', ' '), value: t }))} />
+            : <ReadValue value={type} />}
+        </Field>
 
-        <Text style={styles.label}>Type</Text>
-        {editing ? (
-          <View style={styles.chipRow}>
-            {TYPES.map((t) => (
-              <TouchableOpacity
-                key={t}
-                style={[styles.chip, type === t && styles.chipActive]}
-                onPress={() => setType(t)}
-              >
-                <Text style={[styles.chipText, type === t && styles.chipTextActive]}>{t}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.valueText}>{type}</Text>
-        )}
+        {!isNew ? (
+          <Field label="Status">
+            {editing
+              ? <PillPicker hue={HUE} value={status} onChange={(v) => setStatus(v as typeof STATUSES[number])} options={STATUSES.map((s) => ({ label: s, value: s }))} />
+              : <ReadValue value={status} />}
+          </Field>
+        ) : null}
+      </GroupCard>
 
-        {!isNew && (
-          <>
-            <Text style={styles.label}>Status</Text>
-            {editing ? (
-              <View style={styles.chipRow}>
-                {STATUSES.map((s) => (
-                  <TouchableOpacity
-                    key={s}
-                    style={[styles.chip, status === s && styles.chipActive]}
-                    onPress={() => setStatus(s)}
-                  >
-                    <Text style={[styles.chipText, status === s && styles.chipTextActive]}>{s}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : (
-              <Text style={styles.valueText}>{status}</Text>
-            )}
-          </>
-        )}
-      </Card>
-
-      {!isNew && vehicle?.assignments && vehicle.assignments.length > 0 && (
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Assigned Staff</Text>
-          {vehicle.assignments.map((a) => (
-            <View key={a.id} style={styles.assignRow}>
+      {!isNew && vehicle?.assignments && vehicle.assignments.length > 0 ? (
+        <GroupCard title="Assigned staff" icon="users" hue={HUE}>
+          {vehicle.assignments.map((a, i) => (
+            <View key={a.id} style={[styles.assignRow, i > 0 && styles.assignBorder]}>
               <Text style={styles.assignName}>{a.membership.person.name}</Text>
               <Text style={styles.assignMeta}>{a.membership.role} · {a.membership.person.phone}</Text>
             </View>
           ))}
-        </Card>
-      )}
+        </GroupCard>
+      ) : null}
 
-      {editing && (
-        <Button
-          title={isNew ? 'Add Vehicle' : 'Save Changes'}
+      {editing ? (
+        <ActionButton
+          title={isNew ? 'Add vehicle' : 'Save changes'}
+          hue={HUE}
           onPress={handleSave}
           loading={isSaving}
           fullWidth
-          style={styles.saveBtn}
         />
-      )}
+      ) : null}
 
       {/* Deactivate / Reactivate — soft delete only (never a hard delete). */}
-      {!isNew && vehicle?.status === 'ACTIVE' && (
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Danger Zone</Text>
+      {!isNew && vehicle?.status === 'ACTIVE' ? (
+        <GroupCard title="Danger zone" icon="alert" hue={colors.crit}>
           <Text style={styles.hint}>
             Deactivating removes the vehicle from scheduling but preserves its record and assignment history.
           </Text>
-          <Button
-            title="Deactivate Vehicle"
-            variant="danger"
-            onPress={handleDeactivate}
-            loading={deactivateVehicle.isPending}
-            fullWidth
-          />
-        </Card>
-      )}
-      {!isNew && vehicle?.status === 'INACTIVE' && (
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Reactivate</Text>
+          <ActionButton title="Deactivate vehicle" tone="danger" onPress={handleDeactivate} loading={deactivateVehicle.isPending} fullWidth />
+        </GroupCard>
+      ) : null}
+      {!isNew && vehicle?.status === 'INACTIVE' ? (
+        <GroupCard title="Reactivate" icon="checkc" hue={colors.ok}>
           <Text style={styles.hint}>
             This vehicle is deactivated. Reactivating returns it to the active fleet for scheduling.
           </Text>
-          <Button
-            title="Reactivate Vehicle"
-            onPress={handleReactivate}
-            loading={reactivateVehicle.isPending}
-            fullWidth
-          />
-        </Card>
-      )}
+          <ActionButton title="Reactivate vehicle" hue={colors.ok} onPress={handleReactivate} loading={reactivateVehicle.isPending} fullWidth />
+        </GroupCard>
+      ) : null}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
+  container: { flex: 1, backgroundColor: colors.ground },
   content: { padding: spacing[4], gap: spacing[4] },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerInfo: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  regText: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  editBtn: { paddingHorizontal: spacing[3], paddingVertical: spacing[2], borderRadius: radius.lg, borderWidth: 1, borderColor: colors.primary },
-  editBtnText: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.primary },
-  section: { gap: spacing[3] },
-  sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary, marginBottom: spacing[1] },
-  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18 },
-  label: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary },
-  input: {
-    backgroundColor: colors.gray100, borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    fontSize: fontSizes.base, color: colors.textPrimary,
-    borderWidth: 1, borderColor: colors.border,
-  },
-  inputDisabled: { backgroundColor: colors.gray50, color: colors.gray500 },
-  valueText: { fontSize: fontSizes.base, color: colors.textPrimary, paddingVertical: spacing[1] },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  chip: {
-    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.white,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  chipTextActive: { color: colors.white },
-  assignRow: { paddingVertical: spacing[2], borderTopWidth: 1, borderTopColor: colors.border },
-  assignName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  assignMeta: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
-  saveBtn: { marginTop: spacing[2] },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  headerInfo: { flex: 1, minWidth: 0, gap: spacing[1], alignItems: 'flex-start' },
+  regText: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.fleetBg },
+  editBtnText: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.sm, fontWeight: fontWeights.extrabold, color: HUE },
+  hint: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 19 },
+  assignRow: { paddingVertical: spacing[2] },
+  assignBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
+  assignName: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink },
+  assignMeta: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, marginTop: 2 },
 });

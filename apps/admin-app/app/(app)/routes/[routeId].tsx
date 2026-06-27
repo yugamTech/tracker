@@ -1,17 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, ScrollView, StyleSheet,
-  TouchableOpacity, ActivityIndicator, Alert,
+  View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Badge, useToast } from '@yaanam/ui';
+import {
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, Badge, AnimatedPressable, IconSplat, Icon, useToast,
+} from '@yaanam/ui';
 import {
   useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useReactivateRoute, useDeleteRoute,
   useStops, useCreateStop, useAddStop, useUpdateStop, useVehicles,
 } from '@yaanam/api-client';
 import type { Stop } from '@yaanam/api-client';
 import { goBackTo } from '../../../lib/nav';
+import {
+  GroupCard, Field, FormInput, PillPicker, ReadValue, ActionButton, AddButton, SeatMeter,
+} from '../../../components/forms';
 
+const HUE = colors.route;
 const DIRECTIONS = ['PICKUP', 'DROP'] as const;
 
 /**
@@ -215,7 +221,7 @@ export default function RouteDetailScreen() {
   const isSaving = createRoute.isPending || updateRoute.isPending;
 
   if (!isNew && isLoading) {
-    return <View style={styles.loader}><ActivityIndicator color={colors.primary} /></View>;
+    return <View style={styles.loader}><ActivityIndicator color={HUE} /></View>;
   }
 
   const routeStops: Array<{ sequence: number; stop: Stop }> = route?.stops ?? [];
@@ -229,34 +235,34 @@ export default function RouteDetailScreen() {
   // Seat capacity (fleet-integrity §1): seats used vs the designated bus's capacity.
   const seatsUsed = route?.seatsUsed ?? 0;
   const capacity = route?.capacity ?? null;
-  const capacityFull = capacity != null && seatsUsed >= capacity;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      {!isNew && route && (
-        <Card style={styles.header}>
+      {!isNew && route ? (
+        <Card shadow="sm" radius={22} style={styles.header}>
+          <IconSplat shape="b2" splatColor={colors.routeBg} spot="route" size={48} />
           <View style={styles.headerInfo}>
-            <Text style={styles.headerName}>{route.name}</Text>
+            <Text style={styles.headerName} numberOfLines={1}>{route.name}</Text>
             <View style={styles.badgeRow}>
               <Badge label={route.direction} variant="default" size="sm" />
-              <Badge
-                label={route.status}
-                variant={route.status === 'ACTIVE' ? 'active' : 'inactive'}
-                size="sm"
-              />
+              <Badge label={route.status} variant={route.status === 'ACTIVE' ? 'active' : 'inactive'} size="sm" />
             </View>
           </View>
-          <TouchableOpacity onPress={() => setEditing((e) => !e)} style={styles.editBtn}>
+          <AnimatedPressable onPress={() => setEditing((e) => !e)} style={styles.editBtn} accessibilityRole="button">
+            <Icon name={editing ? 'x' : 'edit'} size={14} color={HUE} />
             <Text style={styles.editBtnText}>{editing ? 'Cancel' : 'Edit'}</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         </Card>
-      )}
+      ) : null}
 
       {(noStops || noRiders) ? (
-        <Card style={styles.warnBanner}>
-          <Text style={styles.warnBannerTitle}>
-            {noStops ? '⚠ No stops on this route' : '⚠ No riders on this route'}
-          </Text>
+        <Card shadow="sm" radius={22} style={styles.warnBanner}>
+          <View style={styles.warnTop}>
+            <Icon name="alert" size={18} color={colors.warningDark} />
+            <Text style={styles.warnBannerTitle}>
+              {noStops ? 'No stops on this route' : 'No riders on this route'}
+            </Text>
+          </View>
           <Text style={styles.warnBannerText}>
             {noStops
               ? 'Add at least one stop, then assign active students to it. A trip can’t be scheduled on a route with no stops.'
@@ -265,150 +271,108 @@ export default function RouteDetailScreen() {
         </Card>
       ) : null}
 
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>{isNew ? 'New Route' : 'Route Info'}</Text>
+      <GroupCard title={isNew ? 'New route' : 'Route info'} spot="route" hue={HUE}>
+        <Field label="Route name" required>
+          {editing
+            ? <FormInput hue={HUE} value={name} onChangeText={setName} placeholder="e.g. Route A – Morning Pickup" />
+            : <ReadValue value={name} />}
+        </Field>
 
-        <Text style={styles.label}>Name *</Text>
-        <TextInput
-          style={[styles.input, !editing && styles.inputDisabled]}
-          value={name}
-          onChangeText={setName}
-          editable={editing}
-          placeholder="e.g. Route A – Morning Pickup"
-          placeholderTextColor={colors.gray400}
-        />
+        <Field label="Direction">
+          {editing
+            ? <PillPicker hue={HUE} value={direction} onChange={(v) => setDirection(v as typeof DIRECTIONS[number])} options={DIRECTIONS.map((d) => ({ label: d, value: d }))} />
+            : <ReadValue value={direction} />}
+        </Field>
 
-        <Text style={styles.label}>Direction</Text>
         {editing ? (
-          <View style={styles.chipRow}>
-            {DIRECTIONS.map((d) => (
-              <TouchableOpacity
-                key={d}
-                style={[styles.chip, direction === d && styles.chipActive]}
-                onPress={() => setDirection(d)}
-              >
-                <Text style={[styles.chipText, direction === d && styles.chipTextActive]}>{d}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.valueText}>{direction}</Text>
-        )}
-
-        {editing && (
-          <Button title={isNew ? 'Create Route' : 'Save Changes'} onPress={handleSave} loading={isSaving} fullWidth />
-        )}
-      </Card>
+          <ActionButton title={isNew ? 'Create route' : 'Save changes'} hue={HUE} onPress={handleSave} loading={isSaving} fullWidth />
+        ) : null}
+      </GroupCard>
 
       {/* Designated bus & seat capacity — shown for existing routes */}
-      {!isNew && route && (
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Bus & Capacity</Text>
-
-          {/* Seats used vs the designated bus's capacity. */}
-          <View style={[styles.capacityRow, capacityFull && styles.capacityRowFull]}>
-            <Text style={[styles.capacityValue, capacityFull && styles.capacityValueFull]}>
-              {capacity != null ? `${seatsUsed} / ${capacity}` : `${seatsUsed} / —`}
-            </Text>
-            <Text style={[styles.capacityLabel, capacityFull && styles.capacityValueFull]}>
-              {capacity == null
-                ? 'seats used · no bus assigned'
-                : capacityFull
-                  ? `seats used · bus is full`
-                  : `seats used · ${capacity - seatsUsed} free`}
-            </Text>
-          </View>
-
-          <Text style={styles.label}>Designated Bus</Text>
-          {editing ? (
-            <View style={styles.chipRow}>
-              <TouchableOpacity
-                style={[styles.chip, !vehicleId && styles.chipActive]}
-                onPress={() => setVehicleId('')}
-              >
-                <Text style={[styles.chipText, !vehicleId && styles.chipTextActive]}>None</Text>
-              </TouchableOpacity>
-              {vehicles
-                .filter((v) => v.status === 'ACTIVE' || v.id === vehicleId)
-                .map((v) => (
-                  <TouchableOpacity
-                    key={v.id}
-                    style={[styles.chip, vehicleId === v.id && styles.chipActive]}
-                    onPress={() => setVehicleId(v.id)}
-                  >
-                    <Text style={[styles.chipText, vehicleId === v.id && styles.chipTextActive]}>
-                      {v.regNumber} · {v.capacity} seats
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-            </View>
+      {!isNew && route ? (
+        <GroupCard title="Bus & capacity" spot="bus" hue={HUE}>
+          {capacity != null ? (
+            <SeatMeter used={seatsUsed} capacity={capacity} hue={HUE} />
           ) : (
-            <Text style={styles.valueText}>
-              {route.vehicle ? `${route.vehicle.regNumber} · ${route.vehicle.capacity} seats` : 'No bus assigned'}
-            </Text>
+            <View style={styles.noBusRow}>
+              <Icon name="bus" size={15} color={colors.ink3} />
+              <Text style={styles.noBusText}>{seatsUsed} seats used · no bus assigned</Text>
+            </View>
           )}
-          {editing && (
-            <Text style={styles.hint}>
-              Assign the bus that serves this route. Its capacity is enforced when
-              students are added — a full bus blocks new assignments.
-            </Text>
-          )}
-        </Card>
-      )}
+
+          <Field label="Designated bus" hint={editing ? 'Assign the bus that serves this route. Its capacity is enforced when students are added — a full bus blocks new assignments.' : undefined}>
+            {editing ? (
+              <PillPicker
+                hue={HUE}
+                value={vehicleId}
+                onChange={setVehicleId}
+                options={[
+                  { label: 'None', value: '' },
+                  ...vehicles
+                    .filter((v) => v.status === 'ACTIVE' || v.id === vehicleId)
+                    .map((v) => ({ label: `${v.regNumber} · ${v.capacity} seats`, value: v.id })),
+                ]}
+              />
+            ) : (
+              <ReadValue value={route.vehicle ? `${route.vehicle.regNumber} · ${route.vehicle.capacity} seats` : 'No bus assigned'} />
+            )}
+          </Field>
+        </GroupCard>
+      ) : null}
 
       {/* Stops list — shown for existing routes */}
-      {!isNew && (
-        <Card style={styles.section}>
+      {!isNew ? (
+        <GroupCard title={`Stops · ${routeStops.length}`} icon="pin" hue={HUE}>
           <View style={styles.stopsHeader}>
-            <Text style={styles.sectionTitle}>Stops ({routeStops.length})</Text>
-            <TouchableOpacity onPress={() => setShowStopForm((v) => !v)} style={styles.addStopBtn}>
-              <Text style={styles.addStopText}>{showStopForm ? 'Cancel' : '+ New Stop'}</Text>
-            </TouchableOpacity>
+            <Text style={styles.stopsHint}>The ordered path a trip follows on this route.</Text>
+            {showStopForm
+              ? <ActionButton title="Cancel" tone="ghost" onPress={() => setShowStopForm(false)} style={styles.stopToggle} />
+              : <AddButton label="New stop" hue={HUE} onPress={() => setShowStopForm(true)} />}
           </View>
 
-          {showStopForm && (
+          {showStopForm ? (
             <View style={styles.stopForm}>
-              <Text style={styles.label}>Stop Name *</Text>
-              <TextInput style={styles.input} value={newStopName} onChangeText={setNewStopName} placeholder="e.g. DLF Phase 2 Gate" placeholderTextColor={colors.gray400} />
+              <Field label="Stop name" required>
+                <FormInput hue={HUE} value={newStopName} onChangeText={setNewStopName} placeholder="e.g. DLF Phase 2 Gate" />
+              </Field>
               <View style={styles.latLngRow}>
-                <View style={styles.latLngField}>
-                  <Text style={styles.label}>Latitude</Text>
-                  <TextInput style={styles.input} value={newStopLat} onChangeText={setNewStopLat} keyboardType="decimal-pad" placeholder="28.4595" placeholderTextColor={colors.gray400} />
-                </View>
-                <View style={styles.latLngField}>
-                  <Text style={styles.label}>Longitude</Text>
-                  <TextInput style={styles.input} value={newStopLng} onChangeText={setNewStopLng} keyboardType="decimal-pad" placeholder="77.0266" placeholderTextColor={colors.gray400} />
-                </View>
+                <Field label="Latitude" style={styles.latLngField}>
+                  <FormInput hue={HUE} value={newStopLat} onChangeText={setNewStopLat} keyboardType="decimal-pad" placeholder="28.4595" />
+                </Field>
+                <Field label="Longitude" style={styles.latLngField}>
+                  <FormInput hue={HUE} value={newStopLng} onChangeText={setNewStopLng} keyboardType="decimal-pad" placeholder="77.0266" />
+                </Field>
               </View>
-              <Button title="Add Stop" onPress={handleAddStop} loading={createStop.isPending || addStop.isPending} size="sm" />
+              <ActionButton title="Add stop" hue={HUE} onPress={handleAddStop} loading={createStop.isPending || addStop.isPending} fullWidth />
             </View>
-          )}
+          ) : null}
 
-          {routeStops.length === 0 && (
+          {routeStops.length === 0 ? (
             <Text style={styles.emptyText}>No stops assigned yet</Text>
-          )}
+          ) : null}
           {routeStops
             .sort((a, b) => a.sequence - b.sequence)
             .map((rs) =>
               editStopId === rs.stop.id ? (
                 <View key={rs.stop.id} style={styles.stopForm}>
-                  <Text style={styles.label}>Stop Name *</Text>
-                  <TextInput style={styles.input} value={editStopName} onChangeText={setEditStopName} placeholder="Stop name" placeholderTextColor={colors.gray400} />
+                  <Field label="Stop name" required>
+                    <FormInput hue={HUE} value={editStopName} onChangeText={setEditStopName} placeholder="Stop name" />
+                  </Field>
                   <View style={styles.latLngRow}>
-                    <View style={styles.latLngField}>
-                      <Text style={styles.label}>Latitude</Text>
-                      <TextInput style={styles.input} value={editStopLat} onChangeText={setEditStopLat} keyboardType="decimal-pad" placeholder="28.4595" placeholderTextColor={colors.gray400} />
-                    </View>
-                    <View style={styles.latLngField}>
-                      <Text style={styles.label}>Longitude</Text>
-                      <TextInput style={styles.input} value={editStopLng} onChangeText={setEditStopLng} keyboardType="decimal-pad" placeholder="77.0266" placeholderTextColor={colors.gray400} />
-                    </View>
+                    <Field label="Latitude" style={styles.latLngField}>
+                      <FormInput hue={HUE} value={editStopLat} onChangeText={setEditStopLat} keyboardType="decimal-pad" placeholder="28.4595" />
+                    </Field>
+                    <Field label="Longitude" style={styles.latLngField}>
+                      <FormInput hue={HUE} value={editStopLng} onChangeText={setEditStopLng} keyboardType="decimal-pad" placeholder="77.0266" />
+                    </Field>
                   </View>
-                  <Text style={styles.label}>Geofence radius (m)</Text>
-                  <TextInput style={styles.input} value={editStopRadius} onChangeText={setEditStopRadius} keyboardType="number-pad" placeholder="100" placeholderTextColor={colors.gray400} />
+                  <Field label="Geofence radius (m)">
+                    <FormInput hue={HUE} value={editStopRadius} onChangeText={setEditStopRadius} keyboardType="number-pad" placeholder="100" />
+                  </Field>
                   <View style={styles.editStopActions}>
-                    <Button title="Cancel" variant="outline" size="sm" onPress={() => setEditStopId(null)} />
-                    <Button title="Save Stop" size="sm" onPress={handleSaveStop} loading={updateStop.isPending} />
+                    <ActionButton title="Cancel" tone="outline" onPress={() => setEditStopId(null)} />
+                    <ActionButton title="Save stop" hue={HUE} onPress={handleSaveStop} loading={updateStop.isPending} />
                   </View>
                 </View>
               ) : (
@@ -417,137 +381,97 @@ export default function RouteDetailScreen() {
                     <Text style={styles.stopSeqText}>{rs.sequence}</Text>
                   </View>
                   <View style={styles.stopInfo}>
-                    <Text style={styles.stopName}>{rs.stop.name}</Text>
+                    <Text style={styles.stopName} numberOfLines={1}>{rs.stop.name}</Text>
                     <Text style={styles.stopCoord}>
                       {rs.stop.lat != null && rs.stop.lng != null
                         ? `${rs.stop.lat.toFixed(4)}, ${rs.stop.lng.toFixed(4)}`
                         : 'No coordinates'}
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={() => startEditStop(rs.stop)} style={styles.editBtn}>
+                  <AnimatedPressable onPress={() => startEditStop(rs.stop)} style={styles.editBtn} accessibilityRole="button">
+                    <Icon name="edit" size={14} color={HUE} />
                     <Text style={styles.editBtnText}>Edit</Text>
-                  </TouchableOpacity>
+                  </AnimatedPressable>
                 </View>
               ),
             )}
-        </Card>
-      )}
+        </GroupCard>
+      ) : null}
 
       {/* Deactivate / Reactivate — soft delete only (never a hard delete). */}
-      {!isNew && route?.status === 'ACTIVE' && (
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Danger Zone</Text>
+      {!isNew && route?.status === 'ACTIVE' ? (
+        <GroupCard title="Danger zone" icon="alert" hue={colors.crit}>
           <Text style={styles.hint}>
             Deactivating hides the route from scheduling but preserves its stops, students and trip history.
           </Text>
-          <Button
-            title="Deactivate Route"
-            variant="danger"
-            onPress={handleDeactivate}
-            loading={deactivateRoute.isPending}
-            fullWidth
-          />
-        </Card>
-      )}
-      {!isNew && route?.status === 'INACTIVE' && (
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Reactivate</Text>
+          <ActionButton title="Deactivate route" tone="danger" onPress={handleDeactivate} loading={deactivateRoute.isPending} fullWidth />
+        </GroupCard>
+      ) : null}
+      {!isNew && route?.status === 'INACTIVE' ? (
+        <GroupCard title="Reactivate" icon="checkc" hue={colors.ok}>
           <Text style={styles.hint}>
             This route is deactivated. Reactivating returns it to the active routes list for scheduling.
           </Text>
-          <Button
-            title="Reactivate Route"
-            onPress={handleReactivate}
-            loading={reactivateRoute.isPending}
-            fullWidth
-          />
-        </Card>
-      )}
+          <ActionButton title="Reactivate route" hue={colors.ok} onPress={handleReactivate} loading={reactivateRoute.isPending} fullWidth />
+        </GroupCard>
+      ) : null}
 
       {/* Permanent hard-delete — only meaningful once the record exists, and only
           permitted when it has no trip history (else we explain why). */}
-      {!isNew && route && (
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Delete permanently</Text>
+      {!isNew && route ? (
+        <GroupCard title="Delete permanently" icon="trash" hue={colors.crit}>
           {route.deletable?.canDelete ? (
             <>
               <Text style={styles.hint}>
                 This route has no trip history, so it can be permanently deleted. This cannot be undone — prefer “Deactivate” unless you’re erasing a record added by mistake.
               </Text>
-              <Button
-                title="Delete Route Permanently"
-                variant="danger"
-                onPress={handleHardDelete}
-                loading={deleteRoute.isPending}
-                fullWidth
-              />
+              <ActionButton title="Delete route permanently" tone="danger" onPress={handleHardDelete} loading={deleteRoute.isPending} fullWidth />
             </>
           ) : (
             <Text style={styles.hint}>
               {route.deletable?.reason ?? 'This route has trip history — deactivate it instead of deleting.'}
             </Text>
           )}
-        </Card>
-      )}
+        </GroupCard>
+      ) : null}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
+  container: { flex: 1, backgroundColor: colors.ground },
   content: { padding: spacing[4], gap: spacing[4] },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerInfo: { flex: 1, gap: spacing[1] },
-  headerName: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
+
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  headerInfo: { flex: 1, minWidth: 0, gap: spacing[1], alignItems: 'flex-start' },
+  headerName: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  editBtn: { paddingHorizontal: spacing[3], paddingVertical: spacing[2], borderRadius: radius.lg, borderWidth: 1, borderColor: colors.primary },
-  editBtnText: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.primary },
-  section: { gap: spacing[3] },
-  sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18 },
-  label: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary },
-  input: {
-    backgroundColor: colors.gray100, borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    fontSize: fontSizes.base, color: colors.textPrimary,
-    borderWidth: 1, borderColor: colors.border,
-  },
-  inputDisabled: { backgroundColor: colors.gray50, color: colors.gray500 },
-  valueText: { fontSize: fontSizes.base, color: colors.textPrimary, paddingVertical: spacing[1] },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  chip: {
-    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.white,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  chipTextActive: { color: colors.white },
-  stopsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  addStopBtn: { paddingHorizontal: spacing[3], paddingVertical: spacing[2], borderRadius: radius.lg, borderWidth: 1, borderColor: colors.primary },
-  addStopText: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.semibold },
-  stopForm: { gap: spacing[3], padding: spacing[3], backgroundColor: colors.gray50, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.routeBg },
+  editBtnText: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.sm, fontWeight: fontWeights.extrabold, color: HUE },
+
+  warnBanner: { backgroundColor: colors.warnBg, gap: spacing[2] },
+  warnTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  warnBannerTitle: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.base, fontWeight: fontWeights.extrabold, color: colors.warningDark },
+  warnBannerText: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: '#92400E', lineHeight: 19 },
+
+  hint: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 19 },
+  noBusRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  noBusText: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2 },
+
+  stopsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] },
+  stopsHint: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3 },
+  stopToggle: { minHeight: 0, paddingVertical: 8, paddingHorizontal: 13 },
+  stopForm: { gap: spacing[3], padding: spacing[3], backgroundColor: colors.ground, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.hairline },
   editStopActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing[2] },
   latLngRow: { flexDirection: 'row', gap: spacing[3] },
-  latLngField: { flex: 1, gap: spacing[1] },
-  stopRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[2], borderTopWidth: 1, borderTopColor: colors.border },
-  stopSeq: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  stopSeqText: { fontSize: fontSizes.xs, fontWeight: fontWeights.bold, color: colors.white },
-  stopInfo: { flex: 1 },
-  stopName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  stopCoord: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: 2 },
-  emptyText: { fontSize: fontSizes.sm, color: colors.textSecondary, textAlign: 'center', paddingVertical: spacing[4] },
-  warnBanner: { backgroundColor: colors.warningBg, borderWidth: 1, borderColor: colors.warning, gap: spacing[1] },
-  warnBannerTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.warningDark },
-  warnBannerText: { fontSize: fontSizes.sm, color: colors.warningDark, lineHeight: 18 },
-  capacityRow: {
-    flexDirection: 'row', alignItems: 'baseline', gap: spacing[2],
-    backgroundColor: colors.backgroundMuted, borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-  },
-  capacityRowFull: { backgroundColor: colors.warningBg },
-  capacityValue: { fontSize: fontSizes.xl, fontWeight: fontWeights.extrabold, color: colors.primary },
-  capacityValueFull: { color: colors.warningDark },
-  capacityLabel: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  latLngField: { flex: 1 },
+
+  stopRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[2], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
+  stopSeq: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.routeBg, alignItems: 'center', justifyContent: 'center' },
+  stopSeqText: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.sm, fontWeight: fontWeights.extrabold, color: HUE },
+  stopInfo: { flex: 1, minWidth: 0 },
+  stopName: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink },
+  stopCoord: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3, marginTop: 2 },
+  emptyText: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink3, textAlign: 'center', paddingVertical: spacing[3] },
 });
