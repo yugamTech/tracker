@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, LoadingSpinner, EmptyState } from '@yaanam/ui';
+import {
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, Avatar, Badge, LoadingSpinner, EmptyState, AnimatedPressable, Icon, IconSplat,
+} from '@yaanam/ui';
 import { useStudents } from '@yaanam/api-client';
+import { AddButton, FormInput, PillPicker } from '../../../../components/forms';
 
 /** Status filter chips — `''` = all (deactivated students set status INACTIVE). */
 const STATUS_FILTERS = [
@@ -11,6 +15,8 @@ const STATUS_FILTERS = [
   { value: 'ACTIVE', label: 'Active' },
   { value: 'INACTIVE', label: 'Inactive' },
 ] as const;
+
+const HUE = colors.people;
 
 export default function StudentsScreen() {
   const [search, setSearch] = useState('');
@@ -26,38 +32,20 @@ export default function StudentsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.headerRow}>
-        <View style={styles.searchWrap}>
-          <TextInput
-            style={styles.search}
-            placeholder="Search name, reg ID, route…"
-            placeholderTextColor={colors.textMuted}
-            value={search}
-            onChangeText={setSearch}
-          />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <View style={styles.toolbar}>
+        <View style={styles.headerRow}>
+          <View style={styles.searchWrap}>
+            <FormInput hue={HUE} placeholder="Search name, reg ID, route…" value={search} onChangeText={setSearch} />
+          </View>
+          <AddButton onPress={() => router.push('/(app)/people/students/new' as never)} />
         </View>
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => router.push('/(app)/people/students/new' as never)}
-        >
-          <Text style={styles.addBtnText}>+ Add</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.filterRow}>
-        {STATUS_FILTERS.map((f) => {
-          const active = statusFilter === f.value;
-          return (
-            <TouchableOpacity
-              key={f.label}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => setStatusFilter(f.value)}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
+        <PillPicker
+          hue={HUE}
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={STATUS_FILTERS.map((f) => ({ label: f.label, value: f.value }))}
+        />
       </View>
 
       {isLoading && <LoadingSpinner fullScreen />}
@@ -71,36 +59,35 @@ export default function StudentsScreen() {
           data={filtered}
           keyExtractor={(s) => s.id}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <EmptyState
-              title={search ? 'No students match' : 'No students yet'}
-              description={search ? 'Try a different search term' : 'Add students via the import wizard or the + button'}
-            />
+            <View style={styles.emptyWrap}>
+              <EmptyState
+                icon={<IconSplat shape="b1" splatColor={colors.peopleBg} spot="users" size={60} />}
+                title={search ? 'No students match' : 'No students yet'}
+                description={search ? 'Try a different search term' : 'Add students via the import wizard or the + button'}
+              />
+            </View>
           }
           renderItem={({ item }) => (
-            <TouchableOpacity
-              onPress={() => router.push(`/(app)/people/students/${item.id}` as never)}
-              activeOpacity={0.85}
-            >
-              <Card style={styles.card}>
+            <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/people/students/${item.id}` as never)}>
+              <Card shadow="sm" radius={20}>
                 <View style={styles.cardRow}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{item.name[0]}</Text>
-                  </View>
+                  <Avatar name={item.name} size={44} />
                   <View style={styles.info}>
-                    <Text style={styles.name}>{item.name}</Text>
-                    <Text style={styles.meta}>
-                      {item.regId ? `${item.regId} · ` : ''}{item.route?.name ?? 'No route assigned'}
-                    </Text>
+                    <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+                    <View style={styles.metaRow}>
+                      <Icon name="pin" size={13} color={colors.ink3} />
+                      <Text style={styles.meta} numberOfLines={1}>
+                        {item.regId ? `${item.regId} · ` : ''}{item.route?.name ?? 'No route assigned'}
+                      </Text>
+                    </View>
                   </View>
-                  <Badge
-                    label={item.status}
-                    variant={item.status === 'ACTIVE' ? 'active' : 'inactive'}
-                    size="sm"
-                  />
+                  <Badge label={item.status} variant={item.status === 'ACTIVE' ? 'active' : 'inactive'} size="sm" />
+                  <Icon name="chevron" size={16} color={colors.ink3} />
                 </View>
               </Card>
-            </TouchableOpacity>
+            </AnimatedPressable>
           )}
         />
       )}
@@ -109,44 +96,18 @@ export default function StudentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  headerRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing[2],
-    padding: spacing[4], backgroundColor: colors.white,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+  container: { flex: 1, backgroundColor: colors.ground },
+  toolbar: {
+    gap: spacing[3], padding: spacing[4], backgroundColor: colors.white,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.hairline,
   },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   searchWrap: { flex: 1 },
-  search: {
-    backgroundColor: colors.gray50, borderRadius: radius.lg, borderWidth: 1,
-    borderColor: colors.border, padding: spacing[3], fontSize: fontSizes.base, color: colors.textPrimary,
-  },
-  addBtn: {
-    backgroundColor: '#7C3AED', borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-  },
-  addBtnText: { color: colors.white, fontWeight: fontWeights.semibold, fontSize: fontSizes.sm },
-  filterRow: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2],
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  chip: {
-    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.white,
-  },
-  chipActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
-  chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  chipTextActive: { color: colors.white },
-  list: { padding: spacing[4], gap: spacing[3] },
-  card: {},
+  list: { padding: spacing[4], gap: spacing[3], flexGrow: 1 },
+  emptyWrap: { flex: 1, minHeight: 320, justifyContent: 'center' },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  avatar: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center',
-  },
-  avatarText: { color: colors.white, fontWeight: fontWeights.bold, fontSize: fontSizes.lg },
-  info: { flex: 1 },
-  name: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  meta: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  info: { flex: 1, minWidth: 0 },
+  name: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.base, fontWeight: fontWeights.extrabold, color: colors.ink },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+  meta: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2 },
 });

@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, ScrollView, StyleSheet,
-  TouchableOpacity, ActivityIndicator, Alert,
+  View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, Button, useToast } from '@yaanam/ui';
+import {
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, Avatar, Badge, AnimatedPressable, Icon, useToast,
+} from '@yaanam/ui';
 import { useParents, useUpdateMember, useDeactivateMember, useReactivateMember } from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
+import { GroupCard, Field, FormInput, ActionButton } from '../../../../components/forms';
+
+const HUE = colors.people;
 
 export default function ParentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -84,16 +89,16 @@ export default function ParentDetailScreen() {
   };
 
   if (isLoading) {
-    return <View style={styles.loader}><ActivityIndicator color={colors.primary} /></View>;
+    return <View style={styles.loader}><ActivityIndicator color={colors.people} /></View>;
   }
 
   if (!parent) {
     return (
       <View style={styles.loader}>
         <Text style={styles.errorText}>Parent not found</Text>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <AnimatedPressable onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backBtnText}>Go back</Text>
-        </TouchableOpacity>
+        </AnimatedPressable>
       </View>
     );
   }
@@ -102,141 +107,122 @@ export default function ParentDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Card style={styles.header}>
+      {/* Profile header */}
+      <Card shadow="sm" radius={22} style={styles.header}>
         <Avatar name={parent.person.name} size={56} />
         <View style={styles.headerInfo}>
-          <Text style={styles.headerName}>{parent.person.name}</Text>
-          <Text style={styles.headerPhone}>{parent.person.phone}</Text>
-          {parent.person.email ? <Text style={styles.headerEmail}>{parent.person.email}</Text> : null}
+          <Text style={styles.headerName} numberOfLines={1}>{parent.person.name}</Text>
+          <View style={styles.metaRow}>
+            <Icon name="phone" size={13} color={colors.ink3} />
+            <Text style={styles.headerMeta}>{parent.person.phone}</Text>
+          </View>
+          {parent.person.email ? (
+            <View style={styles.metaRow}>
+              <Icon name="mail" size={13} color={colors.ink3} />
+              <Text style={styles.headerMeta} numberOfLines={1}>{parent.person.email}</Text>
+            </View>
+          ) : null}
         </View>
         <View style={styles.headerRight}>
           <Badge label={parent.status} variant={isActive ? 'active' : 'inactive'} size="sm" />
-          <TouchableOpacity onPress={() => setEditing((e) => !e)} style={styles.editBtn}>
+          <AnimatedPressable onPress={() => setEditing((e) => !e)} style={styles.editBtn} accessibilityRole="button">
+            <Icon name={editing ? 'x' : 'edit'} size={14} color={HUE} />
             <Text style={styles.editBtnText}>{editing ? 'Cancel' : 'Edit'}</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         </View>
       </Card>
 
       {editing ? (
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Edit details</Text>
-
-          <Text style={styles.label}>Full Name</Text>
-          <TextInput style={styles.input} value={name} onChangeText={setName} autoCapitalize="words" />
-
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Optional"
-            placeholderTextColor={colors.gray400}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-
-          <Text style={styles.hint}>Phone ({parent.person.phone}) is the login identity and can't be changed here.</Text>
-
-          <Button title="Save Changes" onPress={handleSave} loading={updateMember.isPending} fullWidth />
-        </Card>
+        <GroupCard title="Edit details" icon="edit" hue={HUE}>
+          <Field label="Full name" required>
+            <FormInput hue={HUE} value={name} onChangeText={setName} autoCapitalize="words" />
+          </Field>
+          <Field label="Email" hint={`Phone (${parent.person.phone}) is the login identity and can't be changed here.`}>
+            <FormInput
+              hue={HUE}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Optional"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </Field>
+          <ActionButton title="Save changes" hue={HUE} onPress={handleSave} loading={updateMember.isPending} fullWidth />
+        </GroupCard>
       ) : null}
 
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Linked students ({parent.person.guardianships.length})</Text>
+      <GroupCard title={`Linked students (${parent.person.guardianships.length})`} icon="users" hue={HUE}>
         {parent.person.guardianships.length === 0 ? (
           <Text style={styles.emptyText}>No linked students</Text>
         ) : (
-          parent.person.guardianships.map((g) => (
-            <TouchableOpacity
+          parent.person.guardianships.map((g, i) => (
+            <AnimatedPressable
               key={g.id}
-              style={styles.studentRow}
+              scaleTo={0.99}
+              style={[styles.studentRow, i > 0 && styles.studentRowBorder]}
               onPress={() => router.push(`/(app)/people/students/${g.student.id}` as never)}
-              activeOpacity={0.8}
+              accessibilityRole="button"
             >
+              <Avatar name={g.student.name} size={38} />
               <View style={styles.studentInfo}>
-                <Text style={styles.studentName}>{g.student.name}</Text>
-                <Text style={styles.studentMeta}>
+                <Text style={styles.studentName} numberOfLines={1}>{g.student.name}</Text>
+                <Text style={styles.studentMeta} numberOfLines={1}>
                   {g.relation} {g.student.regId ? `· ${g.student.regId}` : ''}
                 </Text>
               </View>
-              <View style={styles.studentRight}>
-                <Badge
-                  label={g.student.status}
-                  variant={g.student.status === 'ACTIVE' ? 'active' : 'inactive'}
-                  size="sm"
-                />
-                <Text style={styles.chevron}>›</Text>
-              </View>
-            </TouchableOpacity>
+              <Badge
+                label={g.student.status}
+                variant={g.student.status === 'ACTIVE' ? 'active' : 'inactive'}
+                size="sm"
+              />
+              <Icon name="chevron" size={16} color={colors.ink3} />
+            </AnimatedPressable>
           ))
         )}
-      </Card>
+      </GroupCard>
 
       {isActive ? (
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Danger Zone</Text>
+        <GroupCard title="Danger zone" icon="alert" hue={colors.crit}>
           <Text style={styles.hint}>
             Deactivating removes this parent's app access. Their account and linked students are preserved.
           </Text>
-          <Button
-            title="Deactivate Access"
-            variant="danger"
-            onPress={handleDeactivate}
-            loading={deactivateMember.isPending}
-            fullWidth
-          />
-        </Card>
+          <ActionButton title="Deactivate access" tone="danger" onPress={handleDeactivate} loading={deactivateMember.isPending} fullWidth />
+        </GroupCard>
       ) : (
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Reactivate</Text>
+        <GroupCard title="Reactivate" icon="checkc" hue={colors.ok}>
           <Text style={styles.hint}>
             This parent's access is deactivated. Reactivating restores their ability to log in to the parent app.
           </Text>
-          <Button
-            title="Reactivate Access"
-            onPress={handleReactivate}
-            loading={reactivateMember.isPending}
-            fullWidth
-          />
-        </Card>
+          <ActionButton title="Reactivate access" hue={colors.ok} onPress={handleReactivate} loading={reactivateMember.isPending} fullWidth />
+        </GroupCard>
       )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
+  container: { flex: 1, backgroundColor: colors.ground },
   content: { padding: spacing[4], gap: spacing[4] },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing[3] },
-  errorText: { fontSize: fontSizes.base, color: colors.textSecondary },
+  errorText: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, color: colors.ink2 },
   backBtn: { paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
-  backBtnText: { fontSize: fontSizes.sm, color: colors.primary },
+  backBtnText: { fontFamily: fontFamilies.display, fontSize: fontSizes.sm, fontWeight: fontWeights.bold, color: colors.people },
+
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  headerInfo: { flex: 1 },
-  headerName: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  headerPhone: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
-  headerEmail: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: 1 },
+  headerInfo: { flex: 1, minWidth: 0, gap: 3 },
+  headerName: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  headerMeta: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2 },
   headerRight: { alignItems: 'flex-end', gap: spacing[2] },
-  editBtn: { paddingHorizontal: spacing[3], paddingVertical: spacing[1], borderRadius: radius.lg, borderWidth: 1, borderColor: colors.primary },
-  editBtnText: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.primary },
-  label: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary },
-  input: {
-    backgroundColor: colors.gray100, borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    fontSize: fontSizes.base, color: colors.textPrimary,
-    borderWidth: 1, borderColor: colors.border,
-  },
-  section: { gap: spacing[3] },
-  sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary, marginBottom: spacing[1] },
-  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18 },
-  emptyText: { fontSize: fontSizes.sm, color: colors.textSecondary, textAlign: 'center', paddingVertical: spacing[3] },
-  studentRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing[3],
-    paddingVertical: spacing[3], borderTopWidth: 1, borderTopColor: colors.border,
-  },
-  studentInfo: { flex: 1 },
-  studentName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  studentMeta: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2, textTransform: 'capitalize' },
-  studentRight: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  chevron: { fontSize: fontSizes.lg, color: colors.textMuted },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: colors.peopleBg, backgroundColor: colors.peopleBg },
+  editBtnText: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.sm, fontWeight: fontWeights.extrabold, color: colors.people },
+
+  hint: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 19 },
+  emptyText: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink3, textAlign: 'center', paddingVertical: spacing[3] },
+
+  studentRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[3] },
+  studentRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
+  studentInfo: { flex: 1, minWidth: 0 },
+  studentName: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink },
+  studentMeta: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, marginTop: 2, textTransform: 'capitalize' },
 });
