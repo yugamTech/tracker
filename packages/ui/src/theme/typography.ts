@@ -6,30 +6,32 @@ export const fontFamilies = {
   bold: Platform.select({ ios: 'System', android: 'Roboto-Bold', default: 'System' }),
   mono: Platform.select({ ios: 'Courier New', android: 'monospace', default: 'monospace' }),
 
-  // ── Poppins (admin redesign) ────────────────────────────────────────────────
-  // A warm rounded face: `display`/`displayHeavy` for headings & emphasis, the
-  // `body*` weights for prose. These resolve to the per-weight families that
-  // @expo-google-fonts/poppins registers; the admin app loads them at root. Apps
-  // that don't load Poppins fall back gracefully to the system face (the existing
-  // look), since RN ignores an unregistered fontFamily.
-  body: 'Poppins_400Regular',
-  bodyMedium: 'Poppins_500Medium',
-  bodySemibold: 'Poppins_600SemiBold',
-  display: 'Poppins_700Bold',
-  displayHeavy: 'Poppins_800ExtraBold',
+  // ── Rounded redesign face (admin) ───────────────────────────────────────────
+  // Matches the approved mockup's SF Pro Rounded (display) + Avenir (body) feel:
+  // QUICKSAND for `display`/`displayHeavy` (the mockup's own rounded-display web
+  // fallback) over NUNITO for the `body*` prose weights — both soft, rounded and
+  // elegant. These resolve to the per-weight families the admin app registers via
+  // expo-font at root. Apps that don't load them fall back gracefully to the
+  // system face (the existing look), since RN ignores an unregistered fontFamily.
+  body: 'Nunito_400Regular',
+  bodyMedium: 'Nunito_500Medium',
+  bodySemibold: 'Nunito_600SemiBold',
+  display: 'Quicksand_700Bold',
+  displayHeavy: 'Quicksand_700Bold',
 };
 
 /**
- * Names of the Poppins weights the admin app must register via expo-font, keyed
- * to match {@link fontFamilies}. The app imports the actual font modules from
- * `@expo-google-fonts/poppins` and maps them under these exact keys.
+ * The weight-named families the admin app must register via expo-font. The app
+ * imports the actual font modules from @expo-google-fonts/{quicksand,nunito} and
+ * maps them under these exact keys; the global Text shim in the admin root also
+ * treats these as the "ours" set when resolving the iOS family-vs-weight rule.
  */
-export const poppinsFontKeys = [
-  'Poppins_400Regular',
-  'Poppins_500Medium',
-  'Poppins_600SemiBold',
-  'Poppins_700Bold',
-  'Poppins_800ExtraBold',
+export const roundedFontKeys = [
+  'Quicksand_700Bold',
+  'Nunito_400Regular',
+  'Nunito_500Medium',
+  'Nunito_600SemiBold',
+  'Nunito_700Bold',
 ] as const;
 
 export const fontSizes = {
