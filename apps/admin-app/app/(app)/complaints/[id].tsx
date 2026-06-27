@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert, Modal } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Badge, useToast } from '@yaanam/ui';
+import {
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, Badge, AnimatedPressable, IconSplat, Icon, useToast,
+} from '@yaanam/ui';
 import { useComplaintById, useUpdateComplaintStatus } from '@yaanam/api-client';
 import { COMPLAINT_TRANSITIONS, ComplaintStatus } from '@yaanam/types';
+import { GroupCard, Field, FormInput, ActionButton } from '../../../components/forms';
+
+const HUE = colors.talk;
 
 const STATUS_V: Record<string, 'warning' | 'info' | 'success' | 'default' | 'error'> = {
   RECEIVED: 'warning', IN_PROGRESS: 'info', COUNSELLING_CALL: 'info', ADMIN_CALL: 'info',
@@ -11,16 +17,16 @@ const STATUS_V: Record<string, 'warning' | 'info' | 'success' | 'default' | 'err
 };
 
 const EVENT_COLORS: Record<string, string> = {
-  RECEIVED: colors.gray400,
-  IN_PROGRESS: '#F59E0B',
-  COUNSELLING_CALL: '#F59E0B',
-  ADMIN_CALL: '#F59E0B',
-  VISIT: '#F59E0B',
-  RESOLVED: '#10B981',
-  PARENT_RATING: '#10B981',
-  REOPENED: '#EF4444',
-  ESCALATED: '#EF4444',
-  CLOSED: colors.gray400,
+  RECEIVED: colors.ink3,
+  IN_PROGRESS: colors.warn,
+  COUNSELLING_CALL: colors.warn,
+  ADMIN_CALL: colors.warn,
+  VISIT: colors.warn,
+  RESOLVED: colors.ok,
+  PARENT_RATING: colors.ok,
+  REOPENED: colors.crit,
+  ESCALATED: colors.crit,
+  CLOSED: colors.ink3,
 };
 
 export default function AdminComplaintDetailScreen() {
@@ -34,16 +40,16 @@ export default function AdminComplaintDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator color={colors.primary} />
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator color={HUE} />
       </View>
     );
   }
 
   if (isError || !complaint) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ color: colors.textSecondary }}>Complaint not found.</Text>
+      <View style={[styles.container, styles.center]}>
+        <Text style={styles.notFound}>Complaint not found.</Text>
       </View>
     );
   }
@@ -131,57 +137,72 @@ export default function AdminComplaintDetailScreen() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         {/* Info card */}
-        <Card>
-          <View style={styles.row}>
-            <Text style={styles.category}>{complaint.category.replace('_', ' ')}</Text>
-            <Badge label={complaint.status.replace('_', ' ')} variant={STATUS_V[complaint.status] ?? 'default'} size="sm" />
+        <Card shadow="sm" radius={22} style={styles.infoCard}>
+          <View style={styles.infoTop}>
+            <IconSplat shape="b3" splatColor={colors.talkBg} spot="chat" size={48} />
+            <View style={styles.infoHead}>
+              <Text style={styles.category} numberOfLines={1}>{complaint.category.replace('_', ' ')}</Text>
+              <Badge label={complaint.status.replace('_', ' ')} variant={STATUS_V[complaint.status] ?? 'default'} size="sm" />
+            </View>
           </View>
           <Text style={styles.description}>{complaint.description ?? '—'}</Text>
           {/* WHO raised it — the parent's name + phone (raisedBy resolved server-side). */}
-          {raiser?.name && (
+          {raiser?.name ? (
+            <View style={styles.metaRow}>
+              <Icon name="users" size={14} color={colors.ink3} />
+              <Text style={styles.meta}>
+                Raised by <Text style={styles.metaStrong}>{raiser.name}</Text>
+                {raiser.phone ? `  ·  ${raiser.phone}` : ''}
+              </Text>
+            </View>
+          ) : null}
+          {student ? (
+            <View style={styles.metaRow}>
+              <Icon name="users" size={14} color={colors.ink3} />
+              <Text style={styles.meta}>Student: {student.name ?? student.id}</Text>
+            </View>
+          ) : null}
+          <View style={styles.metaRow}>
+            <Icon name="calendar" size={14} color={colors.ink3} />
             <Text style={styles.meta}>
-              Raised by: <Text style={styles.metaStrong}>{raiser.name}</Text>
-              {raiser.phone ? `  ·  ${raiser.phone}` : ''}
+              Filed {new Date(complaint.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
             </Text>
-          )}
-          {student && (
-            <Text style={styles.meta}>Student: {student.name ?? student.id}</Text>
-          )}
-          <Text style={styles.meta}>
-            Filed: {new Date(complaint.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-          </Text>
+          </View>
         </Card>
 
         {/* Trip context — shown when complaint is linked to a trip */}
-        {trip && (
-          <Card>
-            <Text style={styles.sectionLabel}>Linked Trip</Text>
+        {trip ? (
+          <GroupCard title="Linked trip" spot="route" hue={colors.route}>
             <View style={styles.tripRow}>
-              <Text style={styles.tripIcon}>🛣️</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.tripRoute}>{route?.name ?? '—'}</Text>
+              <IconSplat shape="b2" splatColor={colors.routeBg} spot="route" size={42} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.tripRoute} numberOfLines={1}>{route?.name ?? '—'}</Text>
                 <Text style={styles.tripMeta}>
                   {new Date(trip.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   {'  ·  '}
-                  <Text style={styles.tripDir}>{trip.direction === 'PICKUP' ? '⬆ Pickup' : '⬇ Drop'}</Text>
+                  <Text style={styles.tripDir}>{trip.direction === 'PICKUP' ? 'Pickup' : 'Drop'}</Text>
                 </Text>
-                <Text style={styles.tripMeta}>🧑‍✈️ {trip.driver?.name ?? 'Driver not assigned'}</Text>
+                <View style={styles.metaRow}>
+                  <Icon name="users" size={13} color={colors.ink3} />
+                  <Text style={styles.tripMeta}>{trip.driver?.name ?? 'Driver not assigned'}</Text>
+                </View>
               </View>
             </View>
-            <TouchableOpacity
+            <AnimatedPressable
               style={styles.openTripBtn}
+              scaleTo={0.97}
               onPress={() => router.push(`/(app)/fleet/${trip.id}` as never)}
-              activeOpacity={0.8}
+              accessibilityRole="button"
             >
-              <Text style={styles.openTripText}>Open trip →</Text>
-            </TouchableOpacity>
-          </Card>
-        )}
+              <Text style={styles.openTripText}>Open trip</Text>
+              <Icon name="chevron" size={14} color={colors.route} />
+            </AnimatedPressable>
+          </GroupCard>
+        ) : null}
 
         {/* Parent satisfaction — surfaced before the admin can close. */}
-        {rating && (
-          <Card>
-            <Text style={styles.sectionLabel}>Parent Satisfaction</Text>
+        {rating ? (
+          <GroupCard title="Parent satisfaction" spot="users" hue={HUE}>
             <View style={styles.satRow}>
               <Text style={styles.satStars}>
                 {'★'.repeat(rating.rating)}{'☆'.repeat(5 - rating.rating)}
@@ -193,31 +214,37 @@ export default function AdminComplaintDetailScreen() {
               />
             </View>
             {rating.comment ? <Text style={styles.satComment}>“{rating.comment}”</Text> : null}
-            <Text style={styles.meta}>
-              Rated: {new Date(rating.ts).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-            </Text>
-          </Card>
-        )}
+            <View style={styles.metaRow}>
+              <Icon name="calendar" size={13} color={colors.ink3} />
+              <Text style={styles.meta}>
+                Rated {new Date(rating.ts).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            </View>
+          </GroupCard>
+        ) : null}
 
         {/* Status transition controls — only valid next statuses (from @yaanam/types). */}
-        <Card>
-          <Text style={styles.sectionLabel}>Update Status</Text>
+        <GroupCard title="Update status" spot="chat" hue={HUE}>
           {allowed.length === 0 ? (
             <Text style={styles.meta}>This complaint is closed — no further changes.</Text>
           ) : (
             <>
-              {allowed.includes(ComplaintStatus.CLOSED) && !parentResponded && (
-                <Text style={styles.closeHint}>
-                  ⚠ Parent hasn’t rated the resolution yet — closing requires an override.
-                </Text>
-              )}
+              {allowed.includes(ComplaintStatus.CLOSED) && !parentResponded ? (
+                <View style={styles.closeHint}>
+                  <Icon name="alert" size={14} color={colors.warningDark} />
+                  <Text style={styles.closeHintText}>
+                    Parent hasn’t rated the resolution yet — closing requires an override.
+                  </Text>
+                </View>
+              ) : null}
               <View style={styles.statusButtons}>
                 {allowed.map((s) => {
                   const isPrimary = s === ComplaintStatus.RESOLVED || s === ComplaintStatus.CLOSED;
-                  const label = s === ComplaintStatus.CLOSED && !parentResponded ? 'CLOSE (OVERRIDE)' : s.replace(/_/g, ' ');
+                  const label = s === ComplaintStatus.CLOSED && !parentResponded ? 'Close (override)' : s.replace(/_/g, ' ');
                   return (
-                    <TouchableOpacity
+                    <AnimatedPressable
                       key={s}
+                      scaleTo={0.96}
                       style={[
                         styles.statusBtn,
                         isPrimary && styles.statusBtnPrimary,
@@ -225,28 +252,28 @@ export default function AdminComplaintDetailScreen() {
                       ]}
                       onPress={() => handleStatusChange(s)}
                       disabled={isPending}
+                      accessibilityRole="button"
                     >
                       <Text style={[styles.statusBtnText, isPrimary && styles.statusBtnTextPrimary]}>
                         {label}
                       </Text>
-                    </TouchableOpacity>
+                    </AnimatedPressable>
                   );
                 })}
               </View>
             </>
           )}
-        </Card>
+        </GroupCard>
 
         {/* Event log */}
-        {events.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>Event Log</Text>
+        {events.length > 0 ? (
+          <GroupCard title="Event log" icon="clock" hue={HUE}>
             <View style={styles.timeline}>
               {events.map((ev: any, idx: number) => (
                 <View key={ev.id} style={styles.timelineItem}>
                   <View style={styles.timelineLine}>
-                    <View style={[styles.timelineDot, { backgroundColor: EVENT_COLORS[ev.toStatus] ?? colors.gray400 }]} />
-                    {idx < events.length - 1 && <View style={styles.timelineConnector} />}
+                    <View style={[styles.timelineDot, { backgroundColor: EVENT_COLORS[ev.toStatus] ?? colors.ink3 }]} />
+                    {idx < events.length - 1 ? <View style={styles.timelineConnector} /> : null}
                   </View>
                   <View style={styles.timelineBody}>
                     <Text style={styles.timelineType}>{ev.toStatus.replace('_', ' ')}</Text>
@@ -259,36 +286,36 @@ export default function AdminComplaintDetailScreen() {
                 </View>
               ))}
             </View>
-          </>
-        )}
+          </GroupCard>
+        ) : null}
       </ScrollView>
 
       {/* Resolution note modal — required when moving to RESOLVED */}
       <Modal visible={pendingStatus === 'RESOLVED'} transparent animationType="fade" onRequestClose={() => setPendingStatus(null)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Resolve Complaint</Text>
+          <Card shadow="lg" radius={22} style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Resolve complaint</Text>
             <Text style={styles.modalSub}>Add a resolution note. The parent will be notified with this text.</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={resolveNote}
-              onChangeText={setResolveNote}
-              placeholder="e.g. Spoke with the driver and addressed the concern."
-              placeholderTextColor={colors.gray400}
-              multiline
-              autoFocus
-            />
-            <TouchableOpacity
-              style={[styles.resolveBtn, !resolveNote.trim() && styles.resolveBtnDisabled]}
+            <Field>
+              <FormInput
+                hue={HUE}
+                value={resolveNote}
+                onChangeText={setResolveNote}
+                placeholder="e.g. Spoke with the driver and addressed the concern."
+                multiline
+                autoFocus
+              />
+            </Field>
+            <ActionButton
+              title={isPending ? 'Resolving…' : 'Mark as resolved'}
+              hue={colors.ok}
               onPress={handleResolve}
-              disabled={!resolveNote.trim() || isPending}
-            >
-              <Text style={styles.resolveBtnText}>{isPending ? 'Resolving…' : 'Mark as Resolved'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelLink} onPress={() => setPendingStatus(null)}>
-              <Text style={styles.cancelLinkText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
+              loading={isPending}
+              disabled={!resolveNote.trim()}
+              fullWidth
+            />
+            <ActionButton title="Cancel" tone="ghost" onPress={() => setPendingStatus(null)} fullWidth />
+          </Card>
         </View>
       </Modal>
     </View>
@@ -296,73 +323,65 @@ export default function AdminComplaintDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: spacing[5], backgroundColor: colors.white,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  back: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.medium, width: 60 },
-  title: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
+  container: { flex: 1, backgroundColor: colors.ground },
+  center: { justifyContent: 'center', alignItems: 'center' },
+  notFound: { fontFamily: fontFamilies.bodySemibold, color: colors.ink2 },
   content: { padding: spacing[4], gap: spacing[4] },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing[3] },
-  category: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  description: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 22 },
-  meta: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: spacing[2] },
-  metaStrong: { color: colors.textPrimary, fontWeight: fontWeights.semibold },
-  satRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  satStars: { fontSize: fontSizes.lg, color: '#F59E0B', letterSpacing: 2 },
-  satComment: { fontSize: fontSizes.sm, color: colors.textPrimary, fontStyle: 'italic', marginTop: spacing[2], lineHeight: 20 },
-  closeHint: { fontSize: fontSizes.xs, color: colors.warning, marginBottom: spacing[2], lineHeight: 18 },
-  timelineActor: { fontSize: fontSizes.xs, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  sectionLabel: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.textSecondary, marginBottom: spacing[3] },
-  sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  tripRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] },
-  tripIcon: { fontSize: 20, marginTop: 2 },
-  tripRoute: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  tripMeta: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
-  tripDir: { color: colors.primary, fontWeight: fontWeights.medium },
+
+  infoCard: { gap: spacing[2] },
+  infoTop: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginBottom: spacing[1] },
+  infoHead: { flex: 1, minWidth: 0, gap: spacing[1], alignItems: 'flex-start' },
+  category: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
+  description: { fontFamily: fontFamilies.body, fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 22 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  meta: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3 },
+  metaStrong: { color: colors.ink, fontWeight: fontWeights.bold },
+
+  tripRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  tripRoute: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink },
+  tripMeta: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, marginTop: 2 },
+  tripDir: { color: colors.route, fontWeight: fontWeights.bold },
   openTripBtn: {
-    marginTop: spacing[3], alignSelf: 'flex-start',
-    paddingHorizontal: spacing[4], paddingVertical: spacing[2],
-    borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: '#EEF2FF',
+    flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
+    borderRadius: 999, backgroundColor: colors.routeBg,
   },
-  openTripText: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.semibold },
+  openTripText: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.sm, color: colors.route, fontWeight: fontWeights.extrabold },
+
+  satRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  satStars: { fontSize: fontSizes.lg, color: colors.warn, letterSpacing: 2 },
+  satComment: { fontFamily: fontFamilies.body, fontSize: fontSizes.sm, color: colors.ink, fontStyle: 'italic', marginTop: spacing[1], lineHeight: 20 },
+
+  closeHint: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: colors.warnBg, borderRadius: 13,
+    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
+  },
+  closeHintText: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: '#92400E', lineHeight: 17 },
   statusButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   statusBtn: {
-    paddingHorizontal: spacing[4], paddingVertical: spacing[2],
-    borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.border,
+    paddingHorizontal: 15, paddingVertical: 10,
+    borderRadius: 999, borderWidth: 1.8, borderColor: colors.hairlineStrong,
     backgroundColor: colors.white,
   },
-  statusBtnPrimary: { borderColor: colors.primary, backgroundColor: '#EEF2FF' },
+  statusBtnPrimary: { borderColor: HUE, backgroundColor: colors.talkBg },
   statusBtnDisabled: { opacity: 0.5 },
-  statusBtnText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  statusBtnTextPrimary: { color: colors.primary, fontWeight: fontWeights.semibold },
+  statusBtnText: { fontFamily: fontFamilies.display, fontSize: fontSizes.sm, color: colors.ink2, fontWeight: fontWeights.bold },
+  statusBtnTextPrimary: { color: HUE, fontWeight: fontWeights.extrabold },
+
   timeline: { gap: 0 },
   timelineItem: { flexDirection: 'row', gap: spacing[3] },
   timelineLine: { alignItems: 'center', width: 20 },
   timelineDot: { width: 12, height: 12, borderRadius: 6, marginTop: 4 },
-  timelineConnector: { width: 2, flex: 1, backgroundColor: colors.border, marginVertical: 4 },
+  timelineConnector: { width: 2, flex: 1, backgroundColor: colors.hairlineStrong, marginVertical: 4 },
   timelineBody: { flex: 1, paddingBottom: spacing[4], gap: 2 },
-  timelineType: { fontSize: fontSizes.xs, fontWeight: fontWeights.bold, color: colors.textSecondary, textTransform: 'uppercase' },
-  timelineNote: { fontSize: fontSizes.sm, color: colors.textPrimary },
-  timelineTime: { fontSize: fontSizes.xs, color: colors.textMuted },
+  timelineType: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.xs, fontWeight: fontWeights.extrabold, color: colors.ink2, textTransform: 'uppercase', letterSpacing: 0.4 },
+  timelineActor: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink2 },
+  timelineNote: { fontFamily: fontFamilies.body, fontSize: fontSizes.sm, color: colors.ink },
+  timelineTime: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3 },
+
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: spacing[5] },
-  modalCard: { backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing[5], gap: spacing[3] },
-  modalTitle: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  modalSub: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 20 },
-  modalInput: {
-    backgroundColor: colors.gray100, borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    fontSize: fontSizes.base, color: colors.textPrimary,
-    borderWidth: 1, borderColor: colors.border, minHeight: 80, textAlignVertical: 'top',
-  },
-  resolveBtn: {
-    backgroundColor: '#10B981', borderRadius: radius.lg,
-    paddingVertical: spacing[3], alignItems: 'center',
-  },
-  resolveBtnDisabled: { opacity: 0.4 },
-  resolveBtnText: { color: colors.white, fontWeight: fontWeights.semibold, fontSize: fontSizes.base },
-  cancelLink: { alignItems: 'center', paddingVertical: spacing[2] },
-  cancelLinkText: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  modalCard: { gap: spacing[3] },
+  modalTitle: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.ink },
+  modalSub: { fontFamily: fontFamilies.body, fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 20 },
 });
