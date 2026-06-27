@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import {
-  View, Text, TextInput, ScrollView, StyleSheet,
-  TouchableOpacity, ActivityIndicator,
-} from 'react-native';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, useToast } from '@yaanam/ui';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { colors, spacing, fontFamilies, useToast, Icon } from '@yaanam/ui';
 import { useCreateStudent, useAgeGroups, useRoutes, useStops } from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
+import {
+  SectionLabel, Field, FormInput, PhoneInput, PillPicker, SeatMeter, ActionButton,
+} from '../../../../components/forms';
+
+const PEOPLE = colors.people;
+const ROUTE = colors.route;
 
 export default function NewStudentScreen() {
   const [name, setName] = useState('');
@@ -70,188 +73,83 @@ export default function NewStudentScreen() {
   };
 
   if (isLoading) {
-    return <View style={styles.loader}><ActivityIndicator color={colors.primary} /></View>;
+    return <View style={styles.loader}><ActivityIndicator color={colors.people} /></View>;
   }
+
+  const routeOptions = [
+    { label: 'None', value: '' },
+    ...routes.map((r) => {
+      const full = r.capacity != null && (r.seatsUsed ?? 0) >= r.capacity;
+      return {
+        label: `${r.name}${r.capacity != null ? ` · ${r.seatsUsed ?? 0}/${r.capacity}${full ? ' FULL' : ''}` : ''}`,
+        value: r.id,
+        disabled: full,
+      };
+    }),
+  ];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Basic Info</Text>
+      {/* Child */}
+      <SectionLabel spot="users" hue={PEOPLE}>Child</SectionLabel>
+      <Field label="Full name" required>
+        <FormInput hue={PEOPLE} value={name} onChangeText={setName} placeholder="e.g. Arjun Sharma" autoCapitalize="words" />
+      </Field>
+      <Field label="Roll / Reg ID">
+        <FormInput hue={PEOPLE} value={regId} onChangeText={setRegId} placeholder="Optional" autoCapitalize="characters" />
+      </Field>
+      <Field label="Age group" required>
+        <PillPicker hue={PEOPLE} value={ageGroupId} onChange={setAgeGroupId} options={ageGroups.map((ag) => ({ label: ag.name, value: ag.id }))} />
+      </Field>
 
-        <Text style={styles.label}>Full Name *</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="e.g. Arjun Sharma"
-          placeholderTextColor={colors.gray400}
-          autoCapitalize="words"
-        />
-
-        <Text style={styles.label}>Roll / Reg ID</Text>
-        <TextInput
-          style={styles.input}
-          value={regId}
-          onChangeText={setRegId}
-          placeholder="Optional"
-          placeholderTextColor={colors.gray400}
-          autoCapitalize="characters"
-        />
-
-        <Text style={styles.label}>Age Group *</Text>
-        <View style={styles.chipRow}>
-          {ageGroups.map((ag) => (
-            <TouchableOpacity
-              key={ag.id}
-              style={[styles.chip, ageGroupId === ag.id && styles.chipActive]}
-              onPress={() => setAgeGroupId(ag.id)}
-            >
-              <Text style={[styles.chipText, ageGroupId === ag.id && styles.chipTextActive]}>
-                {ag.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Card>
-
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Route Assignment</Text>
-
-        <Text style={styles.label}>Route</Text>
-        <View style={styles.chipRow}>
-          <TouchableOpacity
-            style={[styles.chip, !routeId && styles.chipActive]}
-            onPress={() => { setRouteId(''); setStopId(''); }}
-          >
-            <Text style={[styles.chipText, !routeId && styles.chipTextActive]}>None</Text>
-          </TouchableOpacity>
-          {routes.map((r) => {
-            const full = r.capacity != null && (r.seatsUsed ?? 0) >= r.capacity;
-            return (
-              <TouchableOpacity
-                key={r.id}
-                style={[styles.chip, routeId === r.id && styles.chipActive]}
-                onPress={() => { setRouteId(r.id); setStopId(''); }}
-              >
-                <Text style={[styles.chipText, routeId === r.id && styles.chipTextActive]}>
-                  {r.name}{r.capacity != null ? ` · ${r.seatsUsed ?? 0}/${r.capacity}${full ? ' FULL' : ''}` : ''}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {routeFull && (
-          <View style={styles.capacityWarn}>
-            <Text style={styles.capacityWarnText}>
-              ⚠ Route bus is full ({selectedRoute!.seatsUsed ?? 0}/{selectedRoute!.capacity}). Pick another route or
+      {/* Route & stop */}
+      <SectionLabel spot="route" hue={ROUTE} style={styles.gap}>Route &amp; stop</SectionLabel>
+      <Field label="Route">
+        <PillPicker hue={ROUTE} value={routeId} onChange={(v) => { setRouteId(v); setStopId(''); }} options={routeOptions} />
+        {routeId ? <SeatMeter used={selectedRoute?.seatsUsed ?? 0} capacity={selectedRoute?.capacity} hue={ROUTE} /> : null}
+        {routeFull ? (
+          <View style={styles.warn}>
+            <Icon name="alert" size={16} color={colors.warningDark} />
+            <Text style={styles.warnText}>
+              Route bus is full ({selectedRoute!.seatsUsed ?? 0}/{selectedRoute!.capacity}). Pick another route or
               assign a bigger bus before adding a student here.
             </Text>
           </View>
-        )}
+        ) : null}
+      </Field>
+      {routeId ? (
+        <Field label="Boarding stop">
+          <PillPicker hue={ROUTE} value={stopId} onChange={setStopId} options={routeStops.map((s) => ({ label: s.name, value: s.id }))} />
+        </Field>
+      ) : null}
 
-        {routeId && (
-          <>
-            <Text style={styles.label}>Boarding Stop</Text>
-            <View style={styles.chipRow}>
-              {routeStops.map((s) => (
-                <TouchableOpacity
-                  key={s.id}
-                  style={[styles.chip, stopId === s.id && styles.chipActive]}
-                  onPress={() => setStopId(s.id)}
-                >
-                  <Text style={[styles.chipText, stopId === s.id && styles.chipTextActive]}>
-                    {s.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        )}
-      </Card>
+      {/* Parent / guardian */}
+      <SectionLabel spot="users" hue={PEOPLE} style={styles.gap}>Parent / Guardian</SectionLabel>
+      <Text style={styles.hint}>
+        The parent logs in with this mobile number and sees this child. Leave blank to add the parent later.
+      </Text>
+      <Field label="Parent name">
+        <FormInput hue={PEOPLE} value={parentName} onChangeText={setParentName} placeholder="e.g. Priya Sharma" autoCapitalize="words" />
+      </Field>
+      <Field label="Parent mobile">
+        <PhoneInput hue={PEOPLE} value={parentPhone} onChangeText={setParentPhone} />
+      </Field>
 
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Parent / Guardian</Text>
-        <Text style={styles.hint}>
-          The parent logs in with this mobile number and sees this child. Leave blank
-          to add the parent later.
-        </Text>
-
-        <Text style={styles.label}>Parent Name</Text>
-        <TextInput
-          style={styles.input}
-          value={parentName}
-          onChangeText={setParentName}
-          placeholder="e.g. Priya Sharma"
-          placeholderTextColor={colors.gray400}
-          autoCapitalize="words"
-        />
-
-        <Text style={styles.label}>Parent Mobile</Text>
-        <View style={styles.phoneRow}>
-          <View style={styles.phonePrefix}>
-            <Text style={styles.phonePrefixText}>+91</Text>
-          </View>
-          <TextInput
-            style={[styles.input, styles.phoneInput]}
-            value={parentPhone}
-            onChangeText={setParentPhone}
-            placeholder="98765 43210"
-            placeholderTextColor={colors.gray400}
-            keyboardType="phone-pad"
-            maxLength={10}
-          />
-        </View>
-      </Card>
-
-      <Button
-        title="Add Student"
-        onPress={handleSave}
-        loading={createStudent.isPending}
-        disabled={routeFull}
-        fullWidth
-        style={styles.saveBtn}
-      />
+      <ActionButton title="Add student" hue={PEOPLE} onPress={handleSave} loading={createStudent.isPending} disabled={routeFull} fullWidth style={styles.submit} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
+  container: { flex: 1, backgroundColor: colors.ground },
   content: { padding: spacing[4], gap: spacing[4] },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  section: { gap: spacing[3] },
-  sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary, marginBottom: spacing[1] },
-  label: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary },
-  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18 },
-  phoneRow: { flexDirection: 'row', gap: spacing[2], alignItems: 'center' },
-  phonePrefix: {
-    backgroundColor: colors.gray100, borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    borderWidth: 1, borderColor: colors.border,
+  gap: { marginTop: spacing[2] },
+  hint: { fontFamily: fontFamilies.bodySemibold, fontSize: 12.5, color: colors.ink3, lineHeight: 17, marginTop: -spacing[2] },
+  warn: {
+    flexDirection: 'row', gap: 8, alignItems: 'flex-start',
+    backgroundColor: colors.warnBg, borderRadius: 13, padding: 11, marginTop: 4,
   },
-  phonePrefixText: { fontSize: fontSizes.base, color: colors.textPrimary, fontWeight: fontWeights.medium },
-  phoneInput: { flex: 1 },
-  input: {
-    backgroundColor: colors.gray100, borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    fontSize: fontSizes.base, color: colors.textPrimary,
-    borderWidth: 1, borderColor: colors.border,
-  },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  chip: {
-    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.white,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  chipTextActive: { color: colors.white },
-  capacityWarn: {
-    backgroundColor: colors.warningBg, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.warning,
-    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
-  },
-  capacityWarnText: { fontSize: fontSizes.sm, color: colors.warningDark, lineHeight: 18 },
-  saveBtn: { marginTop: spacing[2] },
+  warnText: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: 12.5, color: '#92400E', lineHeight: 17 },
+  submit: { marginTop: spacing[2] },
 });

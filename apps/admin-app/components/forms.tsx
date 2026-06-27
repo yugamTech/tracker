@@ -115,6 +115,31 @@ export function FormInput({
   );
 }
 
+// ── Phone input with a fixed +91 prefix ──────────────────────────────────────
+export function PhoneInput({
+  value, onChangeText, hue = PEOPLE, placeholder = '98765 43210',
+}: {
+  value: string;
+  onChangeText: (v: string) => void;
+  hue?: string;
+  placeholder?: string;
+}) {
+  return (
+    <View style={styles.phoneRow}>
+      <View style={styles.phonePrefix}><Text style={styles.phonePrefixText}>+91</Text></View>
+      <FormInput
+        hue={hue}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        keyboardType="phone-pad"
+        maxLength={10}
+        style={styles.phoneInput}
+      />
+    </View>
+  );
+}
+
 // ── Pill picker (the reference's `.pickrow` / `.pick`) ─────────────────────────
 export interface PillOption<T extends string> {
   label: string;
@@ -281,6 +306,11 @@ const styles = StyleSheet.create({
   },
   inputMultiline: { minHeight: 76, paddingTop: 12, textAlignVertical: 'top' },
   inputDisabled: { backgroundColor: colors.gray50, color: colors.ink2, borderColor: colors.hairline },
+
+  phoneRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  phonePrefix: { backgroundColor: colors.gray100, borderRadius: 15, paddingHorizontal: 14, paddingVertical: 13, borderWidth: 1.8, borderColor: colors.hairlineStrong },
+  phonePrefixText: { fontFamily: fontFamilies.displayHeavy, fontSize: 15, color: colors.ink, fontWeight: fontWeights.extrabold },
+  phoneInput: { flex: 1 },
 
   pickrow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pick: {
