@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, OtpInput, Button, useToast } from '@yaanam/ui';
+import { colors, spacing, fontSizes, fontWeights, Icon, OtpInput, Button, useToast } from '@yaanam/ui';
 import { useAuthStore } from '../../store/auth.store';
 import { useVerifyOtp } from '@yaanam/api-client';
 
@@ -89,7 +89,8 @@ export default function AdminOtpScreen() {
         accessibilityRole="button"
         accessibilityLabel="Go back"
       >
-        <Text style={styles.backText}>← Back</Text>
+        <Icon name="chevron" size={18} color="#7C3AED" style={{ transform: [{ rotate: '180deg' }] }} />
+        <Text style={styles.backText}>Back</Text>
       </TouchableOpacity>
       <View style={styles.content}>
         <Text style={styles.title}>Admin Verification</Text>
@@ -113,11 +114,11 @@ export default function AdminOtpScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white, padding: spacing[6] },
-  back: { marginTop: spacing[8] },
+  back: { marginTop: spacing[8], flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
   backText: { fontSize: fontSizes.sm, color: '#7C3AED', fontWeight: fontWeights.medium },
   content: { flex: 1, justifyContent: 'center', gap: spacing[4] },
-  title: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.bold, color: colors.textPrimary },
-  subtitle: { fontSize: fontSizes.base, color: colors.textSecondary },
+  title: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.bold, color: colors.ink },
+  subtitle: { fontSize: fontSizes.base, color: colors.ink2 },
   otpWrapper: { alignItems: 'center', paddingVertical: spacing[4] },
-  hint: { fontSize: fontSizes.xs, color: colors.textMuted, textAlign: 'center' },
+  hint: { fontSize: fontSizes.xs, color: colors.ink3, textAlign: 'center' },
 });

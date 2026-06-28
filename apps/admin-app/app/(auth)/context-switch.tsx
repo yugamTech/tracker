@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../store/auth.store';
-import { colors, spacing, fontSizes, fontWeights, radius, Card } from '@yaanam/ui';
+import { colors, spacing, fontSizes, fontWeights, Card } from '@yaanam/ui';
 
 export default function ContextSwitchScreen() {
   const { memberships, setActiveMembership } = useAuthStore();
@@ -35,8 +35,8 @@ export default function ContextSwitchScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white, padding: spacing[6] },
-  title: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.bold, color: colors.textPrimary, marginTop: spacing[8], marginBottom: spacing[2] },
-  subtitle: { fontSize: fontSizes.sm, color: colors.textSecondary, marginBottom: spacing[5] },
-  schoolName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
+  title: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.bold, color: colors.ink, marginTop: spacing[8], marginBottom: spacing[2] },
+  subtitle: { fontSize: fontSizes.sm, color: colors.ink2, marginBottom: spacing[5] },
+  schoolName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.ink },
   role: { fontSize: fontSizes.sm, color: '#7C3AED', marginTop: spacing[1] },
 });
