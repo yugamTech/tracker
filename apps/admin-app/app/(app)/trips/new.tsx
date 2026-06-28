@@ -1,15 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput,
-} from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, LoadingSpinner, useToast } from '@yaanam/ui';
+import {
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  LoadingSpinner, IconSplat, Icon, useToast,
+} from '@yaanam/ui';
 import {
   useRoutes, useVehicles, useMembers, useStudents, useCreateTrip,
   useTripById, useUpdateTrip,
 } from '@yaanam/api-client';
 import { MonthCalendar, ymdKey, startOfMonth, formatDayLabel } from '../../../components/Calendar';
 import { useScheduleResultStore, type ScheduleDayResult } from '../../../store/schedule.store';
+import { GroupCard, Field, FormInput, PillPicker, ActionButton } from '../../../components/forms';
+
+const HUE = colors.trip;
+const HUE_BG = colors.tripBg;
 
 /** Minutes from now before which a trip can't be scheduled (small booking buffer). */
 const SCHEDULE_BUFFER_MIN = 15;
@@ -230,96 +235,57 @@ export default function ScheduleTripScreen() {
     return <LoadingSpinner fullScreen />;
   }
 
+  const routeOptions = routes.map((r) => ({ label: r.name, value: r.id }));
+  const vehicleOptions = activeVehicles.map((v) => ({ label: v.regNumber, value: v.id }));
+  const driverOptions = drivers.map((m) => ({ label: m.person.name, value: m.personId }));
+  const conductorOptions = [
+    { label: 'None', value: '' },
+    ...conductors.map((m) => ({ label: m.person.name, value: m.personId })),
+  ];
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Route *</Text>
-        {routes.length === 0 && <Text style={styles.empty}>No routes configured yet</Text>}
-        <View style={styles.chipRow}>
-          {routes.map((r) => (
-            <TouchableOpacity
-              key={r.id}
-              style={[styles.chip, routeId === r.id && styles.chipActive]}
-              onPress={() => selectRoute(r.id)}
-            >
-              <Text style={[styles.chipText, routeId === r.id && styles.chipTextActive]}>{r.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Card>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <GroupCard title="Route" spot="route" hue={colors.route}>
+        {routes.length === 0
+          ? <Text style={styles.empty}>No routes configured yet</Text>
+          : <PillPicker hue={colors.route} value={routeId} onChange={selectRoute} options={routeOptions} />}
+      </GroupCard>
 
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Vehicle *</Text>
-        {activeVehicles.length === 0 && <Text style={styles.empty}>No active vehicles</Text>}
-        <View style={styles.chipRow}>
-          {activeVehicles.map((v) => (
-            <TouchableOpacity
-              key={v.id}
-              style={[styles.chip, vehicleId === v.id && styles.chipActive]}
-              onPress={() => setVehicleId(v.id)}
-            >
-              <Text style={[styles.chipText, vehicleId === v.id && styles.chipTextActive]}>{v.regNumber}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Card>
+      <GroupCard title="Vehicle" spot="bus" hue={colors.fleet}>
+        {activeVehicles.length === 0
+          ? <Text style={styles.empty}>No active vehicles</Text>
+          : <PillPicker hue={colors.fleet} value={vehicleId} onChange={setVehicleId} options={vehicleOptions} />}
+      </GroupCard>
 
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Driver *</Text>
-        {drivers.length === 0 && <Text style={styles.empty}>No drivers — add one under People → Staff</Text>}
-        <View style={styles.chipRow}>
-          {drivers.map((m) => (
-            <TouchableOpacity
-              key={m.id}
-              style={[styles.chip, driverId === m.personId && styles.chipActive]}
-              onPress={() => setDriverId(m.personId)}
-            >
-              <Text style={[styles.chipText, driverId === m.personId && styles.chipTextActive]}>{m.person.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Card>
+      <GroupCard title="Driver" icon="users" hue={HUE}>
+        {drivers.length === 0
+          ? <Text style={styles.empty}>No drivers — add one under People → Staff</Text>
+          : <PillPicker hue={HUE} value={driverId} onChange={setDriverId} options={driverOptions} />}
+      </GroupCard>
 
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Conductor (optional)</Text>
-        <View style={styles.chipRow}>
-          <TouchableOpacity
-            style={[styles.chip, !conductorId && styles.chipActive]}
-            onPress={() => setConductorId(undefined)}
-          >
-            <Text style={[styles.chipText, !conductorId && styles.chipTextActive]}>None</Text>
-          </TouchableOpacity>
-          {conductors.map((m) => (
-            <TouchableOpacity
-              key={m.id}
-              style={[styles.chip, conductorId === m.personId && styles.chipActive]}
-              onPress={() => setConductorId(m.personId)}
-            >
-              <Text style={[styles.chipText, conductorId === m.personId && styles.chipTextActive]}>{m.person.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Card>
+      <GroupCard title="Conductor (optional)" icon="users" hue={colors.people}>
+        <PillPicker
+          hue={colors.people}
+          value={conductorId ?? ''}
+          onChange={(v) => setConductorId(v || undefined)}
+          options={conductorOptions}
+        />
+      </GroupCard>
 
-      <Card style={styles.section}>
+      <GroupCard title="Dates" spot="trip" hue={HUE}>
         {isEdit ? (
-          <>
-            <Text style={styles.sectionTitle}>Date</Text>
-            <Text style={styles.hint}>
-              {sortedDays[0] ? formatDayLabel(sortedDays[0]) : '—'} · a trip's day is fixed — edit its time and assignment below.
+          <Field label="Date">
+            <Text style={styles.editDate}>
+              {sortedDays[0] ? formatDayLabel(sortedDays[0]) : '—'}
             </Text>
-          </>
+            <Text style={styles.editDateHint}>A trip's day is fixed — edit its time and assignment below.</Text>
+          </Field>
         ) : (
           <>
-            <View style={styles.dateHeader}>
-              <Text style={styles.sectionTitle}>Dates *</Text>
-              <Text style={styles.dateCount}>
-                {sortedDays.length} day{sortedDays.length === 1 ? '' : 's'} selected
-              </Text>
+            <View style={styles.datesHeader}>
+              <Text style={styles.datesHint}>Tap any number of days — one trip per day. Schedulable from now up to one month ahead.</Text>
+              <Text style={styles.datesCount}>{sortedDays.length} day{sortedDays.length === 1 ? '' : 's'}</Text>
             </View>
-            <Text style={styles.hint}>
-              Tap any number of days — one trip per day. Schedulable from now up to one month ahead.
-            </Text>
             <MonthCalendar
               selected={selectedDays}
               onSelectDay={toggleDay}
@@ -333,120 +299,113 @@ export default function ScheduleTripScreen() {
           </>
         )}
 
-        <Text style={[styles.sectionTitle, { marginTop: spacing[3] }]}>Start time *</Text>
-        <View style={styles.timeRow}>
-          <View style={styles.timeInputWrap}>
-            <TextInput
-              style={styles.timeInput}
-              value={startHour}
-              onChangeText={(v) => setStartHour(v.replace(/\D/g, '').slice(0, 2))}
-              keyboardType="number-pad"
-              maxLength={2}
-              placeholder="HH"
-              placeholderTextColor={colors.textMuted}
-            />
-            <Text style={styles.timeLabel}>hour</Text>
+        <Field label="Start time" style={styles.timeField}>
+          <View style={styles.timeRow}>
+            <View style={styles.timeInputWrap}>
+              <FormInput
+                hue={HUE}
+                value={startHour}
+                onChangeText={(v) => setStartHour(v.replace(/\D/g, '').slice(0, 2))}
+                keyboardType="number-pad"
+                maxLength={2}
+                placeholder="HH"
+                style={styles.timeInput}
+              />
+              <Text style={styles.timeLabel}>hour</Text>
+            </View>
+            <Text style={styles.timeSep}>:</Text>
+            <View style={styles.timeInputWrap}>
+              <FormInput
+                hue={HUE}
+                value={startMin}
+                onChangeText={(v) => setStartMin(v.replace(/\D/g, '').slice(0, 2))}
+                keyboardType="number-pad"
+                maxLength={2}
+                placeholder="MM"
+                style={styles.timeInput}
+              />
+              <Text style={styles.timeLabel}>min</Text>
+            </View>
+            <Text style={styles.timePreview}>Driver window {startWindow}</Text>
           </View>
-          <Text style={styles.timeSep}>:</Text>
-          <View style={styles.timeInputWrap}>
-            <TextInput
-              style={styles.timeInput}
-              value={startMin}
-              onChangeText={(v) => setStartMin(v.replace(/\D/g, '').slice(0, 2))}
-              keyboardType="number-pad"
-              maxLength={2}
-              placeholder="MM"
-              placeholderTextColor={colors.textMuted}
-            />
-            <Text style={styles.timeLabel}>min</Text>
-          </View>
-          <Text style={styles.timePreview}>→ Driver window {startWindow}</Text>
-        </View>
-      </Card>
+        </Field>
+      </GroupCard>
 
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Direction *</Text>
-        <View style={styles.chipRow}>
-          {(['PICKUP', 'DROP'] as const).map((dir) => (
-            <TouchableOpacity
-              key={dir}
-              style={[styles.chip, direction === dir && styles.chipActive]}
-              onPress={() => setDirection(dir)}
-            >
-              <Text style={[styles.chipText, direction === dir && styles.chipTextActive]}>{dir}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Card>
+      <GroupCard title="Direction" spot="trip" hue={HUE}>
+        <PillPicker
+          hue={HUE}
+          value={direction}
+          onChange={(v) => setDirection(v as 'PICKUP' | 'DROP')}
+          options={[{ label: 'Pickup', value: 'PICKUP' }, { label: 'Drop', value: 'DROP' }]}
+        />
+      </GroupCard>
 
       {/* Roster preview */}
-      <Card style={styles.previewCard}>
-        <Text style={styles.previewLabel}>Roster preview</Text>
-        <Text style={styles.previewCount}>
-          {routeId ? `${rosterCount} rider${rosterCount !== 1 ? 's' : ''}` : '—'}
-        </Text>
-        <Text style={styles.previewHint}>
-          {routeId
-            ? `Active students on this route with a boarding stop will be added as EXPECTED on each of the ${sortedDays.length} day${sortedDays.length === 1 ? '' : 's'}.`
-            : 'Select a route to preview the roster.'}
-        </Text>
-      </Card>
+      <View style={[styles.rosterCard, { backgroundColor: HUE_BG }]}>
+        <IconSplat shape="b3" splatColor={colors.white} spot="users" size={40} />
+        <View style={styles.rosterInfo}>
+          <Text style={styles.rosterCount}>
+            {routeId ? `${rosterCount} rider${rosterCount !== 1 ? 's' : ''}` : '—'}
+          </Text>
+          <Text style={styles.rosterHint}>
+            {routeId
+              ? `Active stop-pinned students on this route. Each will be added as EXPECTED on ${sortedDays.length} day${sortedDays.length === 1 ? '' : 's'}.`
+              : 'Select a route to preview the roster.'}
+          </Text>
+        </View>
+      </View>
 
       {blockEmptyRoute ? (
-        <Text style={styles.blockWarn}>
-          ⚠ This route has no eligible riders. Add stops and assign active students to a stop on it
-          before scheduling — a driver can’t be given an empty route.
-        </Text>
+        <View style={styles.blockWarn}>
+          <Icon name="alert" size={15} color={colors.warningDark} />
+          <Text style={styles.blockWarnText}>
+            This route has no eligible riders. Add stops and assign active students to a stop on it
+            before scheduling — a driver can't be given an empty route.
+          </Text>
+        </View>
       ) : null}
 
-      <Button
-        title={isEdit ? 'Save Changes' : sortedDays.length > 1 ? `Schedule ${sortedDays.length} Trips` : 'Schedule Trip'}
+      <ActionButton
+        title={isEdit ? 'Save changes' : sortedDays.length > 1 ? `Schedule ${sortedDays.length} trips` : 'Schedule trip'}
+        hue={HUE}
         onPress={isEdit ? handleUpdate : handleCreate}
         loading={isEdit ? updateTrip.isPending : submitting}
         disabled={blockEmptyRoute}
         fullWidth
-        style={styles.saveBtn}
       />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  content: { padding: spacing[4], gap: spacing[4] },
-  section: { gap: spacing[3] },
-  sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  empty: { fontSize: fontSizes.sm, color: colors.textMuted },
-  hint: { fontSize: fontSizes.xs, color: colors.textMuted },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  chip: {
-    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.white,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  chipTextActive: { color: colors.white },
+  container: { flex: 1, backgroundColor: colors.ground },
+  content: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[8] },
 
-  dateHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing[2] },
-  dateCount: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.primary },
+  empty: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink3 },
 
+  datesHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing[2] },
+  datesHint: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3, lineHeight: 16 },
+  datesCount: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.sm, fontWeight: fontWeights.extrabold, color: colors.trip },
+  editDate: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink },
+  editDateHint: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3, marginTop: 2 },
+
+  timeField: { marginTop: spacing[2] },
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], flexWrap: 'wrap' },
-  timeInputWrap: { alignItems: 'center', gap: 2 },
-  timeInput: {
-    width: 56, height: 44, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.md, textAlign: 'center',
-    fontSize: fontSizes.lg, fontWeight: fontWeights.semibold, color: colors.textPrimary,
-    backgroundColor: colors.white,
-  },
-  timeLabel: { fontSize: fontSizes.xs, color: colors.textMuted },
-  timeSep: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.bold, color: colors.textSecondary, paddingBottom: 14 },
-  timePreview: { fontSize: fontSizes.xs, color: colors.textSecondary, flex: 1 },
+  timeInputWrap: { alignItems: 'center', gap: 4 },
+  timeInput: { width: 60, textAlign: 'center' },
+  timeLabel: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3 },
+  timeSep: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes['2xl'], fontWeight: fontWeights.extrabold, color: colors.ink2, paddingBottom: 16 },
+  timePreview: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3, flex: 1 },
 
-  previewCard: { gap: spacing[1], alignItems: 'center', paddingVertical: spacing[4] },
-  previewLabel: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  previewCount: { fontSize: fontSizes['2xl'], fontWeight: fontWeights.extrabold, color: colors.primary },
-  previewHint: { fontSize: fontSizes.xs, color: colors.textMuted, textAlign: 'center', lineHeight: 16 },
-  blockWarn: { fontSize: fontSizes.sm, color: colors.warningDark, lineHeight: 18 },
-  saveBtn: { marginTop: spacing[2] },
+  rosterCard: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], borderRadius: 22, padding: spacing[3] },
+  rosterInfo: { flex: 1 },
+  rosterCount: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes['2xl'], fontWeight: fontWeights.extrabold, color: colors.trip },
+  rosterHint: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink2, lineHeight: 16, marginTop: 2 },
+
+  blockWarn: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 7,
+    backgroundColor: colors.warnBg, borderRadius: 16,
+    paddingHorizontal: spacing[3], paddingVertical: spacing[3],
+  },
+  blockWarnText: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: '#92400E', lineHeight: 19 },
 });
