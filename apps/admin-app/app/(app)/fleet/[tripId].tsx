@@ -5,7 +5,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import {
-  colors, spacing, fontSizes, fontWeights, fontFamilies, radius,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
   Card, Badge, Button, LoadingSpinner, EmptyState, LiveBusMap, SpotIcon, Icon, useToast,
 } from '@yaanam/ui';
 import type { BadgeVariant, IconName, SpotIconName } from '@yaanam/ui';
@@ -16,8 +16,8 @@ import type { RosterGuardian, TripLifecycleEvent } from '@yaanam/api-client';
 import { goBackTo } from '../../../lib/nav';
 
 const STATUS_COLORS: Record<string, string> = {
-  COMPLETED: colors.success,
-  ABORTED: colors.error,
+  COMPLETED: colors.ok,
+  ABORTED: colors.crit,
   IN_PROGRESS: '#0EA5E9',
   STARTED: '#0EA5E9',
   SCHEDULED: colors.gray400,
@@ -233,7 +233,7 @@ export default function TripMonitorScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.trip} />}
     >
       {/* Live route map — shown when trip is started/in-progress */}
       {isLive && routeStops.length > 0 && (
@@ -324,9 +324,9 @@ export default function TripMonitorScreen() {
       ) : (
         <Card style={styles.summaryCard}>
           <Stat label="Total" value={roster.summary.total} />
-          <Stat label="Boarded" value={roster.summary.boarded} color={colors.success} />
-          <Stat label="Not boarded" value={roster.summary.notBoarded} color={colors.error} />
-          <Stat label="Expected" value={roster.summary.expected} color={colors.gray500} />
+          <Stat label="Boarded" value={roster.summary.boarded} color={colors.ok} />
+          <Stat label="Not boarded" value={roster.summary.notBoarded} color={colors.crit} />
+          <Stat label="Expected" value={roster.summary.expected} color={colors.ink3} />
         </Card>
       )}
 
@@ -342,7 +342,7 @@ export default function TripMonitorScreen() {
       {notBoarded.length > 0 && (
         <Card style={[styles.section, styles.exceptionCard]}>
           <View style={styles.headerMetaRow}>
-            <Icon name="alert" size={18} color={colors.error} />
+            <Icon name="alert" size={18} color={colors.crit} />
             <Text style={styles.exceptionTitle}>Not boarded ({notBoarded.length})</Text>
           </View>
           {notBoarded.map((r) => (
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
   },
   pmTag: {
     flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.17)', paddingHorizontal: 11, paddingVertical: 5, borderRadius: radius.full,
+    backgroundColor: 'rgba(255,255,255,0.17)', paddingHorizontal: 11, paddingVertical: 5, borderRadius: 99,
   },
   pmTagText: { fontFamily: fontFamilies.displayHeavy, fontSize: 11, fontWeight: fontWeights.extrabold, letterSpacing: 0.5, textTransform: 'uppercase', color: colors.white },
   pmTitle: { fontFamily: fontFamilies.displayHeavy, fontSize: 23, fontWeight: fontWeights.extrabold, color: colors.white, marginTop: 12, letterSpacing: -0.4 },
@@ -499,25 +499,25 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: fontSizes.xs, color: colors.ink2 },
 
   // exceptions
-  exceptionCard: { borderWidth: 1, borderColor: colors.error, backgroundColor: '#FEF2F2' },
-  exceptionTitle: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.error },
+  exceptionCard: { borderWidth: 1, borderColor: colors.crit, backgroundColor: colors.critBg },
+  exceptionTitle: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.crit },
   exceptionRow: { gap: spacing[1], paddingTop: spacing[2], borderTopWidth: 1, borderTopColor: '#FECACA' },
   exceptionName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.ink },
   exceptionStop: { fontSize: fontSizes.xs, color: colors.ink2 },
 
   // roster
   stopName: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink },
-  riderBlock: { gap: spacing[1], paddingVertical: spacing[2], borderTopWidth: 1, borderTopColor: colors.border },
+  riderBlock: { gap: spacing[1], paddingVertical: spacing[2], borderTopWidth: 1, borderTopColor: colors.hairline },
   riderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   riderName: { fontSize: fontSizes.base, fontWeight: fontWeights.medium, color: colors.ink, flex: 1 },
-  noGuardian: { fontSize: fontSizes.xs, color: colors.textMuted, fontStyle: 'italic' },
+  noGuardian: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3, fontStyle: 'italic' },
   guardianRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: colors.gray50, borderRadius: radius.lg, padding: spacing[2], marginTop: spacing[1],
+    backgroundColor: colors.ground, borderRadius: 12, padding: spacing[2], marginTop: spacing[1],
   },
   guardianInfo: { flex: 1 },
   guardianName: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.ink },
   guardianPhone: { fontSize: fontSizes.xs, color: colors.ink2 },
-  callBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: spacing[3], paddingVertical: spacing[2], borderRadius: radius.lg, backgroundColor: colors.primary },
+  callBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: spacing[3], paddingVertical: spacing[2], borderRadius: 12, backgroundColor: colors.trip },
   callBtnText: { fontFamily: fontFamilies.display, fontSize: fontSizes.xs, color: colors.white, fontWeight: fontWeights.semibold },
 });

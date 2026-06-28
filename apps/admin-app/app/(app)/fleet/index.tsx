@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import {
-  colors, spacing, radius, fontSizes, fontWeights, fontFamilies,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
   StatusDot, MockBusMap, LiveBusMap, Card, Skeleton, EmptyState, AnimatedPressable, SlideIn,
   IconSplat, Icon,
 } from '@yaanam/ui';
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
 
   exBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.full,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 99,
     backgroundColor: colors.warnBg, borderWidth: 1.5, borderColor: '#FAE2B5',
   },
   exBtnText: { fontFamily: fontFamilies.displayHeavy, fontSize: 13, fontWeight: fontWeights.extrabold, color: colors.warningDark },
@@ -221,10 +221,10 @@ const styles = StyleSheet.create({
   busCords: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3 },
   liveTag: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 9, paddingVertical: 5, borderRadius: radius.full,
+    paddingHorizontal: 9, paddingVertical: 5, borderRadius: 99,
   },
   liveTagOn: { backgroundColor: colors.okBg },
-  liveTagOff: { backgroundColor: colors.gray100 },
+  liveTagOff: { backgroundColor: colors.hairline },
   liveTagText: { fontFamily: fontFamilies.displayHeavy, fontSize: 10, color: colors.successDark, fontWeight: fontWeights.extrabold, letterSpacing: 0.5 },
   liveTagStale: { color: colors.ink3 },
 });

@@ -39,11 +39,11 @@ export default function AppLayout() {
         drawerType: isDesktop ? 'permanent' : 'front',
         drawerStyle: {
           width: isDesktop ? 280 : 300,
-          backgroundColor: colors.background,
-          borderRightColor: colors.border,
+          backgroundColor: colors.white,
+          borderRightColor: colors.hairline,
           borderRightWidth: StyleSheet.hairlineWidth,
         },
-        sceneStyle: { backgroundColor: colors.backgroundMuted },
+        sceneStyle: { backgroundColor: colors.ground },
         overlayColor: colors.overlay,
         swipeEdgeWidth: 64,
       }}

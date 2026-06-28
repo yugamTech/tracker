@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import {
-  colors, spacing, radius, fontSizes, fontWeights, fontFamilies,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
   Card, Skeleton, EmptyState, AnimatedPressable, Stagger, IconSplat, Icon, SegmentedControl, useToast,
   type SpotIconName, type IconName,
 } from '@yaanam/ui';
@@ -683,7 +683,7 @@ const styles = StyleSheet.create({
   tabs: {
     flexDirection: 'row',
     gap: spacing[1],
-    backgroundColor: colors.gray50,
+    backgroundColor: colors.ground,
     borderWidth: 1,
     borderColor: colors.hairline,
     padding: 4,
@@ -717,7 +717,7 @@ const styles = StyleSheet.create({
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[4] },
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
-    paddingHorizontal: 13, paddingVertical: 8, borderRadius: radius.full,
+    paddingHorizontal: 13, paddingVertical: 8, borderRadius: 99,
     borderWidth: 1.5, borderColor: colors.hairlineStrong, backgroundColor: colors.white,
   },
   chipActive: { backgroundColor: colors.ink, borderColor: colors.ink },
@@ -727,15 +727,15 @@ const styles = StyleSheet.create({
 
   // exception card
   exCard: { marginBottom: 13, overflow: 'hidden', borderColor: colors.hairline },
-  exCardDone: { backgroundColor: colors.gray50 },
+  exCardDone: { backgroundColor: colors.ground },
   wash: { height: 6, width: '100%' },
   exBody: { padding: 15 },
   exTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   exMain: { flex: 1, minWidth: 0 },
-  tag: { alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 3, borderRadius: radius.full },
+  tag: { alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 99 },
   tagCrit: { backgroundColor: colors.critBg },
   tagWarn: { backgroundColor: colors.warnBg },
-  tagDone: { backgroundColor: colors.border },
+  tagDone: { backgroundColor: colors.hairline },
   tagText: { fontFamily: fontFamilies.displayHeavy, fontSize: 10.5, fontWeight: fontWeights.extrabold, letterSpacing: 0.4, textTransform: 'uppercase' },
   tagTextCrit: { color: colors.crit },
   tagTextWarn: { color: colors.warningDark },
@@ -771,14 +771,14 @@ const styles = StyleSheet.create({
 
   // modal (reason capture) — preserved behaviour, refreshed tokens
   modalBackdrop: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', padding: spacing[5] },
-  modalCard: { backgroundColor: colors.background, borderRadius: radius['2xl'], padding: spacing[5], gap: spacing[3], maxWidth: 440, width: '100%', alignSelf: 'center' },
+  modalCard: { backgroundColor: colors.white, borderRadius: 28, padding: spacing[5], gap: spacing[3], maxWidth: 440, width: '100%', alignSelf: 'center' },
   modalTitle: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.ink },
   modalWhy: { fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 20 },
   modalLabel: { fontFamily: fontFamilies.display, fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.ink2 },
   modalInput: {
-    backgroundColor: colors.gray100, borderRadius: radius.lg,
+    backgroundColor: colors.ground, borderRadius: 14,
     paddingHorizontal: spacing[4], paddingVertical: spacing[3],
     fontSize: fontSizes.base, color: colors.ink,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, minHeight: 72, textAlignVertical: 'top',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.hairline, minHeight: 72, textAlignVertical: 'top',
   },
 });

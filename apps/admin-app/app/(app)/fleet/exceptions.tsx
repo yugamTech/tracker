@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import {
-  colors, spacing, radius, fontSizes, fontWeights,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
   Card, Chip, Skeleton, EmptyState,
 } from '@yaanam/ui';
 import { useFleet } from '@yaanam/api-client';
@@ -25,8 +25,8 @@ interface ExceptionItem {
 }
 
 const SEVERITY: Record<Severity, { color: string; bg: string }> = {
-  high: { color: colors.error, bg: colors.errorBg },
-  medium: { color: colors.warning, bg: colors.warningBg },
+  high: { color: colors.crit, bg: colors.critBg },
+  medium: { color: colors.warn, bg: colors.warnBg },
 };
 
 function fleetToExceptions(fleet: FleetEntry[]): ExceptionItem[] {
@@ -141,12 +141,12 @@ const styles = StyleSheet.create({
 
   card: { borderLeftWidth: 4 },
   cardRow: { flexDirection: 'row', gap: spacing[3], alignItems: 'center' },
-  iconChip: { width: 40, height: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  iconChip: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   iconGlyph: { fontSize: 20 },
   body: { flex: 1, gap: 2 },
-  cardTitle: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  detail: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  cardTitle: { fontFamily: fontFamilies.display, fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.ink },
+  detail: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2 },
   cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing[1] },
-  route: { flex: 1, fontSize: fontSizes.xs, color: colors.textMuted },
-  severityTag: { fontSize: fontSizes.xs, fontWeight: fontWeights.bold },
+  route: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3 },
+  severityTag: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.xs, fontWeight: fontWeights.bold },
 });

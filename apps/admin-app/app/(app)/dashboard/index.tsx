@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import {
-  colors, spacing, radius, fontSizes, fontWeights, fontFamilies,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
   Card, Badge, StatusDot, Skeleton, EmptyState, AnimatedPressable, Divider, Stagger,
   IconSplat, Icon, type SpotIconName, type IconName,
 } from '@yaanam/ui';
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   panelPad: { paddingHorizontal: spacing[4], paddingVertical: spacing[3] },
   panelHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   panelTitle: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.md, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
-  panelCountPill: { backgroundColor: colors.gray100, borderRadius: radius.full, paddingHorizontal: 9, paddingVertical: 2, minWidth: 24, alignItems: 'center' },
+  panelCountPill: { backgroundColor: colors.hairline, borderRadius: 99, paddingHorizontal: 9, paddingVertical: 2, minWidth: 24, alignItems: 'center' },
   panelCount: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.xs, fontWeight: fontWeights.extrabold, color: colors.ink2 },
 
   rowSkeleton: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[2] },
