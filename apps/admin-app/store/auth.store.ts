@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { queryClient, setUnauthorizedHandler } from '@yaanam/api-client';
+import { queryClient, setUnauthorizedHandler, disconnectSocket } from '@yaanam/api-client';
 import type { ActiveMembership, Role } from '@yaanam/types';
 
 interface Person { id: string; phone: string; name: string; }
@@ -23,11 +23,17 @@ export const useAuthStore = create<AuthState>((set) => ({
   memberships: [],
   isAuthenticated: false,
   setAuth: (person, memberships, activeMembership) => {
-    // Fresh login: wipe any cached data from a previous session (account-switch leak).
+    // Fresh login: wipe any cached data AND tear down any socket from a previous
+    // session, so the old user's live feed can't leak into the new one.
+    disconnectSocket();
     queryClient.clear();
     set({ person, memberships, activeMembership, isAuthenticated: true });
   },
-  setActiveMembership: (m) =>
+  setActiveMembership: (m) => {
+    // Switching school/role changes socket room scoping — drop the old socket so
+    // the next connect re-auths under the new tenant.
+    disconnectSocket();
+    queryClient.clear();
     set({
       activeMembership: {
         personId: '',
@@ -35,10 +41,12 @@ export const useAuthStore = create<AuthState>((set) => ({
         tenantId: m.tenantId,
         role: m.role,
       },
-    }),
+    });
+  },
   updatePerson: (patch) =>
     set((s) => (s.person ? { person: { ...s.person, ...patch } } : {})),
   logout: () => {
+    disconnectSocket();
     queryClient.clear();
     set({ person: null, activeMembership: null, memberships: [], isAuthenticated: false });
   },
