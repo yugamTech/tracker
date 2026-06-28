@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { NotifCategory } from '@yaanam/types';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { StorageService } from '../../infra/storage/storage.service';
@@ -36,6 +36,18 @@ export class AttendanceService {
     photoUrl?: string;
     markedBy: string;
   }) {
+    // Authorize the target before any write: the student must be a rider on this
+    // trip AND the trip must belong to the caller's tenant. Without this, a bare
+    // tripId+studentId let a caller mark attendance on another school's trip
+    // (cross-tenant write) or for a child not even on the trip.
+    const onTrip = await this.prisma.tripRider.findFirst({
+      where: { tripId: data.tripId, studentId: data.studentId, trip: { tenantId: data.tenantId } },
+      select: { id: true },
+    });
+    if (!onTrip) {
+      throw new NotFoundException(`Student ${data.studentId} is not a rider on trip ${data.tripId}`);
+    }
+
     if (data.type === 'NOT_BOARDED') {
       await this.prisma.tripRider.updateMany({
         where: { tripId: data.tripId, studentId: data.studentId },
@@ -143,7 +155,16 @@ export class AttendanceService {
     });
   }
 
-  getTripAttendance(tripId: string) {
+  /** A trip must belong to the caller's tenant — these reads take a bare tripId,
+   * so without this any authenticated user could pull any trip's roster (incl.
+   * guardian names + phones) or attendance. 404 hides cross-tenant ids. */
+  private async assertTripInTenant(tripId: string, tenantId: string): Promise<void> {
+    const trip = await this.prisma.trip.findFirst({ where: { id: tripId, tenantId }, select: { id: true } });
+    if (!trip) throw new NotFoundException(`Trip ${tripId} not found`);
+  }
+
+  async getTripAttendance(tripId: string, tenantId: string) {
+    await this.assertTripInTenant(tripId, tenantId);
     return this.prisma.attendanceEvent.findMany({
       where: { tripId },
       include: { student: true },
@@ -155,7 +176,8 @@ export class AttendanceService {
    * Driver roster for a trip: every rider with their stop, current board
    * status, and last photo — grouped by stop in route order, with a summary.
    */
-  async getRoster(tripId: string) {
+  async getRoster(tripId: string, tenantId: string) {
+    await this.assertTripInTenant(tripId, tenantId);
     const riders = await this.prisma.tripRider.findMany({
       where: { tripId },
       include: {

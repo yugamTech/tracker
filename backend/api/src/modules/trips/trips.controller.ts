@@ -255,13 +255,21 @@ export class TripsController {
   }
 
   @Post(':id/start')
-  start(@Param('id') id: string, @Body() dto: StartTripDto) {
-    return this.tripsService.start(id, { reason: dto.reason });
+  start(
+    @Param('id') id: string,
+    @Body() dto: StartTripDto,
+    @ActiveMembershipDec() actor: ActiveMembership,
+  ) {
+    return this.tripsService.start(id, { reason: dto.reason, actor });
   }
 
   @Post(':id/complete')
-  complete(@Param('id') id: string, @Body() dto: CompleteTripDto) {
-    return this.tripsService.complete(id, { reason: dto.reason, stoppedAtSeq: dto.stoppedAtSeq });
+  complete(
+    @Param('id') id: string,
+    @Body() dto: CompleteTripDto,
+    @ActiveMembershipDec() actor: ActiveMembership,
+  ) {
+    return this.tripsService.complete(id, { reason: dto.reason, stoppedAtSeq: dto.stoppedAtSeq, actor });
   }
 
   /** Cancel a SCHEDULED trip (before departure). Admin only, tenant-scoped. */
