@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import {
-  colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
-  Card, Badge, Chip, Skeleton, EmptyState, AnimatedPressable, Sheet, Button,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, Badge, Chip, Skeleton, EmptyState, AnimatedPressable, Sheet, Button, IconSplat, Icon,
 } from '@yaanam/ui';
 import type { BadgeVariant } from '@yaanam/ui';
 import { useAllComplaints, useRoutes, useMembers } from '@yaanam/api-client';
@@ -14,6 +14,8 @@ import { GridList } from '../../../components/widgets';
 import { MonthCalendar, ymdKey, addDaysKey, formatDayLabel } from '../../../components/Calendar';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { SUBNAV } from '../../../lib/nav';
+
+const HUE = colors.talk;
 
 const STATUS_V: Record<string, BadgeVariant> = {
   RECEIVED: 'warning', IN_PROGRESS: 'info', RESOLVED: 'success',
@@ -66,7 +68,7 @@ export default function AdminComplaintsScreen() {
       <View style={styles.root}>
         {showFilters ? (
           <View style={styles.filterWrap}>
-            <Card shadow="sm" style={styles.filterCard}>
+            <Card shadow="sm" radius={22} style={styles.filterCard}>
               <View style={styles.filterHead}>
                 <Text style={styles.filterHeadTitle}>Filters</Text>
                 {activeFilterCount > 0 ? (
@@ -106,7 +108,7 @@ export default function AdminComplaintsScreen() {
         {isLoading ? (
           <View style={styles.skeletonWrap}>
             {[0, 1, 2, 3].map((i) => (
-              <Card key={i} shadow="sm" style={styles.skeletonCard}>
+              <Card key={i} shadow="sm" radius={22} style={styles.skeletonCard}>
                 <Skeleton width="45%" height={15} />
                 <Skeleton width="100%" height={13} style={{ marginTop: 12 }} />
                 <Skeleton width="70%" height={13} style={{ marginTop: 6 }} />
@@ -121,7 +123,7 @@ export default function AdminComplaintsScreen() {
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
                 <EmptyState
-                  icon={<Text style={{ fontSize: 40 }}>💬</Text>}
+                  icon={<IconSplat shape="b3" splatColor={colors.talkBg} spot="chat" size={64} />}
                   title="No complaints match"
                   description={activeFilterCount > 0 ? 'Try clearing or adjusting your filters.' : 'New complaints from parents will appear here.'}
                 />
@@ -130,24 +132,38 @@ export default function AdminComplaintsScreen() {
             renderItem={(item) => {
               const trip = (item as any).trip;
               const route = trip?.route;
+              const raiserName = (item as any).raiser?.name as string | undefined;
+              const studentName = (item as any).student?.name as string | undefined;
               return (
                 <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/complaints/${item.id}` as never)}>
-                  <Card shadow="sm" style={styles.card}>
+                  <Card shadow="sm" radius={22} style={styles.card}>
                     <View style={styles.cardTop}>
-                      <Text style={styles.category}>{item.category.replace('_', ' ')}</Text>
+                      <IconSplat shape="b3" splatColor={colors.talkBg} spot="chat" size={40} />
+                      <Text style={styles.category} numberOfLines={1}>{item.category.replace('_', ' ')}</Text>
                       <Badge label={item.status.replace('_', ' ')} variant={STATUS_V[item.status] ?? 'default'} size="sm" />
                     </View>
                     <Text style={styles.desc} numberOfLines={2}>{item.description ?? '—'}</Text>
-                    {(item as any).raiser?.name ? (
-                      <Text style={styles.raiser} numberOfLines={1}>🙋 Raised by {(item as any).raiser.name}</Text>
+                    {raiserName ? (
+                      <View style={styles.metaRow}>
+                        <Icon name="users" size={13} color={colors.ink3} />
+                        <Text style={styles.metaText} numberOfLines={1}>Raised by {raiserName}</Text>
+                      </View>
                     ) : null}
                     {route ? (
-                      <Text style={styles.routeTag} numberOfLines={1}>🛣️ {route.name} · {trip.direction === 'PICKUP' ? 'Pickup' : 'Drop'}</Text>
+                      <View style={styles.metaRow}>
+                        <Icon name="route" size={13} color={HUE} />
+                        <Text style={[styles.metaText, styles.routeTag]} numberOfLines={1}>
+                          {route.name} · {trip.direction === 'PICKUP' ? 'Pickup' : 'Drop'}
+                        </Text>
+                      </View>
                     ) : null}
                     <View style={styles.footer}>
-                      <Text style={styles.student} numberOfLines={1}>
-                        {(item as any).student?.name ? `👤 ${(item as any).student.name}` : ' '}
-                      </Text>
+                      {studentName ? (
+                        <View style={styles.metaRow}>
+                          <Icon name="users" size={13} color={colors.ink3} />
+                          <Text style={styles.student} numberOfLines={1}>{studentName}</Text>
+                        </View>
+                      ) : <View style={{ flex: 1 }} />}
                       <Text style={styles.date}>
                         {new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                       </Text>
@@ -238,7 +254,7 @@ function DateRangeFilter({
         <Text style={[styles.dateFieldText, !from && styles.dateFieldPlaceholder]} numberOfLines={1}>
           {label}
         </Text>
-        <Text style={styles.dateFieldIcon}>📅</Text>
+        <Icon name="calendar" size={16} color={colors.ink3} />
       </AnimatedPressable>
 
       <Sheet visible={open} onClose={() => setOpen(false)} title="Filter by date">
@@ -274,21 +290,20 @@ const styles = StyleSheet.create({
   filterWrap: { padding: spacing[4], paddingBottom: 0 },
   filterCard: { gap: spacing[1] },
   filterHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing[1] },
-  filterHeadTitle: { fontSize: fontSizes.md, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  clearText: { fontSize: fontSizes.sm, color: colors.error, fontWeight: fontWeights.semibold },
+  filterHeadTitle: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.md, fontWeight: fontWeights.extrabold, color: colors.ink },
+  clearText: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.sm, color: colors.crit, fontWeight: fontWeights.extrabold },
   filterSection: { gap: spacing[1] },
-  filterLabel: { fontSize: fontSizes.xs, fontWeight: fontWeights.semibold, color: colors.textMuted, letterSpacing: letterSpacing.wide, marginTop: spacing[2] },
+  filterLabel: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.xs, fontWeight: fontWeights.extrabold, color: colors.ink3, letterSpacing: 0.5, marginTop: spacing[2] },
   chipRow: { gap: spacing[2], paddingVertical: spacing[1] },
   dateField: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2],
-    marginTop: spacing[1], backgroundColor: colors.backgroundMuted, borderRadius: radius.md,
+    marginTop: spacing[1], backgroundColor: colors.ground, borderRadius: 15,
     paddingHorizontal: spacing[3], paddingVertical: spacing[3],
-    borderWidth: 1, borderColor: colors.border,
+    borderWidth: 1.8, borderColor: colors.hairlineStrong,
   },
-  dateFieldText: { flex: 1, fontSize: fontSizes.sm, color: colors.textPrimary, fontWeight: fontWeights.medium },
-  dateFieldPlaceholder: { color: colors.textMuted, fontWeight: fontWeights.normal },
-  dateFieldIcon: { fontSize: fontSizes.base },
-  dateHint: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: spacing[2], textAlign: 'center' },
+  dateFieldText: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink, fontWeight: fontWeights.medium },
+  dateFieldPlaceholder: { color: colors.ink3, fontWeight: fontWeights.normal },
+  dateHint: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3, marginTop: spacing[2], textAlign: 'center' },
   dateActions: { flexDirection: 'row', gap: spacing[3], marginTop: spacing[3] },
   dateActionBtn: { flex: 1 },
 
@@ -297,12 +312,13 @@ const styles = StyleSheet.create({
   emptyWrap: { flex: 1, minHeight: 320 },
 
   card: { gap: spacing[2] },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[2] },
-  category: { flex: 1, fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  desc: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 20 },
-  raiser: { fontSize: fontSizes.xs, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  routeTag: { fontSize: fontSizes.xs, color: colors.primary, fontWeight: fontWeights.medium },
-  footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing[1] },
-  student: { flex: 1, fontSize: fontSizes.xs, color: colors.textMuted },
-  date: { fontSize: fontSizes.xs, color: colors.textMuted },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  category: { flex: 1, fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.base, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.2 },
+  desc: { fontFamily: fontFamilies.body, fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 20 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  metaText: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink2 },
+  routeTag: { color: HUE, fontWeight: fontWeights.semibold },
+  footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[2], marginTop: spacing[1] },
+  student: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3 },
+  date: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.xs, fontWeight: fontWeights.extrabold, color: colors.ink3 },
 });

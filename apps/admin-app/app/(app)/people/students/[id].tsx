@@ -1,14 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, ScrollView, StyleSheet,
-  TouchableOpacity, ActivityIndicator, Alert,
+  View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, Avatar, Badge, useToast } from '@yaanam/ui';
+import {
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, Avatar, Badge, AnimatedPressable, Icon, useToast,
+} from '@yaanam/ui';
 import {
   useStudentById, useUpdateStudent, useDeactivateStudent, useReactivateStudent, useDeleteStudent, useAgeGroups, useRoutes, useStops,
 } from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
+import { GroupCard, Field, FormInput, PillPicker, ActionButton, ReadValue, SeatMeter } from '../../../../components/forms';
+
+const HUE = colors.people;
 
 export default function StudentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -136,272 +141,185 @@ export default function StudentDetailScreen() {
   };
 
   if (isLoading) {
-    return <View style={styles.loader}><ActivityIndicator color={colors.primary} /></View>;
+    return <View style={styles.loader}><ActivityIndicator color={colors.people} /></View>;
   }
 
   if (!student) {
     return <View style={styles.loader}><Text style={styles.errorText}>Student not found</Text></View>;
   }
 
+  const routeOptions = [
+    { label: 'None', value: '' },
+    ...routes.map((r) => {
+      const full = r.capacity != null && (r.seatsUsed ?? 0) >= r.capacity && r.id !== student.routeId;
+      return {
+        label: `${r.name}${r.capacity != null ? ` · ${r.seatsUsed ?? 0}/${r.capacity}${full ? ' FULL' : ''}` : ''}`,
+        value: r.id,
+        disabled: full,
+      };
+    }),
+  ];
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      {/* Header card */}
-      <Card style={styles.header}>
+      {/* Profile header */}
+      <Card shadow="sm" radius={22} style={styles.header}>
         <Avatar name={student.name} size={56} />
         <View style={styles.headerInfo}>
-          <Text style={styles.headerName}>{student.name}</Text>
-          {student.regId && <Text style={styles.headerMeta}>{student.regId}</Text>}
+          <Text style={styles.headerName} numberOfLines={1}>{student.name}</Text>
+          {student.regId ? <Text style={styles.headerMeta}>{student.regId}</Text> : null}
           <Badge label={student.status} variant={student.status === 'ACTIVE' ? 'active' : 'inactive'} size="sm" />
         </View>
-        <TouchableOpacity onPress={() => setEditing((e) => !e)} style={styles.editBtn}>
+        <AnimatedPressable onPress={() => setEditing((e) => !e)} style={styles.editBtn} accessibilityRole="button">
+          <Icon name={editing ? 'x' : 'edit'} size={14} color={HUE} />
           <Text style={styles.editBtnText}>{editing ? 'Cancel' : 'Edit'}</Text>
-        </TouchableOpacity>
+        </AnimatedPressable>
       </Card>
 
       {/* Linked parents / guardians — tap to open the parent profile. */}
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Parents / Guardians ({student.guardianships?.length ?? 0})</Text>
+      <GroupCard title={`Parents / Guardians (${student.guardianships?.length ?? 0})`} icon="users" hue={HUE}>
         {!student.guardianships?.length ? (
           <Text style={styles.hint}>No parent linked. Add one from the parent's profile or when creating the student.</Text>
         ) : (
-          student.guardianships.map((g) => (
-            <TouchableOpacity
+          student.guardianships.map((g, i) => (
+            <AnimatedPressable
               key={g.id}
-              style={styles.guardianRow}
+              scaleTo={0.99}
+              style={[styles.guardianRow, i > 0 && styles.rowBorder]}
               onPress={() => router.push(`/(app)/people/parents/${g.person.id}` as never)}
-              activeOpacity={0.8}
+              accessibilityRole="button"
             >
               <Avatar name={g.person.name} size={40} />
               <View style={styles.guardianInfo}>
-                <Text style={styles.guardianName}>{g.person.name}</Text>
-                <Text style={styles.guardianMeta}>
+                <Text style={styles.guardianName} numberOfLines={1}>{g.person.name}</Text>
+                <Text style={styles.guardianMeta} numberOfLines={1}>
                   {g.relation}{g.person.phone ? ` · ${g.person.phone}` : ''}
                 </Text>
               </View>
-              <Text style={styles.chevron}>›</Text>
-            </TouchableOpacity>
+              <Icon name="chevron" size={16} color={colors.ink3} />
+            </AnimatedPressable>
           ))
         )}
-      </Card>
+      </GroupCard>
 
-      {/* Info / Edit */}
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Details</Text>
+      {/* Details */}
+      <GroupCard title="Details" icon="users" hue={HUE}>
+        <Field label="Full name">
+          {editing
+            ? <FormInput hue={HUE} value={name} onChangeText={setName} autoCapitalize="words" />
+            : <ReadValue value={name} />}
+        </Field>
+        <Field label="Roll / Reg ID">
+          {editing
+            ? <FormInput hue={HUE} value={regId} onChangeText={setRegId} placeholder="Optional" autoCapitalize="characters" />
+            : <ReadValue value={regId} />}
+        </Field>
+        <Field label="Age group">
+          {editing
+            ? <PillPicker hue={HUE} value={ageGroupId} onChange={setAgeGroupId} options={ageGroups.map((ag) => ({ label: ag.name, value: ag.id }))} />
+            : <ReadValue value={ageGroups.find((a) => a.id === ageGroupId)?.name} />}
+        </Field>
+      </GroupCard>
 
-        <Text style={styles.label}>Full Name</Text>
-        <TextInput
-          style={[styles.input, !editing && styles.inputDisabled]}
-          value={name}
-          onChangeText={setName}
-          editable={editing}
-          autoCapitalize="words"
-        />
+      {/* Route assignment */}
+      <GroupCard title="Route assignment" icon="route" hue={colors.route}>
+        <Field label="Route">
+          {editing
+            ? <PillPicker hue={colors.route} value={routeId} onChange={(v) => { setRouteId(v); setStopId(''); }} options={routeOptions} />
+            : <ReadValue value={routes.find((r) => r.id === routeId)?.name} />}
+        </Field>
 
-        <Text style={styles.label}>Roll / Reg ID</Text>
-        <TextInput
-          style={[styles.input, !editing && styles.inputDisabled]}
-          value={regId}
-          onChangeText={setRegId}
-          editable={editing}
-          placeholder="Optional"
-          placeholderTextColor={colors.gray400}
-          autoCapitalize="characters"
-        />
+        {editing && routeId ? (
+          <SeatMeter used={selectedRoute?.seatsUsed ?? 0} capacity={selectedRoute?.capacity} hue={colors.route} />
+        ) : null}
 
-        <Text style={styles.label}>Age Group</Text>
-        {editing ? (
-          <View style={styles.chipRow}>
-            {ageGroups.map((ag) => (
-              <TouchableOpacity
-                key={ag.id}
-                style={[styles.chip, ageGroupId === ag.id && styles.chipActive]}
-                onPress={() => setAgeGroupId(ag.id)}
-              >
-                <Text style={[styles.chipText, ageGroupId === ag.id && styles.chipTextActive]}>{ag.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.valueText}>{ageGroups.find((a) => a.id === ageGroupId)?.name ?? '—'}</Text>
-        )}
-      </Card>
-
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Route Assignment</Text>
-
-        <Text style={styles.label}>Route</Text>
-        {editing ? (
-          <View style={styles.chipRow}>
-            <TouchableOpacity
-              style={[styles.chip, !routeId && styles.chipActive]}
-              onPress={() => { setRouteId(''); setStopId(''); }}
-            >
-              <Text style={[styles.chipText, !routeId && styles.chipTextActive]}>None</Text>
-            </TouchableOpacity>
-            {routes.map((r) => {
-              const full = r.capacity != null && (r.seatsUsed ?? 0) >= r.capacity && r.id !== student.routeId;
-              return (
-                <TouchableOpacity
-                  key={r.id}
-                  style={[styles.chip, routeId === r.id && styles.chipActive]}
-                  onPress={() => { setRouteId(r.id); setStopId(''); }}
-                >
-                  <Text style={[styles.chipText, routeId === r.id && styles.chipTextActive]}>
-                    {r.name}{r.capacity != null ? ` · ${r.seatsUsed ?? 0}/${r.capacity}${full ? ' FULL' : ''}` : ''}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ) : (
-          <Text style={styles.valueText}>{routes.find((r) => r.id === routeId)?.name ?? '—'}</Text>
-        )}
-
-        {editing && wouldOverfill && (
+        {editing && wouldOverfill ? (
           <View style={styles.capacityWarn}>
+            <Icon name="alert" size={16} color={colors.warningDark} />
             <Text style={styles.capacityWarnText}>
-              ⚠ Route bus is full ({selectedRoute!.seatsUsed ?? 0}/{selectedRoute!.capacity}). Pick another route or
+              Route bus is full ({selectedRoute!.seatsUsed ?? 0}/{selectedRoute!.capacity}). Pick another route or
               assign a bigger bus before moving this student here.
             </Text>
           </View>
-        )}
+        ) : null}
 
-        {(editing && routeId) && (
-          <>
-            <Text style={styles.label}>Boarding Stop</Text>
-            <View style={styles.chipRow}>
-              {routeStops.map((s) => (
-                <TouchableOpacity
-                  key={s.id}
-                  style={[styles.chip, stopId === s.id && styles.chipActive]}
-                  onPress={() => setStopId(s.id)}
-                >
-                  <Text style={[styles.chipText, stopId === s.id && styles.chipTextActive]}>{s.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        )}
-        {!editing && (
-          <Text style={styles.valueText}>
-            {stops.find((s) => s.id === stopId)?.name ?? '—'}
-          </Text>
-        )}
-      </Card>
+        {editing && routeId ? (
+          <Field label="Boarding stop">
+            <PillPicker hue={colors.route} value={stopId} onChange={setStopId} options={routeStops.map((s) => ({ label: s.name, value: s.id }))} />
+          </Field>
+        ) : null}
+        {!editing ? (
+          <Field label="Boarding stop">
+            <ReadValue value={stops.find((s) => s.id === stopId)?.name} />
+          </Field>
+        ) : null}
+      </GroupCard>
 
-      {editing && (
-        <Button
-          title="Save Changes"
-          onPress={handleSave}
-          loading={updateStudent.isPending}
-          disabled={wouldOverfill}
-          fullWidth
-          style={styles.saveBtn}
-        />
-      )}
+      {editing ? (
+        <ActionButton title="Save changes" hue={HUE} onPress={handleSave} loading={updateStudent.isPending} disabled={wouldOverfill} fullWidth />
+      ) : null}
 
       {/* Deactivate / Reactivate — soft delete only (never a hard delete). */}
       {student.status === 'ACTIVE' ? (
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Danger Zone</Text>
+        <GroupCard title="Danger zone" icon="alert" hue={colors.crit}>
           <Text style={styles.hint}>
             Deactivating drops the student from new trip rosters but preserves the record (audit / DPDP).
           </Text>
-          <Button
-            title="Deactivate Student"
-            variant="danger"
-            onPress={handleDeactivate}
-            loading={deactivateStudent.isPending}
-            fullWidth
-          />
-        </Card>
+          <ActionButton title="Deactivate student" tone="danger" onPress={handleDeactivate} loading={deactivateStudent.isPending} fullWidth />
+        </GroupCard>
       ) : (
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Reactivate</Text>
+        <GroupCard title="Reactivate" icon="checkc" hue={colors.ok}>
           <Text style={styles.hint}>
             This student is deactivated. Reactivating returns them to the active roster.
           </Text>
-          <Button
-            title="Reactivate Student"
-            onPress={handleReactivate}
-            loading={reactivateStudent.isPending}
-            fullWidth
-          />
-        </Card>
+          <ActionButton title="Reactivate student" hue={colors.ok} onPress={handleReactivate} loading={reactivateStudent.isPending} fullWidth />
+        </GroupCard>
       )}
 
       {/* Permanent hard-delete — shown only when the record has no operational
           history (DPDP erasure of a wrongly-added student); else we explain why. */}
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Delete permanently</Text>
+      <GroupCard title="Delete permanently" icon="trash" hue={colors.crit}>
         {student.deletable?.canDelete ? (
           <>
             <Text style={styles.hint}>
               This student has no trip history, so they can be permanently erased. This cannot be undone — prefer “Deactivate” unless you’re removing a record added by mistake.
             </Text>
-            <Button
-              title="Delete Student Permanently"
-              variant="danger"
-              onPress={handleHardDelete}
-              loading={deleteStudent.isPending}
-              fullWidth
-            />
+            <ActionButton title="Delete student permanently" tone="danger" icon="trash" onPress={handleHardDelete} loading={deleteStudent.isPending} fullWidth />
           </>
         ) : (
           <Text style={styles.hint}>
             {student.deletable?.reason ?? 'This student has trip history — deactivate instead of deleting.'}
           </Text>
         )}
-      </Card>
+      </GroupCard>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
+  container: { flex: 1, backgroundColor: colors.ground },
   content: { padding: spacing[4], gap: spacing[4] },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  errorText: { fontSize: fontSizes.base, color: colors.error },
+  errorText: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, color: colors.ink2 },
+
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  headerInfo: { flex: 1, gap: spacing[1] },
-  headerName: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  headerMeta: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  editBtn: { paddingHorizontal: spacing[3], paddingVertical: spacing[2], borderRadius: radius.lg, borderWidth: 1, borderColor: colors.primary },
-  editBtnText: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.primary },
-  section: { gap: spacing[3] },
-  sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary, marginBottom: spacing[1] },
-  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18 },
-  label: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary },
-  input: {
-    backgroundColor: colors.gray100, borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    fontSize: fontSizes.base, color: colors.textPrimary,
-    borderWidth: 1, borderColor: colors.border,
-  },
-  inputDisabled: { backgroundColor: colors.gray50, color: colors.gray500 },
-  valueText: { fontSize: fontSizes.base, color: colors.textPrimary, paddingVertical: spacing[1] },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  chip: {
-    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.white,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  chipTextActive: { color: colors.white },
+  headerInfo: { flex: 1, minWidth: 0, gap: spacing[1], alignItems: 'flex-start' },
+  headerName: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
+  headerMeta: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2 },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: colors.peopleBg, backgroundColor: colors.peopleBg, alignSelf: 'flex-start' },
+  editBtnText: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.sm, fontWeight: fontWeights.extrabold, color: colors.people },
+
+  hint: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 19 },
+
+  guardianRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[3] },
+  rowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
+  guardianInfo: { flex: 1, minWidth: 0 },
+  guardianName: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink },
+  guardianMeta: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, marginTop: 2 },
+
   capacityWarn: {
-    backgroundColor: colors.warningBg, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.warning,
-    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
+    flexDirection: 'row', gap: 8, alignItems: 'flex-start',
+    backgroundColor: colors.warnBg, borderRadius: 13, padding: 11,
   },
-  capacityWarnText: { fontSize: fontSizes.sm, color: colors.warningDark, lineHeight: 18 },
-  saveBtn: { marginTop: spacing[2] },
-  guardianRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing[3],
-    paddingVertical: spacing[3], borderTopWidth: 1, borderTopColor: colors.border,
-  },
-  guardianInfo: { flex: 1 },
-  guardianName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  guardianMeta: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
-  chevron: { fontSize: fontSizes.lg, color: colors.textMuted },
+  capacityWarnText: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: 12.5, color: '#92400E', lineHeight: 17 },
 });

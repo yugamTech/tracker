@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, spacing, radius, fontSizes, fontWeights } from '@yaanam/ui';
+import { colors, spacing, radius, fontSizes, fontWeights, fontFamilies } from '@yaanam/ui';
 
 /* ────────────────────────────────────────────────────────────────────────
  * Lightweight, dependency-free charts built from plain Views. The repo has no
@@ -109,15 +109,15 @@ export function HBarList({ items, color = colors.primary, max, emptyText = 'No d
 const styles = StyleSheet.create({
   vWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[2] },
   vCol: { flex: 1, alignItems: 'center', gap: spacing[1] },
-  vValue: { fontSize: fontSizes.xs, fontWeight: fontWeights.semibold, color: colors.textSecondary },
-  vValueEmpty: { color: colors.textMuted },
+  vValue: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.xs, fontWeight: fontWeights.extrabold, color: colors.ink2 },
+  vValueEmpty: { color: colors.ink3 },
   vTrack: {
-    width: '100%', backgroundColor: colors.borderSubtle, borderRadius: radius.sm,
+    width: '100%', backgroundColor: colors.ground, borderRadius: radius.md,
     justifyContent: 'flex-end', overflow: 'hidden',
   },
-  vFill: { width: '100%', borderRadius: radius.sm, minHeight: 2 },
+  vFill: { width: '100%', borderRadius: radius.md, minHeight: 2 },
   vFillEmpty: { backgroundColor: 'transparent', minHeight: 0 },
-  vLabel: { fontSize: fontSizes.xs, color: colors.textMuted },
+  vLabel: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3 },
 
   hWrap: { gap: spacing[3] },
   hRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },

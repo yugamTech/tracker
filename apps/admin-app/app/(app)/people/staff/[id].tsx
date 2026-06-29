@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, ScrollView, StyleSheet,
-  TouchableOpacity, ActivityIndicator, Alert,
+  View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { PoliceVerificationStatus } from '@yaanam/types';
-import { colors, spacing, fontSizes, fontWeights, radius, Card, Avatar, Badge, Button, useToast } from '@yaanam/ui';
+import {
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, Avatar, Badge, Icon, useToast,
+} from '@yaanam/ui';
 import {
   useMemberById,
   useUpdateMember,
@@ -17,6 +19,9 @@ import {
   useRoutes,
 } from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
+import { GroupCard, Field, FormInput, PillPicker, ActionButton } from '../../../../components/forms';
+
+const HUE = colors.people;
 
 /** Roles an admin may assign here (PRD-01 FR-13). Mirrors the backend STAFF_ROLES. */
 const ROLES = [
@@ -61,7 +66,7 @@ export default function StaffDetailScreen() {
   }, [member]);
 
   if (isLoading) {
-    return <View style={styles.loader}><ActivityIndicator color={colors.primary} /></View>;
+    return <View style={styles.loader}><ActivityIndicator color={colors.people} /></View>;
   }
 
   if (!member) {
@@ -138,14 +143,22 @@ export default function StaffDetailScreen() {
     );
   };
 
+  const routeOptions = [
+    { label: 'None', value: '' },
+    ...routes.map((r) => ({ label: r.name, value: r.id })),
+  ];
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      {/* Profile card */}
-      <Card style={styles.header}>
+      {/* Profile header */}
+      <Card shadow="sm" radius={22} style={styles.header}>
         <Avatar name={member.person.name} size={56} />
         <View style={styles.headerInfo}>
-          <Text style={styles.headerName}>{member.person.name}</Text>
-          <Text style={styles.headerPhone}>{member.person.phone}</Text>
+          <Text style={styles.headerName} numberOfLines={1}>{member.person.name}</Text>
+          <View style={styles.metaRow}>
+            <Icon name="phone" size={13} color={colors.ink3} />
+            <Text style={styles.headerMeta}>{member.person.phone}</Text>
+          </View>
           <Badge
             label={isActive ? member.role : `${member.role} · DEACTIVATED`}
             variant={isActive ? 'active' : 'inactive'}
@@ -155,139 +168,70 @@ export default function StaffDetailScreen() {
       </Card>
 
       {/* Edit form */}
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Edit Details</Text>
+      <GroupCard title="Edit details" icon="edit" hue={HUE}>
         <Text style={styles.hint}>
           Name &amp; email belong to the person's global identity (shared across schools).
           Phone is the login key and can't be changed here.
         </Text>
 
-        <Text style={styles.label}>Full Name *</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="Full name"
-          placeholderTextColor={colors.gray400}
-          autoCapitalize="words"
-        />
+        <Field label="Full name" required>
+          <FormInput hue={HUE} value={name} onChangeText={setName} placeholder="Full name" autoCapitalize="words" />
+        </Field>
 
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="Optional"
-          placeholderTextColor={colors.gray400}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
+        <Field label="Email">
+          <FormInput hue={HUE} value={email} onChangeText={setEmail} placeholder="Optional" keyboardType="email-address" autoCapitalize="none" />
+        </Field>
 
-        <Text style={styles.label}>Role</Text>
-        <View style={styles.chipRow}>
-          {ROLES.map((r) => (
-            <TouchableOpacity
-              key={r.value}
-              style={[styles.chip, role === r.value && styles.chipActive]}
-              onPress={() => setRole(r.value)}
-            >
-              <Text style={[styles.chipText, role === r.value && styles.chipTextActive]}>
-                {r.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <Field label="Role">
+          <PillPicker hue={HUE} value={role} onChange={setRole} options={ROLES.map((r) => ({ label: r.label, value: r.value }))} />
+        </Field>
 
-        <Text style={styles.label}>Route (rides aboard)</Text>
-        <Text style={styles.hint}>
-          Assign this staff member — typically a teacher — to a route so they show up in
-          the emergency "who's on the bus" lookup. The bus comes from the route.
-        </Text>
-        <View style={styles.chipRow}>
-          <TouchableOpacity
-            style={[styles.chip, !routeId && styles.chipActive]}
-            onPress={() => setRouteId('')}
-          >
-            <Text style={[styles.chipText, !routeId && styles.chipTextActive]}>None</Text>
-          </TouchableOpacity>
-          {routes.map((r) => (
-            <TouchableOpacity
-              key={r.id}
-              style={[styles.chip, routeId === r.id && styles.chipActive]}
-              onPress={() => setRouteId(r.id)}
-            >
-              <Text style={[styles.chipText, routeId === r.id && styles.chipTextActive]}>
-                {r.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <Field
+          label="Route (rides aboard)"
+          hint="Assign this staff member — typically a teacher — to a route so they show up in the emergency “who's on the bus” lookup. The bus comes from the route."
+        >
+          <PillPicker hue={colors.route} value={routeId} onChange={setRouteId} options={routeOptions} />
+        </Field>
 
-        <Button
-          title="Save Changes"
-          onPress={handleSave}
-          loading={updateMember.isPending}
-          fullWidth
-          style={styles.saveBtn}
-        />
-      </Card>
+        <ActionButton title="Save changes" hue={HUE} onPress={handleSave} loading={updateMember.isPending} fullWidth />
+      </GroupCard>
 
       {/* Driver KYC — only meaningful for DRIVER memberships (text only, no docs). */}
       {member.role === 'DRIVER' && <DriverKycSection membershipId={id} />}
 
       {/* Deactivate / Reactivate — soft state only (never a hard delete). */}
       {isActive ? (
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Danger Zone</Text>
+        <GroupCard title="Danger zone" icon="alert" hue={colors.crit}>
           <Text style={styles.hint}>
             Deactivating revokes access at this school but preserves the record (audit / DPDP).
           </Text>
-          <Button
-            title="Deactivate Staff Member"
-            variant="danger"
-            onPress={handleDeactivate}
-            loading={deactivateMember.isPending}
-            fullWidth
-          />
-        </Card>
+          <ActionButton title="Deactivate staff member" tone="danger" onPress={handleDeactivate} loading={deactivateMember.isPending} fullWidth />
+        </GroupCard>
       ) : (
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Reactivate</Text>
+        <GroupCard title="Reactivate" icon="checkc" hue={colors.ok}>
           <Text style={styles.hint}>
             This staff member is deactivated. Reactivating restores their access at this school.
           </Text>
-          <Button
-            title="Reactivate Staff Member"
-            onPress={handleReactivate}
-            loading={reactivateMember.isPending}
-            fullWidth
-          />
-        </Card>
+          <ActionButton title="Reactivate staff member" hue={colors.ok} onPress={handleReactivate} loading={reactivateMember.isPending} fullWidth />
+        </GroupCard>
       )}
 
       {/* Permanent hard-delete — shown only when the staff member has no run-trip
           history (DPDP erasure of a wrongly-added record); else we explain why. */}
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Delete permanently</Text>
+      <GroupCard title="Delete permanently" icon="trash" hue={colors.crit}>
         {member.deletable?.canDelete ? (
           <>
             <Text style={styles.hint}>
               This staff member has never driven or conducted a trip that ran, so they can be permanently erased. This cannot be undone — prefer “Deactivate” unless you’re removing a record added by mistake.
             </Text>
-            <Button
-              title="Delete Staff Member Permanently"
-              variant="danger"
-              onPress={handleHardDelete}
-              loading={deleteMember.isPending}
-              fullWidth
-            />
+            <ActionButton title="Delete staff member permanently" tone="danger" icon="trash" onPress={handleHardDelete} loading={deleteMember.isPending} fullWidth />
           </>
         ) : (
           <Text style={styles.hint}>
             {member.deletable?.reason ?? 'This staff member has trip history — deactivate instead of deleting.'}
           </Text>
         )}
-      </Card>
+      </GroupCard>
     </ScrollView>
   );
 }
@@ -342,123 +286,59 @@ function DriverKycSection({ membershipId }: { membershipId: string }) {
 
   if (isLoading) {
     return (
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Driver KYC</Text>
-        <ActivityIndicator color={colors.primary} />
-      </Card>
+      <GroupCard title="Driver KYC" icon="users" hue={HUE}>
+        <ActivityIndicator color={colors.people} />
+      </GroupCard>
     );
   }
 
   return (
-    <Card style={styles.section}>
-      <Text style={styles.sectionTitle}>Driver KYC</Text>
+    <GroupCard title="Driver KYC" icon="users" hue={HUE}>
       <Text style={styles.hint}>
         Identity &amp; verification details (text only). Aadhaar is sensitive personal
         data — stored for staging only.
       </Text>
 
-      <Text style={styles.label}>Aadhaar Number</Text>
-      <TextInput
-        style={styles.input}
-        value={aadhaar}
-        onChangeText={setAadhaar}
-        placeholder="XXXX XXXX XXXX"
-        placeholderTextColor={colors.gray400}
-        keyboardType="number-pad"
-      />
+      <Field label="Aadhaar number">
+        <FormInput hue={HUE} value={aadhaar} onChangeText={setAadhaar} placeholder="XXXX XXXX XXXX" keyboardType="number-pad" />
+      </Field>
 
-      <Text style={styles.label}>Address</Text>
-      <TextInput
-        style={[styles.input, styles.multiline]}
-        value={address}
-        onChangeText={setAddress}
-        placeholder="Residential address"
-        placeholderTextColor={colors.gray400}
-        multiline
-      />
+      <Field label="Address">
+        <FormInput hue={HUE} value={address} onChangeText={setAddress} placeholder="Residential address" multiline />
+      </Field>
 
-      <Text style={styles.label}>Licence Number</Text>
-      <TextInput
-        style={styles.input}
-        value={license}
-        onChangeText={setLicense}
-        placeholder="DL number"
-        placeholderTextColor={colors.gray400}
-        autoCapitalize="characters"
-      />
+      <Field label="Licence number">
+        <FormInput hue={HUE} value={license} onChangeText={setLicense} placeholder="DL number" autoCapitalize="characters" />
+      </Field>
 
-      <Text style={styles.label}>Licence Expiry (YYYY-MM-DD)</Text>
-      <TextInput
-        style={styles.input}
-        value={licenseExpiry}
-        onChangeText={setLicenseExpiry}
-        placeholder="2027-12-31"
-        placeholderTextColor={colors.gray400}
-      />
+      <Field label="Licence expiry (YYYY-MM-DD)">
+        <FormInput hue={HUE} value={licenseExpiry} onChangeText={setLicenseExpiry} placeholder="2027-12-31" />
+      </Field>
 
-      <Text style={styles.label}>Police Verification</Text>
-      <View style={styles.chipRow}>
-        {PV_STATUSES.map((s) => (
-          <TouchableOpacity
-            key={s.value}
-            style={[styles.chip, pvStatus === s.value && styles.chipActive]}
-            onPress={() => setPvStatus(s.value)}
-          >
-            <Text style={[styles.chipText, pvStatus === s.value && styles.chipTextActive]}>
-              {s.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <Field label="Police verification">
+        <PillPicker hue={HUE} value={pvStatus} onChange={setPvStatus} options={PV_STATUSES.map((s) => ({ label: s.label, value: s.value }))} />
+      </Field>
 
-      <Text style={styles.label}>Police Verification Ref</Text>
-      <TextInput
-        style={styles.input}
-        value={pvRef}
-        onChangeText={setPvRef}
-        placeholder="Reference / case number"
-        placeholderTextColor={colors.gray400}
-      />
+      <Field label="Police verification ref">
+        <FormInput hue={HUE} value={pvRef} onChangeText={setPvRef} placeholder="Reference / case number" />
+      </Field>
 
-      <Button
-        title="Save KYC"
-        onPress={handleSave}
-        loading={upsert.isPending}
-        fullWidth
-        style={styles.saveBtn}
-      />
-    </Card>
+      <ActionButton title="Save KYC" hue={HUE} onPress={handleSave} loading={upsert.isPending} fullWidth />
+    </GroupCard>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
+  container: { flex: 1, backgroundColor: colors.ground },
   content: { padding: spacing[4], gap: spacing[4] },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  errorText: { fontSize: fontSizes.base, color: colors.error },
+  errorText: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, color: colors.ink2 },
+
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  headerInfo: { flex: 1, gap: spacing[1] },
-  headerName: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  headerPhone: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  section: { gap: spacing[3] },
-  sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18 },
-  label: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textSecondary },
-  input: {
-    backgroundColor: colors.gray100, borderRadius: radius.lg,
-    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
-    fontSize: fontSizes.base, color: colors.textPrimary,
-    borderWidth: 1, borderColor: colors.border,
-  },
-  multiline: { minHeight: 64, textAlignVertical: 'top' },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  chip: {
-    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.white,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  chipTextActive: { color: colors.white },
-  saveBtn: { marginTop: spacing[2] },
+  headerInfo: { flex: 1, minWidth: 0, gap: spacing[1], alignItems: 'flex-start' },
+  headerName: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  headerMeta: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2 },
+
+  hint: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 19 },
 });

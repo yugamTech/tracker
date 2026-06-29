@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { colors } from '../theme/colors';
-import { fontSizes, fontWeights, letterSpacing } from '../theme/typography';
+import { fontFamilies, fontSizes, fontWeights, letterSpacing } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 import { AnimatedPressable } from './Pressable';
 
@@ -91,12 +91,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[2],
   },
   title: {
+    fontFamily: fontFamilies.display,
     fontSize: fontSizes.lg,
     fontWeight: fontWeights.semibold,
     color: colors.textPrimary,
     letterSpacing: letterSpacing.tight,
   },
   subtitle: {
+    fontFamily: fontFamilies.bodyMedium,
     fontSize: fontSizes.xs,
     color: colors.textSecondary,
     marginTop: 1,

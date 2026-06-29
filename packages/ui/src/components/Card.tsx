@@ -10,6 +10,8 @@ export interface CardProps {
   padding?: keyof typeof spacing;
   /** Elevation token. Default `'md'`. Use `'none'` for a flat, bordered surface. */
   shadow?: 'sm' | 'md' | 'lg' | 'none';
+  /** Override the corner radius (points). Defaults to the standard `radius.xl`. */
+  radius?: number;
 }
 
 /**
@@ -22,13 +24,14 @@ export interface CardProps {
  * </Card>
  */
 export const Card = forwardRef<React.ComponentRef<typeof View>, CardProps>(
-  ({ children, style, padding = 4, shadow = 'md' }, ref) => {
+  ({ children, style, padding = 4, shadow = 'md', radius: radiusOverride }, ref) => {
     return (
       <View
         ref={ref}
         style={[
           styles.card,
           { padding: spacing[padding] },
+          radiusOverride != null && { borderRadius: radiusOverride },
           shadow !== 'none' && shadows[shadow],
           style,
         ]}

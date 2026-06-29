@@ -8,7 +8,7 @@ import {
   type TextStyle,
 } from 'react-native';
 import { colors } from '../theme/colors';
-import { fontSizes, fontWeights, letterSpacing } from '../theme/typography';
+import { fontFamilies, fontSizes, fontWeights, letterSpacing } from '../theme/typography';
 import { radius, spacing, shadows } from '../theme/spacing';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
@@ -29,6 +29,8 @@ export interface ButtonProps extends TouchableOpacityProps {
   leftIcon?: React.ReactNode;
   /** Element rendered after the title. */
   rightIcon?: React.ReactNode;
+  /** Override the corner radius (points). Defaults to the standard `radius.lg`. */
+  radius?: number;
 }
 
 /**
@@ -52,6 +54,7 @@ export const Button = forwardRef<React.ComponentRef<typeof TouchableOpacity>, Bu
       rightIcon,
       disabled,
       style,
+      radius: radiusOverride,
       accessibilityLabel,
       ...rest
     },
@@ -63,6 +66,7 @@ export const Button = forwardRef<React.ComponentRef<typeof TouchableOpacity>, Bu
       styles[`variant_${variant}`],
       fullWidth ? styles.fullWidth : undefined,
       (disabled || loading) ? styles.disabled : undefined,
+      radiusOverride != null ? { borderRadius: radiusOverride } : undefined,
       style,
     ];
 
@@ -132,6 +136,7 @@ const styles = StyleSheet.create({
 
   // Text base
   text: {
+    fontFamily: fontFamilies.display,
     fontWeight: fontWeights.semibold,
     textAlign: 'center',
     letterSpacing: letterSpacing.tight,

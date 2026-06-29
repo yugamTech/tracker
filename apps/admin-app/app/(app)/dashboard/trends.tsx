@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import {
-  colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
-  Card, Skeleton, EmptyState,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, Skeleton, EmptyState, IconSplat, Icon,
 } from '@yaanam/ui';
 import { useTripTrends } from '@yaanam/api-client';
 import type { TripTrendDay } from '@yaanam/api-client';
@@ -42,7 +42,7 @@ export default function TrendsScreen() {
         ) : trends.every((d) => d.tripsTotal === 0) ? (
           <View style={styles.emptyWrap}>
             <EmptyState
-              icon={<View style={styles.emptyIcon}><Text style={styles.emptyGlyph}>📈</Text></View>}
+              icon={<IconSplat shape="b3" splatColor={colors.tripBg} spot="trip" size={64} />}
               title="No trips in the last 7 days"
               description="On-time rate, boarding rate and completed-trip trends appear here once trips run."
             />
@@ -68,24 +68,24 @@ function Content({ trends }: { trends: TripTrendDay[] }) {
   return (
     <View style={{ gap: spacing[4] }}>
       {/* 7-day summary */}
-      <Card shadow="sm" style={styles.summaryCard}>
-        <Summary label="Avg on-time" value={avgOnTime == null ? '—' : pct(avgOnTime)} />
+      <Card shadow="sm" radius={22} style={styles.summaryCard}>
+        <Summary label="Avg on-time" value={avgOnTime == null ? '—' : pct(avgOnTime)} color={colors.ok} />
         <View style={styles.summaryDivider} />
-        <Summary label="Avg boarding" value={avgBoarding == null ? '—' : pct(avgBoarding)} />
+        <Summary label="Avg boarding" value={avgBoarding == null ? '—' : pct(avgBoarding)} color={colors.route} />
         <View style={styles.summaryDivider} />
-        <Summary label="Trips done" value={`${totalCompleted}/${totalTrips}`} />
+        <Summary label="Trips done" value={`${totalCompleted}/${totalTrips}`} color={colors.trip} />
       </Card>
 
-      <ChartCard title="On-time rate" caption="Trips that started on protocol, per day.">
-        <VBarChart bars={onTimeBars} max={1} color={colors.success} formatValue={pct} />
+      <ChartCard title="On-time rate" caption="Trips that started on protocol, per day." icon="clock" hue={colors.ok}>
+        <VBarChart bars={onTimeBars} max={1} color={colors.ok} formatValue={pct} />
       </ChartCard>
 
-      <ChartCard title="Boarding rate" caption="Riders boarded of those expected, per day.">
-        <VBarChart bars={boardingBars} max={1} color={colors.info} formatValue={pct} />
+      <ChartCard title="Boarding rate" caption="Riders boarded of those expected, per day." icon="users" hue={colors.route}>
+        <VBarChart bars={boardingBars} max={1} color={colors.route} formatValue={pct} />
       </ChartCard>
 
-      <ChartCard title="Trips completed" caption="Cleanly completed trips, per day.">
-        <VBarChart bars={completedBars} color={colors.primary} />
+      <ChartCard title="Trips completed" caption="Cleanly completed trips, per day." icon="checkc" hue={colors.trip}>
+        <VBarChart bars={completedBars} color={colors.trip} />
       </ChartCard>
 
       <Text style={styles.footnote}>
@@ -96,20 +96,35 @@ function Content({ trends }: { trends: TripTrendDay[] }) {
   );
 }
 
-function Summary({ label, value }: { label: string; value: string }) {
+function Summary({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <View style={styles.summary}>
-      <Text style={styles.summaryValue}>{value}</Text>
+      <Text style={[styles.summaryValue, color ? { color } : null]}>{value}</Text>
       <Text style={styles.summaryLabel}>{label}</Text>
     </View>
   );
 }
 
-function ChartCard({ title, caption, children }: { title: string; caption: string; children: React.ReactNode }) {
+function ChartCard({
+  title, caption, icon, hue, children,
+}: {
+  title: string;
+  caption: string;
+  icon: React.ComponentProps<typeof Icon>['name'];
+  hue: string;
+  children: React.ReactNode;
+}) {
   return (
-    <Card shadow="sm" style={styles.chartCard}>
-      <Text style={styles.chartTitle}>{title}</Text>
-      <Text style={styles.chartCaption}>{caption}</Text>
+    <Card shadow="sm" radius={22} style={styles.chartCard}>
+      <View style={styles.chartHead}>
+        <View style={[styles.chartIcon, { backgroundColor: `${hue}1A` }]}>
+          <Icon name={icon} size={18} color={hue} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.chartTitle}>{title}</Text>
+          <Text style={styles.chartCaption}>{caption}</Text>
+        </View>
+      </View>
       <View style={styles.chartBody}>{children}</View>
     </Card>
   );
@@ -132,22 +147,19 @@ function LoadingState() {
 const styles = StyleSheet.create({
   scroll: { padding: spacing[4], paddingBottom: spacing[8] },
   emptyWrap: { flex: 1, minHeight: 360, justifyContent: 'center' },
-  emptyIcon: {
-    width: 64, height: 64, borderRadius: radius.xl,
-    backgroundColor: colors.primaryBg, alignItems: 'center', justifyContent: 'center',
-  },
-  emptyGlyph: { fontSize: 30 },
 
-  summaryCard: { flexDirection: 'row', alignItems: 'stretch' },
-  summary: { flex: 1, alignItems: 'center', gap: 2 },
-  summaryValue: { fontSize: fontSizes.xl, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
-  summaryLabel: { fontSize: fontSizes.xs, fontWeight: fontWeights.semibold, color: colors.textSecondary },
-  summaryDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginVertical: spacing[1] },
+  summaryCard: { flexDirection: 'row', alignItems: 'stretch', paddingVertical: spacing[4] },
+  summary: { flex: 1, alignItems: 'center', gap: 3 },
+  summaryValue: { fontFamily: fontFamilies.displayHeavy, fontSize: 24, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.4 },
+  summaryLabel: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold, color: colors.ink2 },
+  summaryDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.hairline, marginVertical: spacing[1] },
 
   chartCard: { gap: spacing[1] },
-  chartTitle: { fontSize: fontSizes.md, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
-  chartCaption: { fontSize: fontSizes.xs, color: colors.textMuted },
+  chartHead: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  chartIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  chartTitle: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.md, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
+  chartCaption: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3, marginTop: 1 },
   chartBody: { marginTop: spacing[3] },
 
-  footnote: { fontSize: fontSizes.xs, color: colors.textMuted, lineHeight: 16, marginTop: spacing[1] },
+  footnote: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3, lineHeight: 16, marginTop: spacing[1] },
 });

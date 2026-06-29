@@ -9,15 +9,38 @@ import {
   radius,
   fontSizes,
   fontWeights,
+  fontFamilies,
   letterSpacing,
   AnimatedPressable,
   Avatar,
   Divider,
+  IconSplat,
+  Icon,
+  type SpotIconName,
+  type SplatShape,
 } from '@yaanam/ui';
 import { useMyTenant } from '@yaanam/api-client';
 import { useAuthStore } from '../store/auth.store';
 import { useResponsive } from '../hooks/useResponsive';
 import { NAV_GROUPS, activeKeyForPath } from '../lib/nav';
+
+/**
+ * Per-domain visual identity for the nav rail — the same hue/spot-icon language
+ * as the design reference's IA grid, so each destination is learnable by colour.
+ * Keyed by the nav item's stable `key`; pure presentation over the IA in `nav.ts`.
+ */
+const NAV_VISUALS: Record<string, { spot: SpotIconName; hue: string; bg: string; shape: SplatShape }> = {
+  dashboard: { spot: 'grid', hue: colors.trip, bg: colors.tripBg, shape: 'b1' },
+  fleet: { spot: 'bus', hue: colors.fleet, bg: colors.fleetBg, shape: 'b2' },
+  trips: { spot: 'trip', hue: colors.trip, bg: colors.tripBg, shape: 'b3' },
+  people: { spot: 'users', hue: colors.people, bg: colors.peopleBg, shape: 'b1' },
+  routes: { spot: 'route', hue: colors.route, bg: colors.routeBg, shape: 'b2' },
+  complaints: { spot: 'chat', hue: colors.talk, bg: colors.talkBg, shape: 'b3' },
+  payments: { spot: 'card', hue: colors.pay, bg: colors.payBg, shape: 'b1' },
+  settings: { spot: 'cog', hue: colors.sun, bg: colors.sunBg, shape: 'b2' },
+};
+
+const SPLAT_NEUTRAL = '#EEF1F6';
 
 /** Friendly label for a membership role code. */
 function roleLabel(role?: string): string {
@@ -91,6 +114,7 @@ export function Sidebar(props: Partial<DrawerContentComponentProps>) {
             <Text style={styles.groupTitle}>{group.title.toUpperCase()}</Text>
             {group.items.map((item) => {
               const active = activeKey === item.key;
+              const v = NAV_VISUALS[item.key];
               return (
                 <AnimatedPressable
                   key={item.key}
@@ -98,11 +122,19 @@ export function Sidebar(props: Partial<DrawerContentComponentProps>) {
                   scaleTo={0.98}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
-                  style={[styles.item, active && styles.itemActive]}
+                  style={[styles.item, active && { backgroundColor: v?.bg ?? colors.primaryBg }]}
                 >
-                  <View style={[styles.itemAccent, active && styles.itemAccentActive]} />
-                  <Text style={[styles.itemIcon, active && styles.itemTextActive]}>{item.icon}</Text>
-                  <Text style={[styles.itemLabel, active && styles.itemTextActive]} numberOfLines={1}>
+                  <View style={[styles.itemAccent, active && { backgroundColor: v?.hue ?? colors.primary }]} />
+                  <IconSplat
+                    shape={v?.shape ?? 'b1'}
+                    splatColor={active ? (v?.bg ?? colors.primaryBg) : SPLAT_NEUTRAL}
+                    spot={v?.spot}
+                    size={34}
+                  />
+                  <Text
+                    style={[styles.itemLabel, active && { color: v?.hue ?? colors.primary, fontFamily: fontFamilies.displayHeavy }]}
+                    numberOfLines={1}
+                  >
                     {item.label}
                   </Text>
                 </AnimatedPressable>
@@ -129,7 +161,7 @@ export function Sidebar(props: Partial<DrawerContentComponentProps>) {
             accessibilityLabel="Log out"
             style={styles.logoutBtn}
           >
-            <Text style={styles.logoutGlyph}>⏻</Text>
+            <Icon name="power" size={19} color={colors.crit} />
           </AnimatedPressable>
         </View>
       </View>
@@ -151,76 +183,83 @@ const styles = StyleSheet.create({
     paddingBottom: spacing[3],
   },
   logoMark: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.lg,
-    backgroundColor: colors.primary,
+    width: 42,
+    height: 42,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 17,
+    borderBottomRightRadius: 14,
+    borderBottomLeftRadius: 16,
+    backgroundColor: colors.trip,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#16203B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 3,
   },
   logoGlyph: {
+    fontFamily: fontFamilies.displayHeavy,
     color: colors.textInverse,
     fontSize: fontSizes.xl,
     fontWeight: fontWeights.extrabold,
   },
   brandText: { flex: 1 },
   schoolName: {
+    fontFamily: fontFamilies.displayHeavy,
     fontSize: fontSizes.md,
     fontWeight: fontWeights.bold,
-    color: colors.textPrimary,
+    color: colors.ink,
     letterSpacing: letterSpacing.tight,
   },
   brandSub: {
+    fontFamily: fontFamilies.bodySemibold,
     fontSize: fontSizes.xs,
-    color: colors.textMuted,
+    color: colors.ink3,
     marginTop: 1,
     fontWeight: fontWeights.medium,
   },
   scroll: { flex: 1 },
-  scrollContent: { paddingBottom: spacing[4] },
+  scrollContent: { paddingBottom: spacing[4], paddingTop: spacing[2] },
   group: { marginBottom: spacing[4] },
   groupTitle: {
-    fontSize: fontSizes.xs,
-    fontWeight: fontWeights.semibold,
-    color: colors.textMuted,
-    letterSpacing: letterSpacing.wider,
+    fontFamily: fontFamilies.displayHeavy,
+    fontSize: 10.5,
+    fontWeight: fontWeights.extrabold,
+    color: colors.ink3,
+    letterSpacing: 0.8,
     paddingHorizontal: spacing[2],
-    paddingBottom: spacing[1],
+    paddingBottom: spacing[2],
     marginTop: spacing[1],
   },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[3],
-    height: 44,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing[3],
+    gap: spacing[2] + 2,
+    height: 50,
+    borderRadius: 16,
+    paddingLeft: spacing[2],
+    paddingRight: spacing[3],
+    marginBottom: 3,
     overflow: 'hidden',
   },
-  itemActive: { backgroundColor: colors.primaryBg },
   itemAccent: {
     position: 'absolute',
     left: 0,
-    top: 8,
-    bottom: 8,
-    width: 3,
-    borderRadius: radius.full,
+    top: 11,
+    bottom: 11,
+    width: 3.5,
+    borderTopRightRadius: radius.full,
+    borderBottomRightRadius: radius.full,
     backgroundColor: 'transparent',
-  },
-  itemAccentActive: { backgroundColor: colors.primary },
-  itemIcon: {
-    fontSize: fontSizes.base,
-    color: colors.textSecondary,
-    width: 20,
-    textAlign: 'center',
   },
   itemLabel: {
     flex: 1,
+    fontFamily: fontFamilies.display,
     fontSize: fontSizes.base,
-    fontWeight: fontWeights.medium,
-    color: colors.textSecondary,
+    fontWeight: fontWeights.bold,
+    color: colors.ink2,
   },
-  itemTextActive: { color: colors.primary, fontWeight: fontWeights.semibold },
   footer: { gap: spacing[3] },
   profileRow: {
     flexDirection: 'row',
@@ -230,26 +269,23 @@ const styles = StyleSheet.create({
   },
   profileText: { flex: 1 },
   profileName: {
+    fontFamily: fontFamilies.display,
     fontSize: fontSizes.sm,
-    fontWeight: fontWeights.semibold,
-    color: colors.textPrimary,
+    fontWeight: fontWeights.bold,
+    color: colors.ink,
   },
   profileRole: {
+    fontFamily: fontFamilies.bodySemibold,
     fontSize: fontSizes.xs,
-    color: colors.textMuted,
+    color: colors.ink3,
     marginTop: 1,
   },
   logoutBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
+    width: 38,
+    height: 38,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.backgroundMuted,
-  },
-  logoutGlyph: {
-    fontSize: fontSizes.lg,
-    color: colors.textSecondary,
-    fontWeight: fontWeights.semibold,
+    backgroundColor: colors.critBg,
   },
 });

@@ -212,6 +212,25 @@ export class TripsService {
     return trip;
   }
 
+  /**
+   * Read-only lifecycle-event timeline for a single trip (PRD-02a §5 audit
+   * trail), oldest-first so a post-mortem can render it as a chronological
+   * story. Scoped to the actor exactly like {@link findById}: you can read a
+   * trip's lifecycle only if the trip itself is in your scope. Purely additive —
+   * no existing behaviour relies on it.
+   */
+  async getLifecycleEvents(id: string, actor: ActiveMembership) {
+    const trip = await this.prisma.trip.findFirst({
+      where: { AND: [this.scopeForActor(actor), { id }] },
+      select: { id: true },
+    });
+    if (!trip) throw new NotFoundException(`Trip ${id} not found`);
+    return this.prisma.tripLifecycleEvent.findMany({
+      where: { tripId: id },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
   getTodayTrips(actor: ActiveMembership) {
     const start = new Date();
     start.setHours(0, 0, 0, 0);

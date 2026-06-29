@@ -2,8 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import {
-  colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
-  Card, Badge, Button, Chip, Skeleton, EmptyState, AnimatedPressable, Stagger,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, Badge, Chip, Skeleton, EmptyState, AnimatedPressable, Stagger, Icon, IconSplat,
 } from '@yaanam/ui';
 import type { BadgeVariant } from '@yaanam/ui';
 import { useFilteredTrips, useTripDates, useRoutes, useMembers } from '@yaanam/api-client';
@@ -15,15 +15,11 @@ import {
 } from '../../../components/Calendar';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { SUBNAV } from '../../../lib/nav';
+import { ActionButton } from '../../../components/forms';
 
+const HUE = colors.trip;
 const WEEKDAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-/**
- * Quick status filter groups. Several map to multiple raw statuses (Live =
- * STARTED + IN_PROGRESS, Closed = CANCELLED + ABORTED), which the single-value
- * `?status=` query can't express — so grouping is applied client-side over the
- * day's (small) trip list. `statuses: null` = no status filter ("All").
- */
 const STATUS_GROUPS = [
   { key: 'ALL', label: 'All', statuses: null },
   { key: 'SCHEDULED', label: 'Scheduled', statuses: ['SCHEDULED'] },
@@ -57,8 +53,9 @@ function TripCard({ item }: { item: any }) {
     : null;
   return (
     <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/fleet/${item.id}` as never)}>
-      <Card shadow="sm" style={styles.card}>
+      <Card shadow="sm" radius={18} style={styles.card}>
         <View style={styles.cardTop}>
+          <IconSplat shape="b2" splatColor={colors.tripBg} spot="trip" size={32} />
           <Text style={styles.route} numberOfLines={1}>{routeName}</Text>
           <Badge label={s.label} variant={s.variant} size="sm" />
         </View>
@@ -87,7 +84,6 @@ function TripCard({ item }: { item: any }) {
   );
 }
 
-/** Compact, always-visible week row — the collapsed calendar state. */
 function WeekStrip({
   selectedKey, marked, onSelectDay, todayKey, minKey, maxKey,
 }: {
@@ -162,26 +158,17 @@ export default function TripScheduleScreen() {
   const todayKey = ymdKey(today);
   const [selectedKey, setSelectedKey] = useState(todayKey);
 
-  // Calendar collapsed by default on phone; the desktop split has a column for it.
   const [calOpen, setCalOpen] = useState(false);
-  // The month the expanded calendar is showing — drives the trip-dot fetch range.
   const [visibleMonthKey, setVisibleMonthKey] = useState(() => ymdKey(startOfMonth(today)));
 
-  // Quick status group (All / Scheduled / Live / Completed / Closed) — always
-  // visible. Route + driver live in the collapsible panel below.
   const [statusGroup, setStatusGroup] = useState<StatusGroupKey>('ALL');
   const [showFilters, setShowFilters] = useState(false);
   const [routeId, setRouteId] = useState('');
   const [driverId, setDriverId] = useState('');
 
-  // Viewing is unbounded — any past or future date is browsable. The week strip
-  // navigates within a wide window; the month grid roams via its own picker.
   const viewMinKey = useMemo(() => ymdKey(addMonths(today, -12 * 5)), [today]);
   const viewMaxKey = useMemo(() => ymdKey(addMonths(today, 12 * 5)), [today]);
 
-  // Trip dots are fetched for the month currently in view (expanded grid) or the
-  // selected day's month (collapsed strip), padded a week each side for spill-over
-  // rows — so dots follow navigation without fetching years of dates at once.
   const dotAnchor = useMemo(() => {
     const src = isDesktop || calOpen ? visibleMonthKey : selectedKey;
     const [y, m, d] = src.split('-').map(Number);
@@ -196,8 +183,6 @@ export default function TripScheduleScreen() {
   const { data: routes = [] } = useRoutes();
   const { data: drivers = [] } = useMembers('DRIVER');
 
-  // Status grouping is applied client-side (groups can span several raw statuses);
-  // route/driver/date stay server-side so the query only ever narrows the result.
   const { data: trips, isLoading, isError } = useFilteredTrips({
     date: selectedKey,
     route: routeId || undefined,
@@ -212,14 +197,11 @@ export default function TripScheduleScreen() {
   }, [trips, activeGroup]);
 
   const selectedSet = useMemo(() => new Set([selectedKey]), [selectedKey]);
-  // Panel badge counts only the panel's own filters (route + driver); the status
-  // group has its own always-visible chip row.
   const activeFilterCount = (routeId ? 1 : 0) + (driverId ? 1 : 0);
   const anyFilterActive = activeFilterCount > 0 || statusGroup !== 'ALL';
   const clearFilters = () => { setRouteId(''); setDriverId(''); };
   const resetAll = () => { setStatusGroup('ALL'); setRouteId(''); setDriverId(''); };
 
-  // Always-visible quick status row — the primary status control.
   const statusQuickRow = (
     <ScrollView
       horizontal
@@ -239,7 +221,7 @@ export default function TripScheduleScreen() {
   );
 
   const filterPanel = showFilters ? (
-    <Card shadow="sm" style={styles.filterCard}>
+    <Card shadow="sm" radius={18} style={styles.filterCard}>
       <View style={styles.filterHead}>
         <Text style={styles.filterHeadTitle}>Filters</Text>
         {activeFilterCount > 0 ? (
@@ -264,17 +246,13 @@ export default function TripScheduleScreen() {
         onChange={setDriverId}
       />
 
-      {/* Collapse without re-tapping the header "Filters" button. */}
-      <Button title="Done" variant="secondary" onPress={() => setShowFilters(false)} fullWidth style={styles.filterDone} />
+      <ActionButton title="Done" tone="outline" hue={HUE} onPress={() => setShowFilters(false)} fullWidth style={styles.filterDone} />
     </Card>
   ) : null;
 
   const calendarExpanded = isDesktop || calOpen;
   const calendar = (
-    <Card shadow="sm" style={styles.calCard}>
-      {/* On phone, a header carries the collapse toggle (plus the month label when
-          collapsed — the week strip has none). Expanded, the month grid supplies
-          its own tappable month/year header, so the left slot stays empty. */}
+    <Card shadow="sm" radius={18} style={styles.calCard}>
       {!isDesktop ? (
         <View style={styles.calHead}>
           {calOpen ? <View /> : <Text style={styles.calMonth}>{formatMonthLabel(selectedKey)}</Text>}
@@ -327,14 +305,14 @@ export default function TripScheduleScreen() {
       {dayHeader}
       {isError ? (
         <EmptyState
-          icon={<Text style={{ fontSize: 40 }}>⚠️</Text>}
+          icon={<View style={styles.errorIcon}><Icon name="alert" size={36} color={colors.crit} /></View>}
           title="Could not load trips"
           description="Check your connection and try again."
         />
       ) : isLoading ? (
         <View style={styles.skeletonWrap}>
           {[0, 1, 2].map((i) => (
-            <Card key={i} shadow="sm" style={styles.skeletonCard}>
+            <Card key={i} shadow="sm" radius={18} style={styles.skeletonCard}>
               <Skeleton width="60%" height={17} />
               <Skeleton width="40%" height={13} style={{ marginTop: 10 }} />
               <Skeleton width="30%" height={13} style={{ marginTop: 8 }} />
@@ -344,7 +322,7 @@ export default function TripScheduleScreen() {
       ) : dayTrips.length === 0 ? (
         <View style={styles.emptyWrap}>
           <EmptyState
-            icon={<Text style={{ fontSize: 40 }}>🗓️</Text>}
+            icon={<IconSplat shape="b3" splatColor={colors.tripBg} spot="trip" size={64} />}
             title={anyFilterActive ? 'No trips match' : 'No trips scheduled'}
             description={anyFilterActive
               ? 'Try clearing or adjusting the filters.'
@@ -352,8 +330,8 @@ export default function TripScheduleScreen() {
                 ? 'Nothing is scheduled for today.'
                 : `Nothing is scheduled for ${formatDayLabel(selectedKey)}.`}
             action={anyFilterActive
-              ? <Button title="Clear filters" variant="secondary" onPress={resetAll} />
-              : <Button title="Schedule a trip" onPress={() => router.push('/(app)/trips/new' as never)} />}
+              ? <ActionButton title="Clear filters" tone="outline" hue={HUE} onPress={resetAll} />
+              : <ActionButton title="Schedule a trip" hue={HUE} onPress={() => router.push('/(app)/trips/new' as never)} />}
           />
         </View>
       ) : (
@@ -373,7 +351,6 @@ export default function TripScheduleScreen() {
       headerRight={
         <View style={styles.headerActions}>
           <HeaderAction
-            // Collapsed: surface the active route/driver filter count. Expanded: plain.
             label={!showFilters && activeFilterCount > 0 ? `Filters · ${activeFilterCount}` : 'Filters'}
             tone={activeFilterCount > 0 ? 'primary' : 'subtle'}
             onPress={() => setShowFilters((v) => !v)}
@@ -405,7 +382,6 @@ export default function TripScheduleScreen() {
   );
 }
 
-/** A labelled, horizontally-scrolling row of filter chips. */
 function ChipFilterRow({
   label, options, labelFor, value, onChange,
 }: {
@@ -431,79 +407,75 @@ function ChipFilterRow({
 }
 
 const styles = StyleSheet.create({
-  // Desktop split
   splitRoot: { flex: 1, flexDirection: 'row', gap: spacing[4], padding: spacing[4] },
   calCol: { width: 380, gap: spacing[4] },
   listCol: { flex: 1 },
   listColContent: { paddingBottom: spacing[6] },
 
-  // Phone stack
   phoneContent: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[6] },
 
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
 
   calCard: { gap: spacing[3] },
   calHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  calMonth: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
-  calToggle: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.primary },
-  legend: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingTop: spacing[2], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderSubtle },
-  legendDot: { width: 6, height: 6, borderRadius: radius.full, backgroundColor: colors.primary },
-  legendText: { fontSize: fontSizes.xs, color: colors.textMuted, letterSpacing: letterSpacing.wide },
+  calMonth: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink, letterSpacing: -0.3 },
+  calToggle: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: HUE },
+  legend: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingTop: spacing[2], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
+  legendDot: { width: 6, height: 6, borderRadius: 99, backgroundColor: HUE },
+  legendText: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3 },
 
-  // Week strip (collapsed calendar)
   weekStrip: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
   weekDays: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', gap: spacing[1] },
-  weekCell: { flex: 1, alignItems: 'center', paddingVertical: spacing[2], borderRadius: radius.md, gap: 2 },
-  weekCellToday: { borderWidth: 1, borderColor: colors.primary },
-  weekCellSelected: { backgroundColor: colors.primary },
-  weekDow: { fontSize: fontSizes.xs, color: colors.textMuted, fontWeight: fontWeights.semibold },
-  weekDate: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  weekTextDisabled: { color: colors.textMuted, opacity: 0.5 },
-  weekTextSelected: { color: colors.textInverse },
-  weekDot: { width: 5, height: 5, borderRadius: radius.full, backgroundColor: 'transparent' },
-  weekDotVisible: { backgroundColor: colors.primary },
-  weekDotOnSelected: { backgroundColor: colors.textInverse },
+  weekCell: { flex: 1, alignItems: 'center', paddingVertical: spacing[2], borderRadius: 10, gap: 2 },
+  weekCellToday: { borderWidth: 1, borderColor: HUE },
+  weekCellSelected: { backgroundColor: HUE },
+  weekDow: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3, fontWeight: fontWeights.semibold },
+  weekDate: { fontFamily: fontFamilies.display, fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.ink },
+  weekTextDisabled: { color: colors.ink3, opacity: 0.5 },
+  weekTextSelected: { color: colors.white },
+  weekDot: { width: 5, height: 5, borderRadius: 99, backgroundColor: 'transparent' },
+  weekDotVisible: { backgroundColor: HUE },
+  weekDotOnSelected: { backgroundColor: colors.white },
   weekArrow: {
-    width: 30, height: 30, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background,
+    width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.ground,
   },
-  weekArrowDisabled: { borderColor: colors.borderSubtle, backgroundColor: 'transparent' },
-  weekArrowGlyph: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  weekArrowGlyphDisabled: { color: colors.textMuted },
+  weekArrowDisabled: { borderColor: colors.hairline, backgroundColor: 'transparent' },
+  weekArrowGlyph: { fontFamily: fontFamilies.display, fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.ink },
+  weekArrowGlyphDisabled: { color: colors.ink3 },
 
-  // Quick status row (always visible, above the day list)
   quickRow: { gap: spacing[2], paddingVertical: spacing[1] },
 
-  // Filters
   filterCard: { gap: spacing[1] },
   filterDone: { marginTop: spacing[2] },
   filterHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing[1] },
-  filterHeadTitle: { fontSize: fontSizes.md, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  clearText: { fontSize: fontSizes.sm, color: colors.error, fontWeight: fontWeights.semibold },
+  filterHeadTitle: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink },
+  clearText: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.crit, fontWeight: fontWeights.semibold },
   filterSection: { gap: spacing[1] },
-  filterLabel: { fontSize: fontSizes.xs, fontWeight: fontWeights.semibold, color: colors.textMuted, letterSpacing: letterSpacing.wide, marginTop: spacing[2] },
+  filterLabel: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.xs, fontWeight: fontWeights.extrabold, color: colors.ink3, letterSpacing: 0.7, marginTop: spacing[2] },
   chipRow: { gap: spacing[2], paddingVertical: spacing[1] },
 
   listWrap: { gap: spacing[3] },
   dayHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing[2] },
-  dayHeaderTitle: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
-  dayHeaderCount: { fontSize: fontSizes.sm, color: colors.textMuted },
+  dayHeaderTitle: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
+  dayHeaderCount: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink3 },
 
   cardList: { gap: spacing[3] },
   skeletonWrap: { gap: spacing[3] },
   skeletonCard: {},
   emptyWrap: { minHeight: 280, justifyContent: 'center' },
+  errorIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.critBg, alignItems: 'center', justifyContent: 'center' },
 
   card: { gap: spacing[1] },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] },
-  route: { flex: 1, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  route: { flex: 1, fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink, letterSpacing: -0.3 },
   subRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] },
-  direction: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  time: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  metaRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[4], marginTop: spacing[3], paddingTop: spacing[3], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderSubtle },
+  direction: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2 },
+  time: { fontFamily: fontFamilies.display, fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.ink },
+  metaRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[4], marginTop: spacing[3], paddingTop: spacing[3], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
   metaItem: { gap: 2 },
   metaItemRight: { gap: 2, marginLeft: 'auto', alignItems: 'flex-end' },
-  metaLabel: { fontSize: fontSizes.xs, color: colors.textMuted, letterSpacing: letterSpacing.wide },
-  metaValue: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textPrimary },
-  boarding: { fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.textPrimary },
+  metaLabel: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3, letterSpacing: 0.5 },
+  metaValue: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.ink },
+  boarding: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.ink },
 });

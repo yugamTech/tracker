@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import {
-  colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
-  Card, Badge, Skeleton, EmptyState,
+  colors, spacing, radius, fontSizes, fontWeights, fontFamilies,
+  Card, Badge, Skeleton, EmptyState, IconSplat, Icon,
 } from '@yaanam/ui';
 import { useEmergencyDirectory } from '@yaanam/api-client';
 import type { EmergencyRouteEntry } from '@yaanam/api-client';
@@ -12,6 +12,8 @@ import { SubNav } from '../../../components/SubNav';
 import { GridList } from '../../../components/widgets';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { SUBNAV } from '../../../lib/nav';
+
+const HUE = colors.route;
 
 /**
  * Emergency "who's on which bus/route" directory (fleet-integrity §3). Search by
@@ -46,7 +48,7 @@ export default function EmergencyDirectoryScreen() {
         {isLoading ? (
           <View style={styles.skeletonWrap}>
             {[0, 1, 2].map((i) => (
-              <Card key={i} shadow="sm" style={styles.skeletonCard}>
+              <Card key={i} shadow="sm" radius={22} style={styles.skeletonCard}>
                 <Skeleton width="55%" height={18} />
                 <Skeleton width="100%" height={56} style={{ marginTop: 16 }} />
               </Card>
@@ -60,7 +62,7 @@ export default function EmergencyDirectoryScreen() {
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
                 <EmptyState
-                  icon={<Text style={{ fontSize: 40 }}>🆘</Text>}
+                  icon={<IconSplat shape="b3" splatColor={colors.critBg} icon="phone" iconColor={colors.crit} size={64} />}
                   title={search ? 'No routes match' : 'No routes yet'}
                   description={
                     search
@@ -81,18 +83,22 @@ export default function EmergencyDirectoryScreen() {
 function RouteContactCard({ entry }: { entry: EmergencyRouteEntry }) {
   const hasContacts = entry.drivers.length > 0 || entry.conductors.length > 0 || entry.teachers.length > 0;
   return (
-    <Card shadow="sm" style={styles.card}>
+    <Card shadow="sm" radius={22} style={styles.card}>
       <View style={styles.cardTop}>
+        <IconSplat shape="b2" splatColor={colors.routeBg} spot="route" size={42} />
         <Text style={styles.routeName} numberOfLines={1}>{entry.routeName}</Text>
         <Badge label={entry.direction} variant="default" size="sm" />
         {entry.status !== 'ACTIVE' ? <Badge label={entry.status} variant="inactive" size="sm" /> : null}
       </View>
 
-      <Text style={styles.busLine} numberOfLines={1}>
-        {entry.vehicle
-          ? `🚍 ${entry.vehicle.regNumber} · ${entry.seatsUsed}/${entry.capacity ?? entry.vehicle.capacity} seats`
-          : '🚍 No bus assigned'}
-      </Text>
+      <View style={styles.busRow}>
+        <Icon name="bus" size={15} color={colors.ink3} />
+        <Text style={styles.busLine} numberOfLines={1}>
+          {entry.vehicle
+            ? `${entry.vehicle.regNumber} · ${entry.seatsUsed}/${entry.capacity ?? entry.vehicle.capacity} seats`
+            : 'No bus assigned'}
+        </Text>
+      </View>
 
       {!hasContacts ? (
         <Text style={styles.emptyContacts}>No driver, conductor or teacher on record for this route.</Text>
@@ -114,7 +120,7 @@ function ContactGroup({ title, people }: { title: string; people: { name: string
   if (people.length === 0) return null;
   return (
     <View style={styles.group}>
-      <Text style={styles.groupTitle}>{title}</Text>
+      <Text style={styles.groupTitle}>{title.toUpperCase()}</Text>
       {people.map((p, i) => (
         <ContactRow key={`${p.name}-${i}`} name={p.name} phone={p.phone} role={p.role} />
       ))}
@@ -138,7 +144,8 @@ function ContactRow({ name, phone, role }: { name: string; phone: string | null;
       </View>
       {phone ? (
         <View style={styles.callBtn}>
-          <Text style={styles.callBtnText}>📞 Call</Text>
+          <Icon name="phone" size={14} color={colors.white} />
+          <Text style={styles.callBtnText}>Call</Text>
         </View>
       ) : null}
     </TouchableOpacity>
@@ -154,27 +161,28 @@ function roleLabel(role: string): string {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   searchRow: { paddingHorizontal: spacing[4], paddingTop: spacing[4], gap: spacing[2] },
-  helpText: { fontSize: fontSizes.xs, color: colors.textMuted },
+  helpText: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3 },
   skeletonWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4], padding: spacing[4] },
   skeletonCard: { width: 320, flexGrow: 1 },
   emptyWrap: { flex: 1, minHeight: 320 },
 
   card: { gap: spacing[3] },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  routeName: { flex: 1, fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
-  busLine: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  emptyContacts: { fontSize: fontSizes.sm, color: colors.textMuted, fontStyle: 'italic' },
+  routeName: { flex: 1, fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
+  busRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  busLine: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, fontWeight: fontWeights.medium },
+  emptyContacts: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink3, fontStyle: 'italic' },
 
   group: { gap: spacing[2] },
-  groupTitle: { fontSize: fontSizes.xs, fontWeight: fontWeights.bold, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: letterSpacing.wide },
+  groupTitle: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.xs, fontWeight: fontWeights.extrabold, color: colors.ink3, letterSpacing: 0.5 },
   contactRow: {
     flexDirection: 'row', alignItems: 'center', gap: spacing[3],
-    backgroundColor: colors.backgroundMuted, borderRadius: radius.lg,
+    backgroundColor: colors.ground, borderRadius: 14,
     paddingHorizontal: spacing[3], paddingVertical: spacing[3],
   },
   contactInfo: { flex: 1 },
-  contactName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  contactMeta: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
-  callBtn: { backgroundColor: colors.primary, borderRadius: radius.lg, paddingHorizontal: spacing[3], paddingVertical: spacing[2] },
-  callBtnText: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.white },
+  contactName: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink },
+  contactMeta: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, marginTop: 2 },
+  callBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.people, borderRadius: 12, paddingHorizontal: spacing[3], paddingVertical: spacing[2] },
+  callBtnText: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.sm, fontWeight: fontWeights.extrabold, color: colors.white },
 });

@@ -90,6 +90,15 @@ export type { MockBusMapStop, MockBusMapProps } from './components/MockBusMap';
 export { LiveBusMap } from './components/LiveBusMap';
 export type { LiveBusMapStop, LiveBusMapProps } from './components/LiveBusMap';
 
+// ── Icons & splats (admin redesign foundation) ───────────────────────────────
+export { Splat, Icon, SpotIcon, IconSplat } from './icons';
+export type {
+  SplatProps, SplatShape,
+  IconProps, IconName,
+  SpotIconProps, SpotIconName,
+  IconSplatProps,
+} from './icons';
+
 // ── Animation primitives ─────────────────────────────────────────────────────
 export { FadeIn } from './components/FadeIn';
 export type { FadeInProps } from './components/FadeIn';

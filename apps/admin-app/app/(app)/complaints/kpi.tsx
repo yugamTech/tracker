@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import {
-  colors, spacing, fontSizes, fontWeights, letterSpacing,
-  Card, Skeleton, EmptyState,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, Skeleton, EmptyState, IconSplat,
 } from '@yaanam/ui';
 import { useComplaintKpi } from '@yaanam/api-client';
 import type { ComplaintKpi } from '@yaanam/api-client';
@@ -43,7 +43,7 @@ export default function ComplaintKpiScreen() {
         ) : kpi.total === 0 ? (
           <View style={styles.emptyWrap}>
             <EmptyState
-              icon={<Text style={{ fontSize: 40 }}>📊</Text>}
+              icon={<IconSplat shape="b3" splatColor={colors.talkBg} spot="chat" size={64} />}
               title="No complaints yet"
               description="Once parents raise complaints, service KPIs — resolution time, SLA health and driver/route breakdowns — appear here."
             />
@@ -98,10 +98,10 @@ function Content({ kpi, isDesktop }: { kpi: ComplaintKpi; isDesktop: boolean }) 
         />
       </Card>
 
-      <Breakdown title="By status" items={statusItems} color={colors.primary} />
-      <Breakdown title="By category" items={categoryItems} color={colors.secondary} />
-      <Breakdown title="By route" items={routeItems} color={colors.accent} emptyText="No route-linked complaints" />
-      <Breakdown title="By driver" items={driverItems} color={colors.info} emptyText="No driver-linked complaints" />
+      <Breakdown title="By status" items={statusItems} color={colors.talk} />
+      <Breakdown title="By category" items={categoryItems} color={colors.sun} />
+      <Breakdown title="By route" items={routeItems} color={colors.route} emptyText="No route-linked complaints" />
+      <Breakdown title="By driver" items={driverItems} color={colors.fleet} emptyText="No driver-linked complaints" />
 
       <Text style={styles.footnote}>
         Computed live from complaint records. Resolution rating reflects the parent
@@ -163,12 +163,12 @@ const styles = StyleSheet.create({
 
   healthCard: { flexDirection: 'row', alignItems: 'stretch' },
   health: { flex: 1, alignItems: 'center', gap: 2, paddingHorizontal: spacing[1] },
-  healthValue: { fontSize: fontSizes.xl, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
-  healthLabel: { fontSize: fontSizes.xs, fontWeight: fontWeights.semibold, color: colors.textSecondary },
-  healthHint: { fontSize: fontSizes.xs, color: colors.textMuted },
-  healthDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginVertical: spacing[1] },
+  healthValue: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.xl, fontWeight: fontWeights.extrabold, color: colors.talk, letterSpacing: -0.3 },
+  healthLabel: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.xs, fontWeight: fontWeights.extrabold, color: colors.ink2 },
+  healthHint: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3 },
+  healthDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.hairline, marginVertical: spacing[1] },
 
   section: { gap: spacing[3] },
-  sectionTitle: { fontSize: fontSizes.md, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
-  footnote: { fontSize: fontSizes.xs, color: colors.textMuted, lineHeight: 16, marginTop: spacing[1] },
+  sectionTitle: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.md, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
+  footnote: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3, lineHeight: 16, marginTop: spacing[1] },
 });

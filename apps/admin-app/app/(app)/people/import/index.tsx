@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator,
+  View, Text, ScrollView, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, radius, Button, Card, useToast } from '@yaanam/ui';
+import { colors, spacing, fontSizes, fontWeights, fontFamilies, Card, Icon, useToast } from '@yaanam/ui';
 import {
   useImportTemplates, useValidateImport, type ImportEntityType, type PickedFile,
 } from '@yaanam/api-client';
 import { downloadTemplate, pickSpreadsheet } from '../../../../lib/import-files';
 import { useImportStore } from '../../../../store/import.store';
+import { GroupCard, PillPicker, ActionButton } from '../../../../components/forms';
+
+const HUE = colors.people;
+const HUE_BG = colors.peopleBg;
 
 export default function ImportScreen() {
   const { data: templates = [], isLoading } = useImportTemplates();
@@ -61,82 +65,91 @@ export default function ImportScreen() {
   };
 
   if (isLoading) {
-    return <View style={styles.loader}><ActivityIndicator color={colors.primary} /></View>;
+    return <View style={styles.loader}><ActivityIndicator color={HUE} /></View>;
   }
+
+  const typeOptions = templates.map((t) => ({ label: t.label, value: t.type }));
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>1 · What are you importing?</Text>
-        <View style={styles.chipRow}>
-          {templates.map((t) => (
-            <TouchableOpacity
-              key={t.type}
-              style={[styles.chip, type === t.type && styles.chipActive]}
-              onPress={() => { setType(t.type); setFile(null); }}
-            >
-              <Text style={[styles.chipText, type === t.type && styles.chipTextActive]}>{t.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        {selected && <Text style={styles.hint}>{selected.description}</Text>}
-      </Card>
+      <GroupCard title="1 · What are you importing?" icon="users" hue={HUE}>
+        {templates.length === 0
+          ? <Text style={styles.hint}>No import templates available.</Text>
+          : <PillPicker
+              hue={HUE}
+              value={type ?? ''}
+              onChange={(v) => { setType(v as ImportEntityType); setFile(null); }}
+              options={typeOptions}
+            />}
+        {selected ? <Text style={styles.hint}>{selected.description}</Text> : null}
+      </GroupCard>
 
-      {selected && (
+      {selected ? (
         <>
-          <Card style={styles.section}>
-            <Text style={styles.sectionTitle}>2 · Download the template</Text>
+          <GroupCard title="2 · Download the template" icon="card" hue={HUE}>
             <Text style={styles.hint}>
               Columns marked * are required. Fill data from row 3 onward, then upload it back.
             </Text>
             <View style={styles.colList}>
               {selected.columns.map((c) => (
                 <Text key={c.key} style={styles.colItem}>
-                  • <Text style={styles.colKey}>{c.key}{c.required ? ' *' : ''}</Text> — {c.hint}
+                  <Text style={styles.colKey}>{c.key}{c.required ? ' *' : ''}</Text>
+                  {' — '}{c.hint}
                 </Text>
               ))}
             </View>
-            <Button title="Download .xlsx template" variant="secondary" onPress={onDownload} loading={downloading} />
-          </Card>
+            <ActionButton
+              title="Download .xlsx template"
+              tone="outline"
+              hue={HUE}
+              icon="card"
+              onPress={onDownload}
+              loading={downloading}
+              fullWidth
+            />
+          </GroupCard>
 
-          <Card style={styles.section}>
-            <Text style={styles.sectionTitle}>3 · Upload your filled file</Text>
-            <Button title={file ? 'Choose a different file' : 'Choose file'} variant="secondary" onPress={onPick} />
-            {file && <Text style={styles.fileName}>📄 {file.name}</Text>}
-          </Card>
+          <GroupCard title="3 · Upload your filled file" icon="plus" hue={HUE}>
+            <ActionButton
+              title={file ? 'Choose a different file' : 'Choose file'}
+              tone="outline"
+              hue={HUE}
+              onPress={onPick}
+              fullWidth
+            />
+            {file ? (
+              <View style={styles.fileRow}>
+                <View style={[styles.fileIcon, { backgroundColor: HUE_BG }]}>
+                  <Icon name="check" size={14} color={HUE} />
+                </View>
+                <Text style={styles.fileName} numberOfLines={1}>{file.name}</Text>
+              </View>
+            ) : null}
+          </GroupCard>
 
-          <Button
+          <ActionButton
             title="Validate (preview)"
+            hue={HUE}
             onPress={onValidate}
             loading={validate.isPending}
             disabled={!file}
             fullWidth
-            style={styles.cta}
           />
         </>
-      )}
+      ) : null}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
-  content: { padding: spacing[4], gap: spacing[4] },
+  container: { flex: 1, backgroundColor: colors.ground },
+  content: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[8] },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  section: { gap: spacing[3] },
-  sectionTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  hint: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 18 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  chip: {
-    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
-    borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
-  chipTextActive: { color: colors.white },
+  hint: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 18 },
   colList: { gap: spacing[1] },
-  colItem: { fontSize: fontSizes.xs, color: colors.textMuted, lineHeight: 18 },
-  colKey: { fontWeight: fontWeights.semibold, color: colors.textSecondary },
-  fileName: { fontSize: fontSizes.sm, color: colors.textPrimary, fontWeight: fontWeights.medium },
-  cta: { marginTop: spacing[2] },
+  colItem: { fontFamily: fontFamilies.body, fontSize: fontSizes.xs, color: colors.ink3, lineHeight: 18 },
+  colKey: { fontFamily: fontFamilies.bodySemibold, fontWeight: fontWeights.semibold, color: colors.ink2 },
+  fileRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  fileIcon: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  fileName: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink, fontWeight: fontWeights.medium },
 });

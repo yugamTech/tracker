@@ -2,15 +2,18 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import {
-  colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
-  Card, Badge, Button, Chip, Skeleton, EmptyState, AnimatedPressable,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, Badge, Button, Chip, Skeleton, EmptyState, AnimatedPressable, IconSplat,
 } from '@yaanam/ui';
 import { useVehicles } from '@yaanam/api-client';
-import { AdminScreen, HeaderAction } from '../../../../components/AdminScreen';
+import { AdminScreen } from '../../../../components/AdminScreen';
 import { SubNav } from '../../../../components/SubNav';
 import { GridList } from '../../../../components/widgets';
+import { AddButton } from '../../../../components/forms';
 import { useResponsive } from '../../../../hooks/useResponsive';
 import { SUBNAV } from '../../../../lib/nav';
+
+const HUE = colors.route;
 
 /** Status filter chips — `''` = all (deactivated vehicles set status INACTIVE). */
 const STATUS_FILTERS = [
@@ -41,13 +44,13 @@ export default function VehiclesScreen() {
     <AdminScreen
       title="Routes"
       subtitle={isLoading ? undefined : `${list.length} vehicle${list.length === 1 ? '' : 's'}`}
-      headerRight={<HeaderAction label="+ Add Bus" onPress={() => router.push('/(app)/routes/vehicle/new' as never)} />}
+      headerRight={<AddButton label="Add bus" hue={HUE} onPress={() => router.push('/(app)/routes/vehicle/new' as never)} />}
       subnav={<SubNav segments={SUBNAV.routes} value="vehicles" />}
     >
       {isLoading ? (
         <View style={styles.skeletonWrap}>
           {[0, 1, 2].map((i) => (
-            <Card key={i} shadow="sm" style={styles.skeletonCard}>
+            <Card key={i} shadow="sm" radius={22} style={styles.skeletonCard}>
               <Skeleton width="50%" height={18} />
               <Skeleton width="100%" height={40} style={{ marginTop: 16 }} />
             </Card>
@@ -73,7 +76,7 @@ export default function VehiclesScreen() {
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
                 <EmptyState
-                  icon={<Text style={{ fontSize: 40 }}>🚍</Text>}
+                  icon={<IconSplat shape="b2" splatColor={colors.fleetBg} spot="bus" size={64} />}
                   title={statusFilter ? 'No vehicles match' : 'No vehicles yet'}
                   description={statusFilter
                     ? 'Try a different status filter.'
@@ -86,8 +89,9 @@ export default function VehiclesScreen() {
             }
             renderItem={(item) => (
               <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/routes/vehicle/${item.id}` as never)}>
-                <Card shadow="sm" style={styles.card}>
+                <Card shadow="sm" radius={22} style={styles.card}>
                   <View style={styles.cardTop}>
+                    <IconSplat shape="b2" splatColor={colors.fleetBg} spot="bus" size={42} />
                     <Text style={styles.regNumber} numberOfLines={1}>{item.regNumber}</Text>
                     <Badge label={item.status} variant={STATUS_VARIANT[item.status] ?? 'inactive'} size="sm" />
                   </View>
@@ -125,16 +129,16 @@ const styles = StyleSheet.create({
   emptyWrap: { flex: 1, minHeight: 320 },
 
   card: { gap: spacing[3] },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[2] },
-  regNumber: { flex: 1, fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] + 2 },
+  regNumber: { flex: 1, fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
   metrics: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.backgroundMuted, borderRadius: radius.lg,
+    backgroundColor: colors.ground, borderRadius: 16,
     paddingVertical: spacing[3],
   },
   metric: { flex: 1, alignItems: 'center', gap: 2 },
-  metricDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: colors.border, marginVertical: spacing[1] },
-  metricValue: { fontSize: fontSizes.xl, fontWeight: fontWeights.extrabold, color: colors.primary },
-  metricValueSmall: { fontSize: fontSizes.sm, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  metricLabel: { fontSize: fontSizes.xs, color: colors.textSecondary },
+  metricDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: colors.hairline, marginVertical: spacing[1] },
+  metricValue: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.xl, fontWeight: fontWeights.extrabold, color: HUE },
+  metricValueSmall: { fontFamily: fontFamilies.display, fontSize: fontSizes.sm, fontWeight: fontWeights.bold, color: colors.ink },
+  metricLabel: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink2 },
 });

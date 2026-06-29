@@ -2,17 +2,21 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { router } from 'expo-router';
 import {
-  colors, spacing, radius, fontSizes, fontWeights, letterSpacing,
-  Card, Avatar, ListItem, SectionHeader, Divider, AnimatedPressable,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
+  Card, Avatar, AnimatedPressable, Icon, type IconName,
 } from '@yaanam/ui';
 import { useMyTenant } from '@yaanam/api-client';
 import { AdminScreen } from '../../../components/AdminScreen';
 import { useAuthStore } from '../../../store/auth.store';
 
+const HUE = colors.sun;
+const HUE_BG = colors.sunBg;
+
 interface MenuItem {
   label: string;
-  icon: string;
-  tint: string;
+  icon: IconName;
+  iconBg: string;
+  iconColor: string;
   onPress?: () => void;
 }
 
@@ -28,22 +32,24 @@ export default function SettingsScreen() {
     ]);
   };
 
-  const groups: { title: string; items: MenuItem[] }[] = [
+  const groups: { title: string; hue: string; items: MenuItem[] }[] = [
     {
       title: 'School',
+      hue: HUE,
       items: [
-        { label: 'School Profile', icon: '🏫', tint: colors.primaryBg, onPress: () => router.push('/(app)/settings/school' as never) },
-        { label: 'Bell Timings', icon: '⏰', tint: colors.warningBg, onPress: () => router.push('/(app)/settings/bell-timings' as never) },
-        { label: 'Alert Numbers', icon: '🚨', tint: colors.errorBg, onPress: () => router.push('/(app)/settings/alert-numbers' as never) },
-        { label: 'Feature Flags', icon: '🚩', tint: colors.accentBg, onPress: () => router.push('/(app)/settings/feature-flags' as never) },
+        { label: 'School Profile', icon: 'cog', iconBg: HUE_BG, iconColor: HUE, onPress: () => router.push('/(app)/settings/school' as never) },
+        { label: 'Bell Timings', icon: 'clock', iconBg: HUE_BG, iconColor: HUE, onPress: () => router.push('/(app)/settings/bell-timings' as never) },
+        { label: 'Alert Numbers', icon: 'phone', iconBg: colors.critBg, iconColor: colors.crit, onPress: () => router.push('/(app)/settings/alert-numbers' as never) },
+        { label: 'Feature Flags', icon: 'flag', iconBg: colors.talkBg, iconColor: colors.talk, onPress: () => router.push('/(app)/settings/feature-flags' as never) },
       ],
     },
     {
       title: 'Account',
+      hue: colors.people,
       items: [
-        { label: 'Profile', icon: '👤', tint: colors.infoBg, onPress: () => router.push('/(app)/settings/profile' as never) },
-        { label: 'Notification Config', icon: '🔔', tint: colors.primaryBg, onPress: () => router.push('/(app)/settings/notifications' as never) },
-        { label: 'Privacy & Security', icon: '🔒', tint: colors.successBg, onPress: () => router.push('/(app)/settings/privacy' as never) },
+        { label: 'Profile', icon: 'users', iconBg: colors.peopleBg, iconColor: colors.people, onPress: () => router.push('/(app)/settings/profile' as never) },
+        { label: 'Notification Config', icon: 'chat', iconBg: colors.talkBg, iconColor: colors.talk, onPress: () => router.push('/(app)/settings/notifications' as never) },
+        { label: 'Privacy & Security', icon: 'check', iconBg: colors.okBg, iconColor: colors.ok, onPress: () => router.push('/(app)/settings/privacy' as never) },
       ],
     },
   ];
@@ -52,35 +58,37 @@ export default function SettingsScreen() {
     <AdminScreen title="Settings" subtitle="School & account" maxWidth={760}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Identity */}
-        <Card shadow="sm" style={styles.identity}>
-          <Avatar name={person?.name ?? 'Admin'} size={56} />
-          <View style={{ flex: 1 }}>
+        <Card shadow="sm" radius={22} style={styles.identity}>
+          <Avatar name={person?.name ?? 'Admin'} size={52} />
+          <View style={styles.idInfo}>
             <Text style={styles.idName} numberOfLines={1}>{person?.name ?? 'Admin'}</Text>
-            <Text style={styles.idMeta} numberOfLines={1}>{person?.phone ?? ''}</Text>
+            <Text style={styles.idPhone} numberOfLines={1}>{person?.phone ?? ''}</Text>
             <Text style={styles.idSchool} numberOfLines={1}>{schoolName}</Text>
           </View>
         </Card>
 
         {groups.map((group) => (
-          <View key={group.title}>
-            <SectionHeader title={group.title} />
-            <Card shadow="sm" padding={0} style={styles.group}>
+          <View key={group.title} style={styles.groupWrap}>
+            <Text style={styles.groupLabel}>{group.title.toUpperCase()}</Text>
+            <Card shadow="sm" radius={22} style={styles.groupCard}>
               {group.items.map((item, idx) => (
                 <View key={item.label}>
-                  <ListItem
-                    title={item.label}
-                    onPress={item.onPress ?? (() => {})}
-                    left={<View style={[styles.iconChip, { backgroundColor: item.tint }]}><Text style={styles.iconGlyph}>{item.icon}</Text></View>}
-                  />
-                  {idx < group.items.length - 1 ? <Divider inset={4} /> : null}
+                  {idx > 0 ? <View style={styles.divider} /> : null}
+                  <AnimatedPressable scaleTo={0.99} onPress={item.onPress ?? (() => {})} style={styles.menuRow} accessibilityRole="button">
+                    <View style={[styles.iconChip, { backgroundColor: item.iconBg }]}>
+                      <Icon name={item.icon} size={18} color={item.iconColor} />
+                    </View>
+                    <Text style={styles.menuLabel}>{item.label}</Text>
+                    <Icon name="chevron" size={16} color={colors.ink3} />
+                  </AnimatedPressable>
                 </View>
               ))}
             </Card>
           </View>
         ))}
 
-        <AnimatedPressable scaleTo={0.98} onPress={handleLogout} style={styles.logout}>
-          <Text style={styles.logoutGlyph}>⏻</Text>
+        <AnimatedPressable scaleTo={0.98} onPress={handleLogout} style={styles.logout} accessibilityRole="button">
+          <Icon name="power" size={18} color={colors.crit} />
           <Text style={styles.logoutText}>Log out</Text>
         </AnimatedPressable>
       </ScrollView>
@@ -89,20 +97,26 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: spacing[4], gap: spacing[2], paddingBottom: spacing[8] },
-  identity: { flexDirection: 'row', alignItems: 'center', gap: spacing[4] },
-  idName: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
-  idMeta: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
-  idSchool: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.medium, marginTop: 2 },
-  group: { overflow: 'hidden' },
-  iconChip: { width: 36, height: 36, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
-  iconGlyph: { fontSize: fontSizes.lg },
+  scroll: { padding: spacing[4], gap: spacing[3], paddingBottom: spacing[8] },
+
+  identity: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  idInfo: { flex: 1, minWidth: 0 },
+  idName: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
+  idPhone: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, marginTop: 2 },
+  idSchool: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.sm, fontWeight: fontWeights.extrabold, color: colors.sun, marginTop: 2 },
+
+  groupWrap: { gap: spacing[2] },
+  groupLabel: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.xs, fontWeight: fontWeights.extrabold, color: colors.ink3, letterSpacing: 0.6, paddingHorizontal: spacing[1] },
+  groupCard: { overflow: 'hidden', gap: 0 },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.hairline, marginHorizontal: spacing[4] },
+  menuRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingHorizontal: spacing[4], paddingVertical: spacing[4] },
+  iconChip: { width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  menuLabel: { flex: 1, fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink },
+
   logout: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[2],
-    marginTop: spacing[4], paddingVertical: spacing[4],
-    backgroundColor: colors.background, borderRadius: radius.xl,
-    borderWidth: 1, borderColor: colors.border,
+    marginTop: spacing[2], paddingVertical: spacing[4],
+    backgroundColor: colors.critBg, borderRadius: 22,
   },
-  logoutGlyph: { fontSize: fontSizes.lg, color: colors.error },
-  logoutText: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.error },
+  logoutText: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.base, fontWeight: fontWeights.extrabold, color: colors.crit },
 });
