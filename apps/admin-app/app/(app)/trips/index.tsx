@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, Text, ScrollView, FlatList, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, fontFamilies,
-  Card, Badge, Chip, Skeleton, EmptyState, AnimatedPressable, Stagger, Icon, IconSplat,
+  Card, Badge, Chip, Skeleton, EmptyState, AnimatedPressable, Icon, IconSplat,
 } from '@yaanam/ui';
 import type { BadgeVariant } from '@yaanam/ui';
 import { useFilteredTrips, useTripDates, useRoutes, useMembers } from '@yaanam/api-client';
@@ -300,47 +300,55 @@ export default function TripScheduleScreen() {
     </View>
   );
 
-  const list = (
-    <View style={styles.listWrap}>
+  // Loading / error / empty all surface through the FlatList's ListEmptyComponent
+  // (dayTrips is [] in each of those states), so the day-header above still shows.
+  const listEmpty = isError ? (
+    <EmptyState
+      icon={<View style={styles.errorIcon}><Icon name="alert" size={36} color={colors.crit} /></View>}
+      title="Could not load trips"
+      description="Check your connection and try again."
+    />
+  ) : isLoading ? (
+    <View style={styles.skeletonWrap}>
+      {[0, 1, 2].map((i) => (
+        <Card key={i} shadow="sm" radius={18} style={styles.skeletonCard}>
+          <Skeleton width="60%" height={17} />
+          <Skeleton width="40%" height={13} style={{ marginTop: 10 }} />
+          <Skeleton width="30%" height={13} style={{ marginTop: 8 }} />
+        </Card>
+      ))}
+    </View>
+  ) : (
+    <View style={styles.emptyWrap}>
+      <EmptyState
+        icon={<IconSplat shape="b3" splatColor={colors.tripBg} spot="trip" size={64} />}
+        title={anyFilterActive ? 'No trips match' : 'No trips scheduled'}
+        description={anyFilterActive
+          ? 'Try clearing or adjusting the filters.'
+          : selectedKey === todayKey
+            ? 'Nothing is scheduled for today.'
+            : `Nothing is scheduled for ${formatDayLabel(selectedKey)}.`}
+        action={anyFilterActive
+          ? <ActionButton title="Clear filters" tone="outline" hue={HUE} onPress={resetAll} />
+          : <ActionButton title="Schedule a trip" hue={HUE} onPress={() => router.push('/(app)/trips/new' as never)} />}
+      />
+    </View>
+  );
+
+  // Stable identities so the virtualized rows aren't torn down on every parent
+  // render (calendar/filter taps). renderItem reads nothing from this scope.
+  const renderTrip = useCallback(({ item }: { item: any }) => <TripCard item={item} />, []);
+  const keyExtractorTrip = useCallback((t: any) => t.id, []);
+  const TripSeparator = useCallback(() => <View style={styles.cardGap} />, []);
+
+  // Everything above the cards rides along as the list header, so the single
+  // FlatList owns scrolling (no virtualized list nested inside a ScrollView).
+  const listHeader = (
+    <View style={styles.listHeader}>
+      {!isDesktop ? calendar : null}
+      {!isDesktop ? filterPanel : null}
+      {statusQuickRow}
       {dayHeader}
-      {isError ? (
-        <EmptyState
-          icon={<View style={styles.errorIcon}><Icon name="alert" size={36} color={colors.crit} /></View>}
-          title="Could not load trips"
-          description="Check your connection and try again."
-        />
-      ) : isLoading ? (
-        <View style={styles.skeletonWrap}>
-          {[0, 1, 2].map((i) => (
-            <Card key={i} shadow="sm" radius={18} style={styles.skeletonCard}>
-              <Skeleton width="60%" height={17} />
-              <Skeleton width="40%" height={13} style={{ marginTop: 10 }} />
-              <Skeleton width="30%" height={13} style={{ marginTop: 8 }} />
-            </Card>
-          ))}
-        </View>
-      ) : dayTrips.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <EmptyState
-            icon={<IconSplat shape="b3" splatColor={colors.tripBg} spot="trip" size={64} />}
-            title={anyFilterActive ? 'No trips match' : 'No trips scheduled'}
-            description={anyFilterActive
-              ? 'Try clearing or adjusting the filters.'
-              : selectedKey === todayKey
-                ? 'Nothing is scheduled for today.'
-                : `Nothing is scheduled for ${formatDayLabel(selectedKey)}.`}
-            action={anyFilterActive
-              ? <ActionButton title="Clear filters" tone="outline" hue={HUE} onPress={resetAll} />
-              : <ActionButton title="Schedule a trip" hue={HUE} onPress={() => router.push('/(app)/trips/new' as never)} />}
-          />
-        </View>
-      ) : (
-        <View style={styles.cardList}>
-          <Stagger>
-            {dayTrips.map((t) => <TripCard key={t.id} item={t} />)}
-          </Stagger>
-        </View>
-      )}
     </View>
   );
 
@@ -365,18 +373,29 @@ export default function TripScheduleScreen() {
             {calendar}
             {filterPanel}
           </View>
-          <ScrollView style={styles.listCol} contentContainerStyle={styles.listColContent} showsVerticalScrollIndicator={false}>
-            {statusQuickRow}
-            {list}
-          </ScrollView>
+          <FlatList
+            style={styles.listCol}
+            contentContainerStyle={styles.listColContent}
+            data={dayTrips}
+            renderItem={renderTrip}
+            keyExtractor={keyExtractorTrip}
+            ItemSeparatorComponent={TripSeparator}
+            ListHeaderComponent={listHeader}
+            ListEmptyComponent={listEmpty}
+            showsVerticalScrollIndicator={false}
+          />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.phoneContent} showsVerticalScrollIndicator={false}>
-          {calendar}
-          {filterPanel}
-          {statusQuickRow}
-          {list}
-        </ScrollView>
+        <FlatList
+          contentContainerStyle={styles.phoneContent}
+          data={dayTrips}
+          renderItem={renderTrip}
+          keyExtractor={keyExtractorTrip}
+          ItemSeparatorComponent={TripSeparator}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={listEmpty}
+          showsVerticalScrollIndicator={false}
+        />
       )}
     </AdminScreen>
   );
@@ -410,9 +429,9 @@ const styles = StyleSheet.create({
   splitRoot: { flex: 1, flexDirection: 'row', gap: spacing[4], padding: spacing[4] },
   calCol: { width: 380, gap: spacing[4] },
   listCol: { flex: 1 },
-  listColContent: { paddingBottom: spacing[6] },
+  listColContent: { paddingBottom: spacing[6], flexGrow: 1 },
 
-  phoneContent: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[6] },
+  phoneContent: { padding: spacing[4], paddingBottom: spacing[6], flexGrow: 1 },
 
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
 
@@ -455,12 +474,12 @@ const styles = StyleSheet.create({
   filterLabel: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.xs, fontWeight: fontWeights.extrabold, color: colors.ink3, letterSpacing: 0.7, marginTop: spacing[2] },
   chipRow: { gap: spacing[2], paddingVertical: spacing[1] },
 
-  listWrap: { gap: spacing[3] },
+  listHeader: { gap: spacing[4], paddingBottom: spacing[3] },
   dayHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing[2] },
   dayHeaderTitle: { fontFamily: fontFamilies.displayHeavy, fontSize: fontSizes.lg, fontWeight: fontWeights.extrabold, color: colors.ink, letterSpacing: -0.3 },
   dayHeaderCount: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink3 },
 
-  cardList: { gap: spacing[3] },
+  cardGap: { height: spacing[3] },
   skeletonWrap: { gap: spacing[3] },
   skeletonCard: {},
   emptyWrap: { minHeight: 280, justifyContent: 'center' },
