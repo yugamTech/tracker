@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -30,6 +30,10 @@ interface GridListProps<T> {
   renderItem: (item: T, index: number) => React.ReactNode;
   keyExtractor: (item: T) => string;
   gap?: number;
+  /** When every row is a known fixed height, enables getItemLayout (skips measure). */
+  itemHeight?: number;
+  /** Opt-in: detach off-screen rows. Off by default to avoid blank-cell glitches. */
+  removeClippedSubviews?: boolean;
   ListHeaderComponent?: React.ComponentProps<typeof FlatList>['ListHeaderComponent'];
   ListEmptyComponent?: React.ComponentProps<typeof FlatList>['ListEmptyComponent'];
   contentContainerStyle?: StyleProp<ViewStyle>;
@@ -41,37 +45,72 @@ export function GridList<T>({
   renderItem,
   keyExtractor,
   gap = spacing[4],
+  itemHeight,
+  removeClippedSubviews,
   ListHeaderComponent,
   ListEmptyComponent,
   contentContainerStyle,
 }: GridListProps<T>) {
   const multi = columns > 1;
-  const items: (T | typeof GHOST)[] = [...data];
-  if (multi && data.length > 0) {
-    const remainder = data.length % columns;
-    if (remainder !== 0) {
-      for (let i = 0; i < columns - remainder; i++) items.push(GHOST);
+
+  // Pad the final row with ghost cells so items keep an even width. Memoised so a
+  // parent re-render that doesn't touch `data` keeps the same array identity and
+  // FlatList skips reconciling every row.
+  const items = useMemo<(T | typeof GHOST)[]>(() => {
+    const next: (T | typeof GHOST)[] = [...data];
+    if (multi && data.length > 0) {
+      const remainder = data.length % columns;
+      if (remainder !== 0) {
+        for (let i = 0; i < columns - remainder; i++) next.push(GHOST);
+      }
     }
-  }
+    return next;
+  }, [data, columns, multi]);
+
+  // Hoisted with stable identity so passing them to FlatList doesn't invalidate
+  // its internal row memoization on every render.
+  const keyExtractorInner = useCallback(
+    (item: T, index: number) => (item === (GHOST as unknown) ? `ghost-${index}` : keyExtractor(item)),
+    [keyExtractor],
+  );
+
+  const renderInner = useCallback(
+    ({ item, index }: { item: T; index: number }) =>
+      item === (GHOST as unknown) ? (
+        <View style={styles.ghost} />
+      ) : (
+        <View style={multi ? styles.cell : undefined}>{renderItem(item, index)}</View>
+      ),
+    [renderItem, multi],
+  );
+
+  // Fixed-height fast path: derive each row's offset directly (grid-aware), so the
+  // list can scroll to any index without measuring. Only when the caller opts in.
+  const getItemLayout = useMemo(
+    () =>
+      itemHeight == null
+        ? undefined
+        : (_d: ArrayLike<T> | null | undefined, index: number) => {
+            const row = multi ? Math.floor(index / columns) : index;
+            return { length: itemHeight, offset: (itemHeight + gap) * row, index };
+          },
+    [itemHeight, multi, columns, gap],
+  );
 
   return (
     <FlatList
       key={columns}
       data={items as T[]}
       numColumns={multi ? columns : 1}
-      keyExtractor={(item, index) => (item === (GHOST as unknown) ? `ghost-${index}` : keyExtractor(item))}
+      keyExtractor={keyExtractorInner}
       columnWrapperStyle={multi ? { gap } : undefined}
       contentContainerStyle={[styles.listContent, { gap }, contentContainerStyle]}
       ListHeaderComponent={ListHeaderComponent}
       ListEmptyComponent={ListEmptyComponent}
       showsVerticalScrollIndicator={false}
-      renderItem={({ item, index }) =>
-        item === (GHOST as unknown) ? (
-          <View style={styles.ghost} />
-        ) : (
-          <View style={multi ? styles.cell : undefined}>{renderItem(item, index)}</View>
-        )
-      }
+      getItemLayout={getItemLayout}
+      removeClippedSubviews={removeClippedSubviews}
+      renderItem={renderInner}
     />
   );
 }
