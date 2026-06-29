@@ -16,7 +16,7 @@ type Shot = { uri: string; base64: string };
  * never a stop-wide group shot.
  */
 export default function AttendancePhotoScreen() {
-  const { stopId, tripId, studentId, studentName } = useLocalSearchParams<{
+  const { tripId, studentId, studentName } = useLocalSearchParams<{
     stopId: string;
     tripId: string;
     studentId: string;

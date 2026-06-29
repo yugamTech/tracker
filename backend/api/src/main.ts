@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -9,6 +10,12 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { RedisIoAdapter } from './infra/socket/redis-io.adapter';
 
 async function bootstrap() {
+  // Error reporting. Behind an optional DSN so local/dev (no DSN) is a clean
+  // no-op — init is skipped and Sentry.captureException calls silently do nothing.
+  if (process.env.SENTRY_DSN) {
+    Sentry.init({ dsn: process.env.SENTRY_DSN });
+  }
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Serve locally-stored uploads (attendance photos in Phase 3) as static files.

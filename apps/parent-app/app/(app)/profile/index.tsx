@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
-  colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
+  colors, spacing, fontSizes, fontWeights, letterSpacing,
   AppHeader, Avatar, Card, Badge, Button, ListItem, Divider, SectionHeader, useToast,
 } from '@yaanam/ui';
 import { useAuthStore } from '../../../store/auth.store';

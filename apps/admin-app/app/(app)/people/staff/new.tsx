@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { Text, ScrollView, StyleSheet } from 'react-native';
 import { colors, spacing, fontFamilies, useToast } from '@yaanam/ui';
 import { useCreateMember, useRoutes } from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';

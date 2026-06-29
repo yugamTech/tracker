@@ -38,6 +38,10 @@ jobs:
       - name: Type-check all workspaces
         run: npm run typecheck
 
+      # Blocking: ESLint across every workspace (fails the job on any error).
+      - name: Lint all workspaces
+        run: npm run lint
+
       - name: Build backend
         run: npm run build --workspace=backend/api
 
@@ -87,5 +91,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build --workspace=packages/types
-      - run: npm run db:push --workspace=backend/api
+      # Apply the committed migration history to the fresh test DB (there is no
+      # db:push script; the repo uses migrations). Must run before the e2e suite,
+      # which assumes the schema exists.
+      - run: npm run db:migrate:prod --workspace=backend/api
       - run: npm run test:e2e --workspace=backend/api

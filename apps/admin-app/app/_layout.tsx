@@ -5,6 +5,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@yaanam/api-client';
 import { ToastProvider, ErrorBoundary } from '@yaanam/ui';
 import { StatusBar } from 'expo-status-bar';
+import * as Sentry from '@sentry/react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
@@ -19,6 +20,13 @@ import {
 // Keep the native splash up until the rounded fonts register (or definitively
 // fail), so the first frame already paints in the redesign's typeface.
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Crash/error reporting. Behind an env DSN so local/dev (no DSN) is a clean
+// no-op — Sentry.init is skipped and capture calls below silently do nothing.
+const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+if (sentryDsn) {
+  Sentry.init({ dsn: sentryDsn });
+}
 
 // ── Global rounded-font application ──────────────────────────────────────────
 // RN doesn't cascade fontFamily, so without a global default every <Text> that
@@ -117,9 +125,7 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontError) {
       // Surface registration failures explicitly — the app still runs (system face).
-      console.error('[fonts] rounded fonts failed to register:', fontError);
-    } else if (fontsLoaded) {
-      console.log('[fonts] rounded fonts registered (Quicksand + Nunito)');
+      Sentry.captureException(fontError, { tags: { area: 'fonts' } });
     }
     if (fontsLoaded || fontError) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded, fontError]);
@@ -135,7 +141,7 @@ export default function RootLayout() {
   // NOTE: do NOT navigate (router.replace) from here on first render — the root
   // navigator isn't mounted yet. Auth gating is done declaratively in app/index.tsx.
   return (
-    <ErrorBoundary>
+    <ErrorBoundary onError={(error) => Sentry.captureException(error)}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <QueryClientProvider client={queryClient}>
           <ToastProvider>

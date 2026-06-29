@@ -16,6 +16,7 @@
     "prepare": "husky",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
+    "format:check": "prettier --check .",
     "verify": "npm run build --workspace=packages/types && npm run db:generate --workspace=backend/api && npm run typecheck",
     "docker:up": "docker compose -f docker/docker-compose.yml up -d",
     "docker:down": "docker compose -f docker/docker-compose.yml down",
@@ -35,7 +36,9 @@
     "@types/react": "19.1.17"
   },
   "devDependencies": {
+    "eslint": "^8.57.1",
     "husky": "^9.1.7",
+    "prettier": "^3.9.3",
     "typescript": "^5.4.0"
   },
   "dependencies": {

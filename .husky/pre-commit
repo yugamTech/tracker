@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Block commits that don't type-check across the workspace.
+# Block commits that don't type-check or lint cleanly across the workspace.
 # Bypass for genuine WIP commits with:  git commit --no-verify
 echo "▸ pre-commit: type-checking workspace…"
 npm run typecheck --silent || {
@@ -7,3 +7,10 @@ npm run typecheck --silent || {
   exit 1
 }
 echo "✓ type-check passed"
+
+echo "▸ pre-commit: linting workspace…"
+npm run lint --silent || {
+  echo "✗ Lint errors found — commit blocked. Fix them or use 'git commit --no-verify' for WIP."
+  exit 1
+}
+echo "✓ lint passed"

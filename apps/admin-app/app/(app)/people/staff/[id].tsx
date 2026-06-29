@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { PoliceVerificationStatus } from '@yaanam/types';
+import type { PoliceVerificationStatus } from '@yaanam/types';
 import {
   colors, spacing, fontSizes, fontWeights, fontFamilies,
   Card, Avatar, Badge, Icon, useToast,

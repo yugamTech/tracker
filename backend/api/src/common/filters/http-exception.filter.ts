@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
+import * as Sentry from '@sentry/node';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -32,6 +33,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
         `[${requestId}] ${request.method} ${request.url} — ` +
           ((exception as Error)?.stack ?? String(exception)),
       );
+      // Report the unexpected 500 to Sentry (no-op when no DSN is configured),
+      // carrying the same requestId so a server log line maps to the Sentry event.
+      Sentry.withScope((scope) => {
+        scope.setTag('requestId', requestId);
+        scope.setContext('request', { method: request.method, url: request.url });
+        Sentry.captureException(exception);
+      });
     }
 
     const message = !isHttp

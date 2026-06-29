@@ -27,7 +27,6 @@ type Part =
 const p = (d: string, l: Layer = 's'): Part => ({ k: 'path', d, l });
 const c = (cx: number, cy: number, r: number, l: Layer = 's'): Part => ({ k: 'circle', cx, cy, r, l });
 const r = (x: number, y: number, w: number, h: number, rx: number, l: Layer = 's'): Part => ({ k: 'rect', x, y, w, h, rx, l });
-const ln = (x1: number, y1: number, x2: number, y2: number, l: Layer = 's'): Part => ({ k: 'line', x1, y1, x2, y2, l });
 
 const ICONS: Record<IconName, Part[]> = {
   bus: [

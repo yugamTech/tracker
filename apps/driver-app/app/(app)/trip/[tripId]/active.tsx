@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Modal, TextInput, Linking } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
+import * as Sentry from '@sentry/react-native';
 import {
   colors, spacing, fontSizes, fontWeights, fontFamilies, radius, letterSpacing,
   StatusDot, Button, AnimatedPressable, ScreenContainer, AppHeader, Stagger, useToast,
@@ -273,10 +274,13 @@ export default function ActiveTripScreen() {
   // no fix). Only offered when GPS can't confirm arrival, so it never reopens the
   // "skip arrival" hole while GPS is healthy. Unlocks marking for this stop only.
   const onConfirmGpsOverride = () => {
-    console.warn(
-      `[trip ${tripId}] attendance marked WITHOUT GPS at stop ` +
+    Sentry.addBreadcrumb({
+      category: 'trip',
+      level: 'warning',
+      message:
+        `[trip ${tripId}] attendance marked WITHOUT GPS at stop ` +
         `${currentStop?.id ?? '?'} (${currentStop?.name ?? '?'}) — driver confirmed no signal`,
-    );
+    });
     setOverrideUnlocked(true);
     setShowGpsOverride(false);
     toast.warning('Marking without GPS — recorded.', 'No signal');

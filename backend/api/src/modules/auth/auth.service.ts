@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { OtpService } from './otp.service';
 import { TokenService } from './token.service';

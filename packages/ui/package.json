@@ -5,7 +5,8 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx"
   },
   "peerDependencies": {
     "@maplibre/maplibre-react-native": ">=11.0.0",

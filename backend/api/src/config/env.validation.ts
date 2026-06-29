@@ -10,6 +10,14 @@
 /** Vars without which the API cannot function correctly in production. */
 const REQUIRED_IN_PRODUCTION = ['DATABASE_URL', 'JWT_SECRET'] as const;
 
+/**
+ * Optional vars — recognised but never required. Listed here so the full set of
+ * env vars the API reads stays documented in one place.
+ *   - SENTRY_DSN: error reporting endpoint; unset = reporting disabled (safe no-op).
+ */
+const OPTIONAL = ['SENTRY_DSN'] as const;
+void OPTIONAL;
+
 /** Default secrets that must never survive into a production deploy. */
 const FORBIDDEN_PROD_DEFAULTS: Record<string, string> = {
   JWT_SECRET: 'change_me_in_production_use_long_random_string',
