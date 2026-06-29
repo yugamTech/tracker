@@ -66,14 +66,22 @@ export default function TrackScreen() {
   const isDone = status === 'COMPLETED' || status === 'CANCELLED' || status === 'ABORTED';
 
   // The parent's rider on this trip — prefer the actively-selected child.
+  // Memoised on [trip, myStudents, activeChildId] so a location/ETA ping (which
+  // calls setState and re-renders) doesn't re-run these Array.find scans.
   const myIds = useMemo(() => new Set((myStudents ?? []).map((s) => s.id)), [myStudents]);
-  const riders: any[] = t?.riders ?? [];
-  const myRider =
-    riders.find((r) => r.studentId === activeChildId && myIds.has(r.studentId)) ??
-    riders.find((r) => myIds.has(r.studentId));
-  const child = (myStudents ?? []).find((s) => s.id === myRider?.studentId);
-  const childStopId: string | undefined = myRider?.stopId ?? myRider?.stop?.id;
-  const childStopName: string | undefined = myRider?.stop?.name ?? child?.stop?.name;
+  const { myRider, child, childStopId, childStopName } = useMemo(() => {
+    const rs: any[] = (trip as any)?.riders ?? [];
+    const mine =
+      rs.find((r) => r.studentId === activeChildId && myIds.has(r.studentId)) ??
+      rs.find((r) => myIds.has(r.studentId));
+    const c = (myStudents ?? []).find((s) => s.id === mine?.studentId);
+    return {
+      myRider: mine,
+      child: c,
+      childStopId: (mine?.stopId ?? mine?.stop?.id) as string | undefined,
+      childStopName: (mine?.stop?.name ?? c?.stop?.name) as string | undefined,
+    };
+  }, [trip, myStudents, activeChildId, myIds]);
 
   // The child's own boarding event (the API is guardian-scoped, so attendanceEvents
   // only ever carries this family's children). Latest BOARDED event wins.
