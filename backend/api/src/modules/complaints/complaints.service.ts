@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { NotifCategory, ComplaintStatus, canTransitionComplaint } from '@yaanam/types';
 import { PrismaService } from '../../infra/database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -258,7 +258,9 @@ export class ComplaintsService {
   ) {
     // Tenant-scoped lookup — an admin must never drive another tenant's complaint
     // (and fire its parent notifications) by id. Mirrors `findById(id, tenantId)`.
-    const complaint = await this.prisma.complaint.findFirstOrThrow({ where: { id, tenantId } });
+    const complaint = await this.prisma.complaint.findFirst({ where: { id, tenantId } });
+    // findFirst (not ...OrThrow): cross-tenant/missing → clean 404, not a 500.
+    if (!complaint) throw new NotFoundException(`Complaint ${id} not found`);
     const from = complaint.status as ComplaintStatus;
     const to = toStatus as ComplaintStatus;
 
