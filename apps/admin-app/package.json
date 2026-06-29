@@ -14,6 +14,7 @@
     "@expo-google-fonts/quicksand": "^0.4.1",
     "@maplibre/maplibre-react-native": "^11.3.4",
     "@react-navigation/drawer": "^7.0.0",
+    "@sentry/react-native": "^8.16.0",
     "@tanstack/react-query": "^5.0.0",
     "@yaanam/api-client": "*",
     "@yaanam/types": "*",
