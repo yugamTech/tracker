@@ -37,6 +37,21 @@ export const createApiClient = (baseURL: string) => {
     },
   });
 
+  // Single-flight refresh: when several requests 401 at once they must NOT each
+  // POST /auth/refresh — the first call rotates the refresh token, leaving the
+  // rest to refresh with a now-stale token, fail, and tear the session down.
+  // Instead they all await one shared in-flight refresh and reuse its new access
+  // token. Reset once it settles so a later 401 can refresh again.
+  let refreshing: Promise<string> | null = null;
+  const refreshAccessToken = async (): Promise<string> => {
+    const refresh = await SecureStore.getItemAsync(REFRESH_KEY);
+    if (!refresh) throw new Error('No refresh token');
+    const { data } = await client.post('/auth/refresh', { refreshToken: refresh });
+    await SecureStore.setItemAsync(TOKEN_KEY, data.data.accessToken);
+    await SecureStore.setItemAsync(REFRESH_KEY, data.data.refreshToken);
+    return data.data.accessToken as string;
+  };
+
   // Attach access token to every request
   client.interceptors.request.use(async (config) => {
     const token = await SecureStore.getItemAsync(TOKEN_KEY);
@@ -65,17 +80,18 @@ export const createApiClient = (baseURL: string) => {
       if (status === 401 && !original._retry) {
         original._retry = true;
         try {
-          const refresh = await SecureStore.getItemAsync(REFRESH_KEY);
-          if (!refresh) throw new Error('No refresh token');
-          const { data } = await client.post('/auth/refresh', { refreshToken: refresh });
-          await SecureStore.setItemAsync(TOKEN_KEY, data.data.accessToken);
-          await SecureStore.setItemAsync(REFRESH_KEY, data.data.refreshToken);
+          // Assignment is synchronous before any await, so concurrent 401s that
+          // reach here share the same in-flight refresh instead of racing.
+          refreshing = refreshing ?? refreshAccessToken();
+          const accessToken = await refreshing;
           original.headers = original.headers ?? {};
-          original.headers.Authorization = `Bearer ${data.data.accessToken}`;
+          original.headers.Authorization = `Bearer ${accessToken}`;
           return client(original);
         } catch {
           await clearSession();
           return Promise.reject(error);
+        } finally {
+          refreshing = null;
         }
       }
       return Promise.reject(error);
