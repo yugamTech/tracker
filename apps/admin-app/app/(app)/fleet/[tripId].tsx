@@ -10,7 +10,7 @@ import {
 } from '@yaanam/ui';
 import type { BadgeVariant, IconName, SpotIconName } from '@yaanam/ui';
 import {
-  useTripById, useRoster, useCancelTrip, useLatestPosition, useFleetSocket, useTripLifecycleEvents,
+  useTripById, useRoster, useCancelTrip, useLatestPosition, useTripSocket, useTripLifecycleEvents,
 } from '@yaanam/api-client';
 import type { RosterGuardian, TripLifecycleEvent } from '@yaanam/api-client';
 import { goBackTo } from '../../../lib/nav';
@@ -89,12 +89,11 @@ export default function TripMonitorScreen() {
   const cancelTrip = useCancelTrip();
   const toast = useToast();
 
-  // Live bus position: primed from the REST snapshot, then advanced by the fleet socket.
+  // Live bus position: primed from the REST snapshot, then advanced by this
+  // trip's own socket room — no need to subscribe to (and filter) the whole fleet.
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
-  useFleetSocket(true, {
-    onLocation: (d) => {
-      if (d.tripId === tripId) setPos({ lat: d.lat, lng: d.lng });
-    },
+  useTripSocket(tripId, {
+    onLocation: (d) => setPos({ lat: d.lat, lng: d.lng }),
   });
   const busPos = pos ?? (primed ? { lat: primed.lat, lng: primed.lng } : null);
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Modal, TextInput, Linking } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
@@ -82,39 +82,50 @@ export default function ActiveTripScreen() {
   const [showStaleAbort, setShowStaleAbort] = useState(false);
   const [staleReason, setStaleReason] = useState('');
 
+  // Geo for each roster stop comes from the trip's route definition. Memoised on
+  // `trip` so it isn't rebuilt on the per-second elapsed tick / every GPS fix.
+  const stopGeo = useMemo<Record<string, { lat: number; lng: number }>>(() => {
+    const geo: Record<string, { lat: number; lng: number }> = {};
+    for (const rs of (trip as any)?.route?.stops ?? []) {
+      geo[rs.stop.id] = { lat: rs.stop.lat, lng: rs.stop.lng };
+    }
+    return geo;
+  }, [trip]);
+
   // Stops in ROUTE SEQUENCE — the only order they may be serviced in. Pulled from
-  // the roster (server-ordered) so per-stop counts and sequence agree.
-  const ridersByStop: Record<string, RosterRider[]> = {};
-  for (const s of rosterData?.stops ?? []) ridersByStop[s.stopId] = s.riders;
-
-  // Geo for each roster stop comes from the trip's route definition.
-  const stopGeo: Record<string, { lat: number; lng: number }> = {};
-  for (const rs of (trip as any)?.route?.stops ?? []) {
-    stopGeo[rs.stop.id] = { lat: rs.stop.lat, lng: rs.stop.lng };
-  }
-
-  const stops = (rosterData?.stops ?? []).map((s) => ({
-    id: s.stopId,
-    name: s.stopName,
-    riders: s.riders,
-    lat: stopGeo[s.stopId]?.lat ?? 0,
-    lng: stopGeo[s.stopId]?.lng ?? 0,
-  }));
+  // the roster (server-ordered) so per-stop counts and sequence agree. Memoised on
+  // the roster so the 1s elapsed-timer re-render doesn't re-derive trip state.
+  const stops = useMemo(
+    () =>
+      (rosterData?.stops ?? []).map((s) => ({
+        id: s.stopId,
+        name: s.stopName,
+        riders: s.riders,
+        lat: stopGeo[s.stopId]?.lat ?? 0,
+        lng: stopGeo[s.stopId]?.lng ?? 0,
+      })),
+    [rosterData, stopGeo],
+  );
 
   // CURRENT STOP is derived, never manually chosen: the first stop in route order
   // that isn't fully serviced. This enforces strict sequence — earlier stops must
   // be done before a later one becomes current.
-  const currentIdx = (() => {
+  const { currentIdx, allStopsDone, currentStop } = useMemo(() => {
     const idx = stops.findIndex((s) => !stopDone(s.riders));
-    return idx === -1 ? Math.max(0, stops.length - 1) : idx;
-  })();
-  const allStopsDone = stops.length > 0 && stops.every((s) => stopDone(s.riders));
-  const currentStop = stops[currentIdx];
-  const isLastStop = currentIdx >= stops.length - 1;
+    const ci = idx === -1 ? Math.max(0, stops.length - 1) : idx;
+    return {
+      currentIdx: ci,
+      allStopsDone: stops.length > 0 && stops.every((s) => stopDone(s.riders)),
+      currentStop: stops[ci],
+    };
+  }, [stops]);
 
   // Overall + per-stop progress (real counts from the roster).
   const summary = rosterData?.summary;
-  const currentCounts = currentStop ? boardedOf(currentStop.riders) : { boarded: 0, total: 0 };
+  const currentCounts = useMemo(
+    () => (currentStop ? boardedOf(currentStop.riders) : { boarded: 0, total: 0 }),
+    [currentStop],
+  );
 
   // Live driving state read by the (async) location callback, kept in refs so it
   // always sees the freshest values without restarting the GPS stream.
