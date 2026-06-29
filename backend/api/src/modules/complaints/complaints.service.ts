@@ -250,12 +250,15 @@ export class ComplaintsService {
    */
   async updateStatus(
     id: string,
+    tenantId: string,
     toStatus: string,
     actor: string,
     note?: string,
     override = false,
   ) {
-    const complaint = await this.prisma.complaint.findUniqueOrThrow({ where: { id } });
+    // Tenant-scoped lookup — an admin must never drive another tenant's complaint
+    // (and fire its parent notifications) by id. Mirrors `findById(id, tenantId)`.
+    const complaint = await this.prisma.complaint.findFirstOrThrow({ where: { id, tenantId } });
     const from = complaint.status as ComplaintStatus;
     const to = toStatus as ComplaintStatus;
 

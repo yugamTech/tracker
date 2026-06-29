@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, NotFoundException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
@@ -45,19 +45,33 @@ export class TrackingController {
 
   /** Latest known position for a trip (parent live map initial load). */
   @Get(':tripId/latest')
-  latest(@Param('tripId') tripId: string) {
+  async latest(@Param('tripId') tripId: string, @TenantId() tenantId: string) {
+    await this.assertTripInTenant(tripId, tenantId);
     return this.location.getLatest(tripId);
   }
 
   /** Full ordered ping history for a trip. */
   @Get('trips/:tripId/history')
-  history(@Param('tripId') tripId: string) {
+  async history(@Param('tripId') tripId: string, @TenantId() tenantId: string) {
+    await this.assertTripInTenant(tripId, tenantId);
     return this.location.getHistory(tripId);
   }
 
   /** Downsampled path for ride replay. */
   @Get('trips/:tripId/replay')
-  replay(@Param('tripId') tripId: string) {
+  async replay(@Param('tripId') tripId: string, @TenantId() tenantId: string) {
+    await this.assertTripInTenant(tripId, tenantId);
     return this.location.getReplay(tripId);
+  }
+
+  /**
+   * Refuse to serve a trip's positions across tenants — the GPS read endpoints take
+   * a bare tripId, so without this any authenticated user could pull any trip's live
+   * location / breadcrumb trail. Mirrors the WebSocket room-join tenant guard. 404
+   * (not 403) so an out-of-tenant id is indistinguishable from a non-existent one.
+   */
+  private async assertTripInTenant(tripId: string, tenantId: string): Promise<void> {
+    const owner = await this.location.getTripTenant(tripId);
+    if (owner !== tenantId) throw new NotFoundException(`Trip ${tripId} not found`);
   }
 }

@@ -1,11 +1,14 @@
 import { Controller, Post, Get, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { AttendanceService } from './attendance.service';
 import { TrackingGateway } from '../tracking/tracking.gateway';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
 import { ActiveMembershipDec } from '../../common/decorators/active-membership.decorator';
-import { IsString, IsEnum, IsOptional } from 'class-validator';
+import { IsString, IsIn, IsOptional } from 'class-validator';
+import { Role } from '@yaanam/types';
 import type { ActiveMembership } from '@yaanam/types';
 
 class MarkAttendanceDto {
@@ -13,7 +16,9 @@ class MarkAttendanceDto {
   @IsString() studentId!: string;
   // BOARDED / ALIGHTED are recorded as AttendanceEvents; NOT_BOARDED only flips
   // the rider's boardStatus (there is no NOT_BOARDED attendance event type).
-  @IsEnum(['BOARDED', 'ALIGHTED', 'NOT_BOARDED'])
+  // @IsIn, not @IsEnum: @IsEnum expects an enum object, so against a string array
+  // it silently validates nothing. @IsIn enforces the allowed set.
+  @IsIn(['BOARDED', 'ALIGHTED', 'NOT_BOARDED'])
   type!: 'BOARDED' | 'ALIGHTED' | 'NOT_BOARDED';
   @IsOptional() @IsString() photoUrl?: string;
 }
@@ -35,6 +40,8 @@ export class AttendanceController {
   ) {}
 
   @Post()
+  @UseGuards(RolesGuard)
+  @Roles(Role.DRIVER, Role.CONDUCTOR, Role.ADMIN, Role.TRANSPORT_MANAGER)
   async mark(
     @Body() dto: MarkAttendanceDto,
     @TenantId() tenantId: string,
@@ -56,15 +63,20 @@ export class AttendanceController {
     return event;
   }
 
-  /** Driver roster grouped by stop, with board-status summary. */
+  /** Driver roster grouped by stop, with board-status summary. Exposes guardian
+   * contact, so it's gated to crew + admins and scoped to the caller's tenant. */
   @Get('trip/:tripId/roster')
-  roster(@Param('tripId') tripId: string) {
-    return this.attendanceService.getRoster(tripId);
+  @UseGuards(RolesGuard)
+  @Roles(Role.DRIVER, Role.CONDUCTOR, Role.ADMIN, Role.TRANSPORT_MANAGER)
+  roster(@Param('tripId') tripId: string, @TenantId() tenantId: string) {
+    return this.attendanceService.getRoster(tripId, tenantId);
   }
 
   @Get('trip/:tripId')
-  getTripAttendance(@Param('tripId') tripId: string) {
-    return this.attendanceService.getTripAttendance(tripId);
+  @UseGuards(RolesGuard)
+  @Roles(Role.DRIVER, Role.CONDUCTOR, Role.ADMIN, Role.TRANSPORT_MANAGER)
+  getTripAttendance(@Param('tripId') tripId: string, @TenantId() tenantId: string) {
+    return this.attendanceService.getTripAttendance(tripId, tenantId);
   }
 
   /** Store an attendance photo locally and return its URL (no DO Spaces in Phase 3). */

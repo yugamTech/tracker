@@ -4,36 +4,49 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger('HttpException');
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+    const requestId = randomUUID();
 
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+    const isHttp = exception instanceof HttpException;
+    const status = isHttp ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+    const exceptionResponse = isHttp ? exception.getResponse() : null;
 
-    const exceptionResponse =
-      exception instanceof HttpException ? exception.getResponse() : null;
+    // Unexpected (non-HttpException) errors must NOT leak their internal message —
+    // a raw Prisma/DB error string, a stack, an invariant — to the client. Log the
+    // real error server-side keyed by requestId for correlation, and return a
+    // constant generic message. HttpException messages are author-chosen and safe.
+    if (!isHttp) {
+      this.logger.error(
+        `[${requestId}] ${request.method} ${request.url} — ` +
+          ((exception as Error)?.stack ?? String(exception)),
+      );
+    }
 
-    const message =
-      typeof exceptionResponse === 'object' && exceptionResponse !== null
-        ? (exceptionResponse as Record<string, unknown>)['message'] ?? 'Internal server error'
-        : exception instanceof Error
-          ? exception.message
-          : 'Internal server error';
+    const message = !isHttp
+      ? 'Internal server error'
+      : typeof exceptionResponse === 'object' && exceptionResponse !== null
+        ? (exceptionResponse as Record<string, unknown>)['message'] ?? 'Error'
+        : typeof exceptionResponse === 'string'
+          ? exceptionResponse
+          : exception.message;
 
-    const code =
-      typeof exceptionResponse === 'object' && exceptionResponse !== null
+    const code = !isHttp
+      ? 'INTERNAL_SERVER_ERROR'
+      : typeof exceptionResponse === 'object' && exceptionResponse !== null
         ? (exceptionResponse as Record<string, unknown>)['error'] ?? 'HTTP_ERROR'
-        : 'INTERNAL_SERVER_ERROR';
+        : 'HTTP_ERROR';
 
     // Carry through any extra detail fields a thrower attached alongside
     // { error, message } (e.g. liveTripId/liveTripOverdue, cutoff) so the client
@@ -51,7 +64,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       error: { code, message, ...details },
       meta: {
         timestamp: new Date().toISOString(),
-        requestId: randomUUID(),
+        requestId,
         path: request.url,
       },
     });

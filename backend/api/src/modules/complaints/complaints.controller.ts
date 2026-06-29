@@ -87,8 +87,9 @@ export class ComplaintsController {
   updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateComplaintStatusDto,
+    @TenantId() tenantId: string,
     @ActiveMembershipDec() membership: ActiveMembership,
   ) {
-    return this.complaintsService.updateStatus(id, dto.status, membership.personId, dto.note, dto.override);
+    return this.complaintsService.updateStatus(id, tenantId, dto.status, membership.personId, dto.note, dto.override);
   }
 }

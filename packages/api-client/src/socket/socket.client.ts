@@ -29,9 +29,20 @@ export const connectSocket = async (baseURL: string): Promise<void> => {
   }
 };
 
+/**
+ * Fully tear down the singleton socket. Call this on logout AND on any change of
+ * identity (admin context-switch, parent re-login): without nulling the instance,
+ * the next `getSocket` returns the SAME socket — still authenticated with the
+ * previous user's token and still joined to their trip/fleet rooms, leaking the
+ * old session's live feed into the new one. Removing listeners prevents stale
+ * handlers from firing, and dropping the reference forces a fresh, re-authed
+ * connection (the `auth` callback re-reads the current token) on next use.
+ */
 export const disconnectSocket = (): void => {
-  if (socket?.connected) {
+  if (socket) {
+    socket.removeAllListeners();
     socket.disconnect();
+    socket = null;
   }
 };
 

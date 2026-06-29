@@ -17,7 +17,7 @@ export class PaymentsController {
   }
 
   @Get('invoices/:id')
-  getInvoice(@Param('id') id: string) {
-    return this.invoicesService.getById(id);
+  getInvoice(@Param('id') id: string, @TenantId() tenantId: string) {
+    return this.invoicesService.getById(id, tenantId);
   }
 }

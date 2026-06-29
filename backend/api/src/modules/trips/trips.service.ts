@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, TripLifecycleAction } from '@prisma/client';
 import { PrismaService } from '../../infra/database/prisma.service';
@@ -544,9 +544,15 @@ export class TripsService {
    * and fires a fire-and-forget admin alarm notification. Without a note a blocked
    * start throws TRIP_START_BLOCKED so the driver UI can show why and prompt for one.
    */
-  async start(id: string, opts: { reason?: string } = {}) {
-    const trip = await this.prisma.trip.findUnique({
-      where: { id },
+  async start(id: string, opts: { reason?: string; actor: ActiveMembership }) {
+    // Authorize: only the trip's own crew (driver/conductor) or an admin may start
+    // it. A PARENT's scope would otherwise match a trip carrying their child — and
+    // the unscoped lookup let any authenticated user start any tenant's trip (IDOR).
+    if (opts.actor.role === Role.PARENT) {
+      throw new ForbiddenException('Only the trip’s crew or an admin can start a trip.');
+    }
+    const trip = await this.prisma.trip.findFirst({
+      where: { id, ...this.scopeForActor(opts.actor) },
       select: { id: true, tenantId: true, vehicleId: true, driverId: true, scheduledStart: true, date: true },
     });
     if (!trip) throw new NotFoundException(`Trip ${id} not found`);
@@ -978,9 +984,13 @@ export class TripsService {
    * the ADMIN is notified. Reaching the final stop completes normally with no
    * note required.
    */
-  async complete(id: string, opts: { reason?: string; stoppedAtSeq?: number } = {}) {
-    const trip = await this.prisma.trip.findUnique({
-      where: { id },
+  async complete(id: string, opts: { reason?: string; stoppedAtSeq?: number; actor: ActiveMembership }) {
+    // Authorize identically to start(): trip crew or admin only, tenant-scoped.
+    if (opts.actor.role === Role.PARENT) {
+      throw new ForbiddenException('Only the trip’s crew or an admin can complete a trip.');
+    }
+    const trip = await this.prisma.trip.findFirst({
+      where: { id, ...this.scopeForActor(opts.actor) },
       select: { id: true, tenantId: true, status: true, startedAt: true },
     });
     if (!trip) throw new NotFoundException(`Trip ${id} not found`);

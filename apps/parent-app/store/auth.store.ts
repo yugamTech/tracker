@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { queryClient, setUnauthorizedHandler } from '@yaanam/api-client';
+import { queryClient, setUnauthorizedHandler, disconnectSocket } from '@yaanam/api-client';
 import type { ActiveMembership, Role } from '@yaanam/types';
 import { useChildStore } from './child.store';
 
@@ -33,14 +33,20 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
 
   setAuth: (person, memberships, activeMembership) => {
-    // Fresh login: wipe any cached data from a previous session so one user can
-    // never briefly see another user's data (account-switch leak).
+    // Fresh login: tear down the previous session's socket, cache and active child
+    // so one user can never briefly see another user's data (account-switch leak).
+    disconnectSocket();
     queryClient.clear();
     useChildStore.getState().clearActiveChild();
     set({ person, memberships, activeMembership, isAuthenticated: true });
   },
 
-  setActiveMembership: (m) =>
+  setActiveMembership: (m) => {
+    // Switching school changes socket scoping and which children are visible —
+    // drop the socket, query cache and active child so nothing carries across.
+    disconnectSocket();
+    queryClient.clear();
+    useChildStore.getState().clearActiveChild();
     set({
       activeMembership: {
         personId: '',
@@ -48,10 +54,12 @@ export const useAuthStore = create<AuthState>((set) => ({
         tenantId: m.tenantId,
         role: m.role,
       },
-    }),
+    });
+  },
 
   logout: () => {
-    // Clear cached queries before dropping auth so the next user starts clean.
+    // Tear down socket + cached queries before dropping auth so the next user starts clean.
+    disconnectSocket();
     queryClient.clear();
     useChildStore.getState().clearActiveChild();
     set({ person: null, activeMembership: null, memberships: [], isAuthenticated: false });

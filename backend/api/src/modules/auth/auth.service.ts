@@ -144,20 +144,35 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string) {
+    let payload: ReturnType<typeof this.tokenService.verify>;
     try {
-      const payload = this.tokenService.verify(refreshToken);
-      const newPayload = {
-        sub: payload.sub,
-        membershipId: payload.membershipId,
-        tenantId: payload.tenantId,
-        role: payload.role,
-      };
-      return {
-        accessToken: this.tokenService.signAccess(newPayload),
-        refreshToken: this.tokenService.signRefresh(newPayload),
-      };
+      payload = this.tokenService.verify(refreshToken);
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
+
+    // Re-validate the membership on every refresh: a deactivated/suspended user (or
+    // a membership revoked after sign-in) must NOT keep minting access tokens for
+    // the refresh token's 30-day life. Re-deriving role/tenant from the DB also
+    // means a role change takes effect on the next refresh instead of persisting
+    // stale claims for up to 30 days.
+    const membership = await this.prisma.membership.findFirst({
+      where: { id: payload.membershipId, personId: payload.sub, status: 'ACTIVE' },
+      select: { id: true, tenantId: true, role: true },
+    });
+    if (!membership) {
+      throw new UnauthorizedException('Session is no longer active');
+    }
+
+    const newPayload = {
+      sub: payload.sub,
+      membershipId: membership.id,
+      tenantId: membership.tenantId,
+      role: membership.role as Role,
+    };
+    return {
+      accessToken: this.tokenService.signAccess(newPayload),
+      refreshToken: this.tokenService.signRefresh(newPayload),
+    };
   }
 }
