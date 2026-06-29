@@ -41,13 +41,13 @@ jobs:
       - name: Build backend
         run: npm run build --workspace=backend/api
 
-  # ── Advisory: backend e2e tests against real Postgres + Redis ────────────
-  # continue-on-error until the suite is confirmed green locally; flip to
-  # blocking (remove continue-on-error) once verified.
+      - name: Unit tests (backend)
+        run: npm run test --workspace=backend/api
+
+  # ── Blocking gate: backend e2e tests against real Postgres + Redis ────────
   test-backend:
-    name: Backend e2e (advisory)
+    name: Backend e2e
     runs-on: ubuntu-latest
-    continue-on-error: true
     services:
       postgres:
         image: postgres:16-alpine
@@ -88,4 +88,4 @@ jobs:
       - run: npm ci
       - run: npm run build --workspace=packages/types
       - run: npm run db:push --workspace=backend/api
-      - run: npm run test:e2e --workspace=backend/api -- --passWithNoTests
+      - run: npm run test:e2e --workspace=backend/api
