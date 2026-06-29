@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import {
@@ -24,6 +24,92 @@ interface Bus {
   stops: { id: string; name: string; lat?: number; lng?: number }[];
   direction?: string;
 }
+
+type GeoStop = { id: string; name: string; lat: number; lng: number };
+
+// The live map only ever cares about the bus coordinates, its stops and the
+// route label — yet a fleet ping re-renders the whole card. Gate the map on an
+// ACTUAL coordinate (or stop) change so an unrelated bus's ping, or a LIVE/STALE
+// flip, never repaints a map whose position is unchanged.
+const MemoLiveBusMap = React.memo(
+  LiveBusMap,
+  (prev, next) =>
+    prev.busLat === next.busLat &&
+    prev.busLng === next.busLng &&
+    prev.routeName === next.routeName &&
+    prev.height === next.height &&
+    prev.stops === next.stops,
+);
+
+// One bus tile. Memoised so the GridList only re-renders the card whose bus
+// object changed (a ping mutates just that tripId's entry) or whose freshness
+// flipped — every other card is skipped on each fleet ping.
+const BusCard = React.memo(function BusCard({
+  bus,
+  fresh,
+  index,
+}: {
+  bus: Bus;
+  fresh: boolean;
+  index: number;
+}) {
+  const signalLost = bus.status === 'SIGNAL_LOST';
+  // The fleet snapshot carries stop coords; socket-only buses (no snapshot yet)
+  // don't, so fall back to the timeline placeholder until they do. Memoised on
+  // bus.stops so the reference is stable across pings → MemoLiveBusMap can skip.
+  const geoStops = useMemo<GeoStop[]>(
+    () => bus.stops.filter((s): s is GeoStop => s.lat != null && s.lng != null),
+    [bus.stops],
+  );
+  return (
+    <SlideIn delay={Math.min(index, 8) * 45}>
+      <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/fleet/${bus.tripId}` as never)}>
+        <Card padding={0} shadow="sm" radius={22} style={styles.busCard}>
+          {geoStops.length > 0 ? (
+            <MemoLiveBusMap
+              stops={geoStops}
+              busLat={bus.lat}
+              busLng={bus.lng}
+              routeName={bus.routeName}
+              height={140}
+            />
+          ) : (
+            <MockBusMap stops={bus.stops} live={fresh} routeName={bus.routeName} height={140} />
+          )}
+          <View style={styles.infoStrip}>
+            <IconSplat
+              shape="b2"
+              splatColor={signalLost ? colors.critBg : colors.fleetBg}
+              spot={signalLost ? 'signal' : 'bus'}
+              size={44}
+            />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.busNum} numberOfLines={1}>{bus.vehicleReg ?? bus.routeName}</Text>
+              <Text style={styles.busRoute} numberOfLines={1}>{bus.routeName} · {bus.direction ?? bus.status}</Text>
+              {bus.driverName ? (
+                <View style={styles.metaRow}>
+                  <Icon name="users" size={13} color={colors.ink3} />
+                  <Text style={styles.driverLine} numberOfLines={1}>{bus.driverName}</Text>
+                </View>
+              ) : null}
+              <View style={styles.metaRow}>
+                <Icon name="pin" size={13} color={colors.ink3} />
+                <Text style={styles.busCords} numberOfLines={1}>
+                  {bus.lat != null && bus.lng != null ? `${bus.lat.toFixed(4)}, ${bus.lng.toFixed(4)}` : 'Awaiting GPS…'}
+                  {bus.speed != null ? `  ·  ${Math.round(bus.speed * 3.6)} km/h` : ''}
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.liveTag, fresh ? styles.liveTagOn : styles.liveTagOff]}>
+              <StatusDot variant={fresh ? 'live' : 'offline'} size={7} />
+              <Text style={[styles.liveTagText, !fresh && styles.liveTagStale]}>{fresh ? 'LIVE' : 'STALE'}</Text>
+            </View>
+          </View>
+        </Card>
+      </AnimatedPressable>
+    </SlideIn>
+  );
+});
 
 export default function FleetMapScreen() {
   const { data: fleet, isLoading } = useFleet();
@@ -137,60 +223,7 @@ export default function FleetMapScreen() {
           }
           renderItem={(b, i) => {
             const fresh = b.updatedAt != null && now - b.updatedAt < 30000;
-            const signalLost = b.status === 'SIGNAL_LOST';
-            // The fleet snapshot carries stop coords; socket-only buses (no snapshot
-            // yet) don't, so fall back to the timeline placeholder until they do.
-            const geoStops = b.stops.filter(
-              (s): s is { id: string; name: string; lat: number; lng: number } => s.lat != null && s.lng != null,
-            );
-            return (
-              <SlideIn delay={Math.min(i, 8) * 45}>
-              <AnimatedPressable scaleTo={0.99} onPress={() => router.push(`/(app)/fleet/${b.tripId}` as never)}>
-                <Card padding={0} shadow="sm" radius={22} style={styles.busCard}>
-                  {geoStops.length > 0 ? (
-                    <LiveBusMap
-                      stops={geoStops}
-                      busLat={b.lat}
-                      busLng={b.lng}
-                      routeName={b.routeName}
-                      height={140}
-                    />
-                  ) : (
-                    <MockBusMap stops={b.stops} live={fresh} routeName={b.routeName} height={140} />
-                  )}
-                  <View style={styles.infoStrip}>
-                    <IconSplat
-                      shape="b2"
-                      splatColor={signalLost ? colors.critBg : colors.fleetBg}
-                      spot={signalLost ? 'signal' : 'bus'}
-                      size={44}
-                    />
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={styles.busNum} numberOfLines={1}>{b.vehicleReg ?? b.routeName}</Text>
-                      <Text style={styles.busRoute} numberOfLines={1}>{b.routeName} · {b.direction ?? b.status}</Text>
-                      {b.driverName ? (
-                        <View style={styles.metaRow}>
-                          <Icon name="users" size={13} color={colors.ink3} />
-                          <Text style={styles.driverLine} numberOfLines={1}>{b.driverName}</Text>
-                        </View>
-                      ) : null}
-                      <View style={styles.metaRow}>
-                        <Icon name="pin" size={13} color={colors.ink3} />
-                        <Text style={styles.busCords} numberOfLines={1}>
-                          {b.lat != null && b.lng != null ? `${b.lat.toFixed(4)}, ${b.lng.toFixed(4)}` : 'Awaiting GPS…'}
-                          {b.speed != null ? `  ·  ${Math.round(b.speed * 3.6)} km/h` : ''}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={[styles.liveTag, fresh ? styles.liveTagOn : styles.liveTagOff]}>
-                      <StatusDot variant={fresh ? 'live' : 'offline'} size={7} />
-                      <Text style={[styles.liveTagText, !fresh && styles.liveTagStale]}>{fresh ? 'LIVE' : 'STALE'}</Text>
-                    </View>
-                  </View>
-                </Card>
-              </AnimatedPressable>
-              </SlideIn>
-            );
+            return <BusCard bus={b} fresh={fresh} index={i} />;
           }}
         />
       )}
