@@ -1,4 +1,4 @@
-import type { LocationPing, TripStatus, RiderStatus } from './trips';
+import type { LocationPing, TripStatus } from './trips';
 import type { AttendanceType } from './attendance';
 
 // ─── Server → Client ──────────────────────────────────────────────────────

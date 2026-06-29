@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
-import { colors, spacing, fontSizes, fontWeights, fontFamilies, Card, Icon, useToast } from '@yaanam/ui';
+import { colors, spacing, fontSizes, fontWeights, fontFamilies, Icon, useToast } from '@yaanam/ui';
 import {
   useImportTemplates, useValidateImport, type ImportEntityType, type PickedFile,
 } from '@yaanam/api-client';

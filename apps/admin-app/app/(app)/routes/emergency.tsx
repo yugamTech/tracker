@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import {
-  colors, spacing, radius, fontSizes, fontWeights, fontFamilies,
+  colors, spacing, fontSizes, fontWeights, fontFamilies,
   Card, Badge, Skeleton, EmptyState, IconSplat, Icon,
 } from '@yaanam/ui';
 import { useEmergencyDirectory } from '@yaanam/api-client';
@@ -13,7 +13,6 @@ import { GridList } from '../../../components/widgets';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { SUBNAV } from '../../../lib/nav';
 
-const HUE = colors.route;
 
 /**
  * Emergency "who's on which bus/route" directory (fleet-integrity §3). Search by

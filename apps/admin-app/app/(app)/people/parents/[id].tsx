@@ -8,7 +8,6 @@ import {
   Card, Avatar, Badge, AnimatedPressable, Icon, useToast,
 } from '@yaanam/ui';
 import { useParents, useUpdateMember, useDeactivateMember, useReactivateMember } from '@yaanam/api-client';
-import { goBackTo } from '../../../../lib/nav';
 import { GroupCard, Field, FormInput, ActionButton } from '../../../../components/forms';
 
 const HUE = colors.people;

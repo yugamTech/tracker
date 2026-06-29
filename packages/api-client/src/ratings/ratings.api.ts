@@ -1,5 +1,5 @@
 import { apiClient } from '../axios';
-import type { Complaint, ResolutionRating, ResolutionRatingInput } from '@yaanam/types';
+import type { Complaint, ResolutionRatingInput } from '@yaanam/types';
 
 export type { ResolutionRating, ResolutionRatingInput } from '@yaanam/types';
 

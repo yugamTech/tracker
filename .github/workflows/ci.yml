@@ -38,6 +38,10 @@ jobs:
       - name: Type-check all workspaces
         run: npm run typecheck
 
+      # Blocking: ESLint across every workspace (fails the job on any error).
+      - name: Lint all workspaces
+        run: npm run lint
+
       - name: Build backend
         run: npm run build --workspace=backend/api
 

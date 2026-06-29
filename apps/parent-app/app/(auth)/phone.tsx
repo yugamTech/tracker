@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, KeyboardAvoidingView,
-  Platform, TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, useToast } from '@yaanam/ui';

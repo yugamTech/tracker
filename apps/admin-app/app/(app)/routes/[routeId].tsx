@@ -9,7 +9,7 @@ import {
 } from '@yaanam/ui';
 import {
   useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useReactivateRoute, useDeleteRoute,
-  useStops, useCreateStop, useAddStop, useUpdateStop, useVehicles,
+  useCreateStop, useAddStop, useUpdateStop, useVehicles,
 } from '@yaanam/api-client';
 import type { Stop } from '@yaanam/api-client';
 import { goBackTo } from '../../../lib/nav';
@@ -36,7 +36,6 @@ export default function RouteDetailScreen() {
   const isNew = routeId === 'new';
 
   const { data: route, isLoading } = useRouteById(isNew ? '' : routeId);
-  const { data: allStops = [] } = useStops();
   const { data: vehicles = [] } = useVehicles();
   const createRoute = useCreateRoute();
   const updateRoute = useUpdateRoute();
