@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import { IsString, IsOptional, IsEnum, IsDateString, IsInt, Min } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsDateString, IsInt, IsNumber, Min, Max } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -24,6 +24,13 @@ class CreateTripDto {
   @IsDateString() date!: string;
   @IsEnum(Direction) direction!: Direction;
   @IsOptional() @IsDateString() scheduledStart?: string;
+  /** Schedule for a specific shift (AgeGroup): derives the start time + filters the roster. */
+  @IsOptional() @IsString() shiftId?: string;
+  // Optional "different destination" override — lat + lng together, range-checked
+  // here; the all-or-none rule + label are enforced in the service.
+  @IsOptional() @IsNumber() @Min(-90) @Max(90) anchorLat?: number;
+  @IsOptional() @IsNumber() @Min(-180) @Max(180) anchorLng?: number;
+  @IsOptional() @IsString() anchorLabel?: string;
 }
 
 /** Edit a SCHEDULED trip — every field optional; only the supplied ones change. */
@@ -34,6 +41,8 @@ class UpdateTripDto {
   @IsOptional() @IsString() conductorId?: string;
   @IsOptional() @IsEnum(Direction) direction?: Direction;
   @IsOptional() @IsDateString() scheduledStart?: string;
+  /** A non-empty id assigns the shift; an empty string clears it. */
+  @IsOptional() @IsString() shiftId?: string;
 }
 
 class StartTripDto {
@@ -220,6 +229,7 @@ export class TripsController {
       conductorId: dto.conductorId,
       direction: dto.direction,
       scheduledStart: dto.scheduledStart ? new Date(dto.scheduledStart) : undefined,
+      shiftId: dto.shiftId,
     });
   }
 
@@ -237,6 +247,10 @@ export class TripsController {
       date: new Date(dto.date),
       direction: dto.direction,
       scheduledStart: dto.scheduledStart ? new Date(dto.scheduledStart) : undefined,
+      shiftId: dto.shiftId,
+      anchorLat: dto.anchorLat,
+      anchorLng: dto.anchorLng,
+      anchorLabel: dto.anchorLabel,
     });
   }
 

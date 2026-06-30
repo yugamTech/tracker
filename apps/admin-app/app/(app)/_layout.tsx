@@ -89,6 +89,7 @@ export default function AppLayout() {
       <Drawer.Screen name="settings/notifications" options={{ title: 'Notification Audit' }} />
       <Drawer.Screen name="settings/profile" options={{ title: 'Profile' }} />
       <Drawer.Screen name="settings/school" options={{ title: 'School Profile' }} />
+      <Drawer.Screen name="settings/shifts" options={{ title: 'Shifts' }} />
       <Drawer.Screen name="settings/bell-timings" options={{ title: 'Bell Timings' }} />
       <Drawer.Screen name="settings/alert-numbers" options={{ title: 'Alert Numbers' }} />
       <Drawer.Screen name="settings/feature-flags" options={{ title: 'Feature Flags' }} />

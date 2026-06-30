@@ -25,6 +25,9 @@ export class TenantsService {
       brandingConfig: Record<string, unknown>;
       bellTimings: Array<{ id?: string; label: string; time: string }>;
       alertNumbers: Array<{ id?: string; label: string; phone: string }>;
+      schoolLat: number;
+      schoolLng: number;
+      schoolName: string;
     }>,
   ) {
     // The JSON columns are validated by the controller DTO; cast at the Prisma

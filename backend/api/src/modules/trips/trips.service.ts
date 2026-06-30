@@ -7,6 +7,7 @@ import type { ActiveMembership } from '@yaanam/types';
 import { TrackingGateway } from '../tracking/tracking.gateway';
 import { LocationService } from '../tracking/location.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { resolveSchoolAnchor } from './school-anchor.util';
 
 /** Allowed status transitions for the trip lifecycle state machine. */
 const TRANSITIONS: Record<string, TripStatus[]> = {
@@ -32,6 +33,47 @@ function dayRange(at: Date): { gte: Date; lte: Date } {
   const lte = new Date(at);
   lte.setHours(23, 59, 59, 999);
   return { gte, lte };
+}
+
+/**
+ * Apply a "HH:MM" wall-clock time to a calendar day, in the server's local time
+ * (the staging stand-in for the tenant timezone, matching `deriveScheduledStart`).
+ * Returns null for a malformed time so callers can fall back gracefully.
+ */
+function applyHHMMToDate(hhmm: string, date: Date): Date | null {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(hhmm)) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  const d = new Date(date);
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+
+/**
+ * Validate a trip's optional school-end override: latitude and longitude must be
+ * supplied together (a half-set anchor is rejected), within valid geographic
+ * range. The label is optional alongside them. Returns null when no override was
+ * provided at all, so a normal trip needs zero extra input.
+ */
+function normaliseAnchorOverride(data: {
+  anchorLat?: number;
+  anchorLng?: number;
+  anchorLabel?: string;
+}): { lat: number; lng: number; label: string | null } | null {
+  const { anchorLat, anchorLng, anchorLabel } = data;
+  const anySet = anchorLat !== undefined || anchorLng !== undefined || (anchorLabel ?? '') !== '';
+  if (!anySet) return null;
+  if (anchorLat === undefined || anchorLng === undefined) {
+    throw new BadRequestException(
+      'A different-destination override needs both a latitude and a longitude (or leave it off entirely).',
+    );
+  }
+  if (anchorLat < -90 || anchorLat > 90) {
+    throw new BadRequestException('anchorLat must be between -90 and 90.');
+  }
+  if (anchorLng < -180 || anchorLng > 180) {
+    throw new BadRequestException('anchorLng must be between -180 and 180.');
+  }
+  return { lat: anchorLat, lng: anchorLng, label: anchorLabel?.trim() || null };
 }
 
 @Injectable()
@@ -182,9 +224,12 @@ export class TripsService {
         vehicle: true,
         driver: true,
         conductor: true,
+        shift: true,
         riders: { include: { student: true, stop: true } },
         attendanceEvents: { orderBy: { ts: 'asc' } },
         geofenceEvents: { orderBy: { ts: 'asc' } },
+        // School-end resolution needs the tenant's campus coordinates as fallback.
+        tenant: { select: { schoolLat: true, schoolLng: true, schoolName: true } },
       },
     });
 
@@ -192,6 +237,11 @@ export class TripsService {
     if (trip.tenantId !== actor.tenantId) {
       throw new NotFoundException(`Trip ${id} not found`);
     }
+
+    // Resolve the trip's "school end" (per-trip override → tenant school coords →
+    // none) and its role (DESTINATION for a PICKUP, ORIGIN for a DROP) so the map
+    // payload can graft it onto the route geometry. Omitted gracefully when unset.
+    const anchor = resolveSchoolAnchor(trip, trip.tenant);
 
     if (guardedStudentIds) {
       const ownRiders = trip.riders.filter((r) => guardedStudentIds!.has(r.studentId));
@@ -202,6 +252,7 @@ export class TripsService {
       }
       return {
         ...trip,
+        anchor,
         riders: ownRiders,
         // Strip every other child's attendance event (and thus their photoUrl)
         // before the payload ever leaves the server.
@@ -209,7 +260,7 @@ export class TripsService {
       };
     }
 
-    return trip;
+    return { ...trip, anchor };
   }
 
   /**
@@ -1445,8 +1496,14 @@ export class TripsService {
     date: Date;
     direction: Direction;
     scheduledStart?: Date;
+    /** Shift (AgeGroup) to schedule for — derives scheduledStart + filters the roster. */
+    shiftId?: string;
+    /** Per-trip school-end override (different-destination run). lat + lng together. */
+    anchorLat?: number;
+    anchorLng?: number;
+    anchorLabel?: string;
   }) {
-    const { tenantId, routeId, vehicleId, driverId, conductorId, date, direction } = data;
+    const { tenantId, routeId, vehicleId, driverId, conductorId, date, direction, shiftId } = data;
 
     const route = await this.prisma.route.findFirst({
       where: { id: routeId, tenantId },
@@ -1463,10 +1520,26 @@ export class TripsService {
     await this.assertActiveStaff(driverId, tenantId, Role.DRIVER, 'Driver');
     if (conductorId) await this.assertActiveStaff(conductorId, tenantId, Role.CONDUCTOR, 'Conductor');
 
-    // Roster = ACTIVE students on this route that have a boarding stop. A
+    // Shift-aware scheduling (optional): verify the shift belongs to this school
+    // (NFR-05, mirrors the route/vehicle checks) before it can drive scheduledStart
+    // or filter the roster. A plain whole-route trip leaves shiftId null.
+    let shift: { id: string; pickupTime: string; dropTime: string } | null = null;
+    if (shiftId) {
+      shift = await this.prisma.ageGroup.findFirst({
+        where: { id: shiftId, tenantId },
+        select: { id: true, pickupTime: true, dropTime: true },
+      });
+      if (!shift) throw new BadRequestException('Shift not found in this school');
+    }
+
+    // Per-trip school-end override — all-or-none (rejects a half-set anchor).
+    const anchor = normaliseAnchorOverride(data);
+
+    // Roster = ACTIVE students on this route that have a boarding stop, FILTERED to
+    // the shift's students (Student.ageGroupId === shiftId) when shift-aware. A
     // stop-less student can't be placed in the "expected at stop X" roster.
     const students = await this.prisma.student.findMany({
-      where: { tenantId, routeId, status: 'ACTIVE', stopId: { not: null } },
+      where: { tenantId, routeId, status: 'ACTIVE', stopId: { not: null }, ...(shiftId ? { ageGroupId: shiftId } : {}) },
       select: { id: true, stopId: true },
     });
 
@@ -1479,14 +1552,19 @@ export class TripsService {
       throw new BadRequestException(
         stopCount === 0
           ? 'This route has no stops — add stops and assign students to them before scheduling a trip.'
-          : 'This route has no eligible riders — assign active students to a stop on this route before scheduling.',
+          : shiftId
+            ? 'No active students on this route belong to that shift — assign students to this shift, with a stop on this route, before scheduling.'
+            : 'This route has no eligible riders — assign active students to a stop on this route before scheduling.',
       );
     }
 
-    // Planned departure: admin-entered if supplied, else derived from the route's
-    // age-group pickup/drop time (2B trip-start governance window).
+    // Planned departure: admin-entered if supplied; else the shift's pickup/drop
+    // time applied to the trip day when shift-aware; else the route's age-group
+    // time (existing behaviour). (2B trip-start governance window.)
     const scheduledStart =
-      data.scheduledStart ?? (await this.deriveScheduledStart(routeId, tenantId, date, direction));
+      data.scheduledStart ??
+      (shift ? applyHHMMToDate(direction === Direction.PICKUP ? shift.pickupTime : shift.dropTime, date) : null) ??
+      (await this.deriveScheduledStart(routeId, tenantId, date, direction));
 
     // Scheduling window (mirrors the admin client): the planned start must fall
     // between now and one month ahead. Re-validated here so the rule holds for
@@ -1509,9 +1587,13 @@ export class TripsService {
           vehicleId,
           driverId,
           conductorId: conductorId ?? null,
+          shiftId: shiftId ?? null,
           date,
           direction,
           scheduledStart,
+          anchorLat: anchor?.lat ?? null,
+          anchorLng: anchor?.lng ?? null,
+          anchorLabel: anchor?.label ?? null,
           status: TripStatus.SCHEDULED,
         },
       });
@@ -1565,11 +1647,13 @@ export class TripsService {
       conductorId?: string | null;
       direction?: Direction;
       scheduledStart?: Date;
+      /** A non-empty id assigns the shift; an empty string clears it. */
+      shiftId?: string | null;
     },
   ) {
     const trip = await this.prisma.trip.findFirst({
       where: { id, tenantId },
-      select: { id: true, status: true, routeId: true },
+      select: { id: true, status: true, routeId: true, shiftId: true },
     });
     if (!trip) throw new NotFoundException(`Trip ${id} not found`);
     if (trip.status !== TripStatus.SCHEDULED) {
@@ -1597,20 +1681,37 @@ export class TripsService {
     if (patch.conductorId) {
       await this.assertActiveStaff(patch.conductorId, tenantId, Role.CONDUCTOR, 'Conductor');
     }
+    // A (re)assigned shift must belong to this school (NFR-05). An empty string
+    // clears it; only a non-empty id is verified.
+    if (patch.shiftId) {
+      const shift = await this.prisma.ageGroup.findFirst({
+        where: { id: patch.shiftId, tenantId },
+        select: { id: true },
+      });
+      if (!shift) throw new BadRequestException('Shift not found in this school');
+    }
 
     const routeChanged = !!patch.routeId && patch.routeId !== trip.routeId;
     const newRouteId = patch.routeId ?? trip.routeId;
+    // Effective shift after this edit (empty string clears it), and whether it changed.
+    const newShiftId = patch.shiftId !== undefined ? patch.shiftId || null : trip.shiftId;
+    const shiftChanged = patch.shiftId !== undefined && newShiftId !== trip.shiftId;
+    // The roster depends on both route and shift, so it's stale if either changed.
+    const rosterStale = routeChanged || shiftChanged;
+    const shiftFilter = newShiftId ? { ageGroupId: newShiftId } : {};
 
-    // Re-routing onto an empty route would leave the trip with no riders — block it
-    // (a driver can't be assigned an empty route). Only enforced when the route
-    // actually changes, so editing time/driver on an existing trip is never blocked.
-    if (routeChanged) {
+    // Re-routing/re-shifting onto an empty roster would leave the trip with no
+    // riders — block it (a driver can't be assigned an empty trip). Only enforced
+    // when the roster actually changes, so editing time/driver is never blocked.
+    if (rosterStale) {
       const eligible = await this.prisma.student.count({
-        where: { tenantId, routeId: newRouteId, status: 'ACTIVE', stopId: { not: null } },
+        where: { tenantId, routeId: newRouteId, status: 'ACTIVE', stopId: { not: null }, ...shiftFilter },
       });
       if (eligible === 0) {
         throw new BadRequestException(
-          'This route has no eligible riders — assign active students to a stop on it before assigning a trip to it.',
+          newShiftId
+            ? 'No active students on this route belong to that shift — pick a different shift/route or assign students first.'
+            : 'This route has no eligible riders — assign active students to a stop on it before assigning a trip to it.',
         );
       }
     }
@@ -1622,13 +1723,14 @@ export class TripsService {
     if (patch.conductorId !== undefined) data.conductorId = patch.conductorId;
     if (patch.direction !== undefined) data.direction = patch.direction;
     if (patch.scheduledStart !== undefined) data.scheduledStart = patch.scheduledStart;
+    if (patch.shiftId !== undefined) data.shiftId = newShiftId;
 
     return this.prisma.$transaction(async (tx) => {
-      if (routeChanged) {
-        // Rebuild the roster for the new route — old riders no longer apply.
+      if (rosterStale) {
+        // Rebuild the roster for the new route/shift — old riders no longer apply.
         await tx.tripRider.deleteMany({ where: { tripId: id } });
         const students = await tx.student.findMany({
-          where: { tenantId, routeId: newRouteId, status: 'ACTIVE', stopId: { not: null } },
+          where: { tenantId, routeId: newRouteId, status: 'ACTIVE', stopId: { not: null }, ...shiftFilter },
           select: { id: true, stopId: true },
         });
         if (students.length) {

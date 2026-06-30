@@ -77,6 +77,12 @@ export interface ScheduleTripDto {
   date: string;
   direction: 'PICKUP' | 'DROP';
   scheduledStart?: string;
+  /** Schedule for a specific shift (AgeGroup): derives the start time + filters the roster. */
+  shiftId?: string;
+  /** Optional "different destination" override — lat + lng together (label optional). */
+  anchorLat?: number;
+  anchorLng?: number;
+  anchorLabel?: string;
 }
 
 /** Combinable, server-side trip-list filters (all optional). */
@@ -95,6 +101,8 @@ export interface UpdateTripDto {
   conductorId?: string;
   direction?: 'PICKUP' | 'DROP';
   scheduledStart?: string;
+  /** A non-empty id assigns the shift; an empty string clears it. */
+  shiftId?: string;
 }
 
 /**

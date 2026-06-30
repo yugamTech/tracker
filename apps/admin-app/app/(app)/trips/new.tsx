@@ -7,7 +7,7 @@ import {
 } from '@yaanam/ui';
 import {
   useRoutes, useVehicles, useMembers, useStudents, useCreateTrip,
-  useTripById, useUpdateTrip,
+  useTripById, useUpdateTrip, useShifts,
 } from '@yaanam/api-client';
 import { MonthCalendar, ymdKey, startOfMonth, formatDayLabel } from '../../../components/Calendar';
 import { useScheduleResultStore, type ScheduleDayResult } from '../../../store/schedule.store';
@@ -38,6 +38,7 @@ export default function ScheduleTripScreen() {
   const { data: drivers = [], isLoading: driversLoading } = useMembers('DRIVER');
   const { data: conductors = [] } = useMembers('CONDUCTOR');
   const { data: students = [] } = useStudents();
+  const { data: shifts = [] } = useShifts();
   const createTrip = useCreateTrip();
   const updateTrip = useUpdateTrip();
   const toast = useToast();
@@ -55,6 +56,15 @@ export default function ScheduleTripScreen() {
   const [startHour, setStartHour] = useState('08');
   const [startMin, setStartMin] = useState('00');
   const [direction, setDirection] = useState<'PICKUP' | 'DROP'>('PICKUP');
+  // Optional shift: '' = whole route. When set, the roster is filtered to that
+  // shift's students and the start time follows the shift's pickup/drop time.
+  const [shiftId, setShiftId] = useState('');
+  // Optional per-trip destination override ("Different destination?"), off by
+  // default so a normal trip needs zero extra input.
+  const [anchorMode, setAnchorMode] = useState<'school' | 'custom'>('school');
+  const [anchorLabel, setAnchorLabel] = useState('');
+  const [anchorLat, setAnchorLat] = useState('');
+  const [anchorLng, setAnchorLng] = useState('');
 
   // `now` is re-anchored on every focus so the schedulable window (and the
   // form) is always fresh — the Drawer keeps this screen mounted between visits.
@@ -90,6 +100,11 @@ export default function ScheduleTripScreen() {
         setStartHour('08');
         setStartMin('00');
         setDirection('PICKUP');
+        setShiftId('');
+        setAnchorMode('school');
+        setAnchorLabel('');
+        setAnchorLat('');
+        setAnchorLng('');
         setSelectedDays(new Set([ymdKey(new Date(Date.now() + SCHEDULE_BUFFER_MIN * 60_000))]));
       }
       // Edit-mode prefill is driven by the `editingTrip` effect below.
@@ -104,6 +119,7 @@ export default function ScheduleTripScreen() {
     setVehicleId(t.vehicleId ?? '');
     setDriverId(t.driverId ?? '');
     setConductorId(t.conductorId ?? undefined);
+    setShiftId(t.shiftId ?? '');
     if (t.direction) setDirection(t.direction);
     const ss = t.scheduledStart ?? t.date;
     if (ss) {
@@ -113,6 +129,21 @@ export default function ScheduleTripScreen() {
     }
     if (t.date) setSelectedDays(new Set([ymdKey(new Date(t.date))]));
   }, [editingTrip]);
+
+  // When a shift is chosen (create mode), the start time follows the shift's
+  // pickup/drop time for the current direction, so the trip departs on shift. In
+  // edit mode we keep the trip's stored time (re-pick the shift to resync).
+  useEffect(() => {
+    if (isEdit || !shiftId) return;
+    const shift = shifts.find((s) => s.id === shiftId);
+    if (!shift) return;
+    const t = direction === 'PICKUP' ? shift.pickupTime : shift.dropTime;
+    if (/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) {
+      const [h, m] = t.split(':');
+      setStartHour(h);
+      setStartMin(m);
+    }
+  }, [shiftId, direction, shifts, isEdit]);
 
   const toggleDay = (key: string) => {
     setSelectedDays((prev) => {
@@ -126,9 +157,15 @@ export default function ScheduleTripScreen() {
 
   const rosterCount = useMemo(
     () => (routeId
-      ? students.filter((s) => s.routeId === routeId && s.status === 'ACTIVE' && !!s.stopId).length
+      ? students.filter(
+          (s) =>
+            s.routeId === routeId &&
+            s.status === 'ACTIVE' &&
+            !!s.stopId &&
+            (!shiftId || s.ageGroupId === shiftId),
+        ).length
       : 0),
-    [students, routeId],
+    [students, routeId, shiftId],
   );
 
   const selectRoute = (id: string) => {
@@ -156,11 +193,33 @@ export default function ScheduleTripScreen() {
     return `${pad(early.getHours())}:${pad(early.getMinutes())}–${pad(late.getHours())}:${pad(late.getMinutes())}`;
   })();
 
+  /**
+   * Validate the optional destination override and return the fields to send
+   * (empty object when "Same as school"). Shows a toast + returns 'INVALID' on a
+   * bad/partial pin so the caller can bail.
+   */
+  const resolveAnchorFields = (): { anchorLat?: number; anchorLng?: number; anchorLabel?: string } | 'INVALID' => {
+    if (anchorMode !== 'custom') return {};
+    const latStr = anchorLat.trim();
+    const lngStr = anchorLng.trim();
+    if (latStr === '' || lngStr === '') { toast.error('Enter both a latitude and longitude for the destination'); return 'INVALID'; }
+    const lat = Number(latStr);
+    const lng = Number(lngStr);
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90) { toast.error('Destination latitude must be between -90 and 90'); return 'INVALID'; }
+    if (!Number.isFinite(lng) || lng < -180 || lng > 180) { toast.error('Destination longitude must be between -180 and 180'); return 'INVALID'; }
+    return { anchorLat: lat, anchorLng: lng, anchorLabel: anchorLabel.trim() || undefined };
+  };
+
   const handleCreate = async () => {
     if (!routeId) { toast.error('Please select a route'); return; }
     if (!vehicleId) { toast.error('Please select a vehicle'); return; }
     if (!driverId) { toast.error('Please select a driver'); return; }
     if (sortedDays.length === 0) { toast.error('Please select at least one date'); return; }
+
+    // Optional destination override — both coords required, range-checked (the
+    // backend re-validates). Built once and applied to every day in the batch.
+    const anchorFields = resolveAnchorFields();
+    if (anchorFields === 'INVALID') return;
 
     const h = Math.min(23, Math.max(0, parseInt(startHour, 10) || 0));
     const m = Math.min(59, Math.max(0, parseInt(startMin, 10) || 0));
@@ -200,6 +259,8 @@ export default function ScheduleTripScreen() {
         await createTrip.mutateAsync({
           routeId, vehicleId, driverId, conductorId,
           date: iso, direction, scheduledStart: iso,
+          shiftId: shiftId || undefined,
+          ...anchorFields,
         });
         tally.push({ key, ok: true });
       } catch (e: any) {
@@ -223,7 +284,7 @@ export default function ScheduleTripScreen() {
     const dayKey = sortedDays[0] ?? todayKey;
     const iso = isoFromKey(dayKey, h, m);
     updateTrip.mutate(
-      { tripId: editTripId as string, routeId, vehicleId, driverId, conductorId, direction, scheduledStart: iso },
+      { tripId: editTripId as string, routeId, vehicleId, driverId, conductorId, direction, scheduledStart: iso, shiftId },
       {
         onSuccess: () => { toast.success('Trip updated'); router.replace(`/(app)/fleet/${editTripId}` as never); },
         onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to update trip'),
@@ -241,6 +302,11 @@ export default function ScheduleTripScreen() {
   const conductorOptions = [
     { label: 'None', value: '' },
     ...conductors.map((m) => ({ label: m.person.name, value: m.personId })),
+  ];
+  // "Whole route" clears the shift; each shift shows its time for the current direction.
+  const shiftOptions = [
+    { label: 'Whole route', value: '' },
+    ...shifts.map((s) => ({ label: `${s.name} · ${direction === 'PICKUP' ? s.pickupTime : s.dropTime}`, value: s.id })),
   ];
 
   return (
@@ -270,6 +336,21 @@ export default function ScheduleTripScreen() {
           onChange={(v) => setConductorId(v || undefined)}
           options={conductorOptions}
         />
+      </GroupCard>
+
+      <GroupCard title="Shift (optional)" spot="trip" hue={colors.people}>
+        {shifts.length === 0 ? (
+          <Text style={styles.empty}>No shifts yet — add them under Settings → Shifts to carry one shift at a time.</Text>
+        ) : (
+          <>
+            <PillPicker hue={colors.people} value={shiftId} onChange={setShiftId} options={shiftOptions} />
+            <Text style={styles.shiftHint}>
+              {shiftId
+                ? 'Only this shift’s students ride, and the start time follows the shift.'
+                : 'Whole route — every eligible student on the route rides.'}
+            </Text>
+          </>
+        )}
       </GroupCard>
 
       <GroupCard title="Dates" spot="trip" hue={HUE}>
@@ -340,6 +421,37 @@ export default function ScheduleTripScreen() {
         />
       </GroupCard>
 
+      {/* Optional per-trip destination override (create only; defaulted off). */}
+      {!isEdit ? (
+        <GroupCard title="Destination" spot="route" hue={HUE}>
+          <PillPicker
+            hue={HUE}
+            value={anchorMode}
+            onChange={(v) => setAnchorMode(v as 'school' | 'custom')}
+            options={[
+              { label: 'Same as school', value: 'school' },
+              { label: 'Different destination', value: 'custom' },
+            ]}
+          />
+          {anchorMode === 'custom' ? (
+            <>
+              <Text style={styles.shiftHint}>This trip ends/starts at a custom point instead of the school pin.</Text>
+              <Field label="Label">
+                <FormInput hue={HUE} value={anchorLabel} onChangeText={setAnchorLabel} placeholder="e.g. Sports ground" autoCapitalize="words" />
+              </Field>
+              <View style={styles.coordRow}>
+                <Field label="Latitude" hint="-90 … 90" style={styles.coordField}>
+                  <FormInput hue={HUE} value={anchorLat} onChangeText={setAnchorLat} placeholder="12.9716" keyboardType="numbers-and-punctuation" />
+                </Field>
+                <Field label="Longitude" hint="-180 … 180" style={styles.coordField}>
+                  <FormInput hue={HUE} value={anchorLng} onChangeText={setAnchorLng} placeholder="77.5946" keyboardType="numbers-and-punctuation" />
+                </Field>
+              </View>
+            </>
+          ) : null}
+        </GroupCard>
+      ) : null}
+
       {/* Roster preview */}
       <View style={[styles.rosterCard, { backgroundColor: HUE_BG }]}>
         <IconSplat shape="b3" splatColor={colors.white} spot="users" size={40} />
@@ -382,6 +494,9 @@ const styles = StyleSheet.create({
   content: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[8] },
 
   empty: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink3 },
+  shiftHint: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3, lineHeight: 16 },
+  coordRow: { flexDirection: 'row', gap: spacing[3] },
+  coordField: { flex: 1 },
 
   datesHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing[2] },
   datesHint: { flex: 1, fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.xs, color: colors.ink3, lineHeight: 16 },

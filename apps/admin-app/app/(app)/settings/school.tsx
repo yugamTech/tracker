@@ -6,8 +6,9 @@ import {
   Chip, TextField, useToast, AnimatedPressable, IconSplat, Icon,
 } from '@yaanam/ui';
 import { useMyTenant, useUpdateMyTenant } from '@yaanam/api-client';
+import type { UpdateTenantDto } from '@yaanam/api-client';
 import { TIMEZONE_OPTIONS, LOCALE_OPTIONS, BRAND_COLOR_PRESETS } from '../../../lib/settings';
-import { GroupCard, Field, ActionButton } from '../../../components/forms';
+import { GroupCard, Field, FormInput, ActionButton } from '../../../components/forms';
 
 const HUE = colors.sun;
 
@@ -26,6 +27,9 @@ export default function SchoolProfileScreen() {
   const [locale, setLocale] = useState('');
   const [primaryColor, setPrimaryColor] = useState('');
   const [tagline, setTagline] = useState('');
+  const [schoolName, setSchoolName] = useState('');
+  const [schoolLat, setSchoolLat] = useState('');
+  const [schoolLng, setSchoolLng] = useState('');
 
   useEffect(() => {
     if (tenant) {
@@ -34,6 +38,9 @@ export default function SchoolProfileScreen() {
       setLocale(tenant.locale ?? 'en');
       setPrimaryColor(tenant.brandingConfig?.primaryColor ?? BRAND_COLOR_PRESETS[0]);
       setTagline(tenant.brandingConfig?.tagline ?? '');
+      setSchoolName(tenant.schoolName ?? '');
+      setSchoolLat(tenant.schoolLat != null ? String(tenant.schoolLat) : '');
+      setSchoolLng(tenant.schoolLng != null ? String(tenant.schoolLng) : '');
     }
   }, [tenant]);
 
@@ -46,18 +53,34 @@ export default function SchoolProfileScreen() {
 
   const handleSave = () => {
     if (!name.trim()) { toast.error('School name is required'); return; }
-    updateTenant.mutate(
-      {
-        name: name.trim(),
-        timezone,
-        locale,
-        brandingConfig: { primaryColor, tagline: tagline.trim() || undefined },
-      },
-      {
-        onSuccess: () => { toast.success('School profile updated'); router.back(); },
-        onError: (e: any) => toast.error(e?.response?.data?.error?.message ?? e?.response?.data?.message ?? 'Failed to save'),
-      },
-    );
+
+    // School coordinates are optional, but a pin needs BOTH lat and lng. Validate
+    // ranges client-side (the backend re-checks) so a bad pin never reaches save.
+    const latStr = schoolLat.trim();
+    const lngStr = schoolLng.trim();
+    if ((latStr === '') !== (lngStr === '')) {
+      toast.error('Enter both latitude and longitude, or leave both blank'); return;
+    }
+    const payload: UpdateTenantDto = {
+      name: name.trim(),
+      timezone,
+      locale,
+      brandingConfig: { primaryColor, tagline: tagline.trim() || undefined },
+      schoolName: schoolName.trim() || undefined,
+    };
+    if (latStr !== '' && lngStr !== '') {
+      const lat = Number(latStr);
+      const lng = Number(lngStr);
+      if (!Number.isFinite(lat) || lat < -90 || lat > 90) { toast.error('Latitude must be between -90 and 90'); return; }
+      if (!Number.isFinite(lng) || lng < -180 || lng > 180) { toast.error('Longitude must be between -180 and 180'); return; }
+      payload.schoolLat = lat;
+      payload.schoolLng = lng;
+    }
+
+    updateTenant.mutate(payload, {
+      onSuccess: () => { toast.success('School profile updated'); router.back(); },
+      onError: (e: any) => toast.error(e?.response?.data?.error?.message ?? e?.response?.data?.message ?? 'Failed to save'),
+    });
   };
 
   return (
@@ -126,6 +149,44 @@ export default function SchoolProfileScreen() {
         </Field>
       </GroupCard>
 
+      <GroupCard title="School location" spot="route" hue={HUE}>
+        <Text style={styles.hint}>
+          The campus pin used as the school end of every trip — the destination for a pickup, the origin for a drop.
+          Set it once here; an individual trip can still override it. A map pin picker comes later.
+        </Text>
+
+        <Field label="Location name" hint="Optional — shown as the destination/origin label on the map.">
+          <FormInput
+            hue={HUE}
+            value={schoolName}
+            onChangeText={setSchoolName}
+            placeholder="e.g. Greenwood Campus — Main Gate"
+            autoCapitalize="words"
+          />
+        </Field>
+
+        <View style={styles.coordRow}>
+          <Field label="Latitude" hint="-90 … 90" style={styles.coordField}>
+            <FormInput
+              hue={HUE}
+              value={schoolLat}
+              onChangeText={setSchoolLat}
+              placeholder="12.9716"
+              keyboardType="numbers-and-punctuation"
+            />
+          </Field>
+          <Field label="Longitude" hint="-180 … 180" style={styles.coordField}>
+            <FormInput
+              hue={HUE}
+              value={schoolLng}
+              onChangeText={setSchoolLng}
+              placeholder="77.5946"
+              keyboardType="numbers-and-punctuation"
+            />
+          </Field>
+        </View>
+      </GroupCard>
+
       <ActionButton title="Save changes" hue={HUE} onPress={handleSave} loading={updateTenant.isPending} fullWidth />
     </ScrollView>
   );
@@ -149,4 +210,7 @@ const styles = StyleSheet.create({
   swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
   swatch: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
   swatchActive: { borderColor: colors.ink },
+
+  coordRow: { flexDirection: 'row', gap: spacing[3] },
+  coordField: { flex: 1 },
 });

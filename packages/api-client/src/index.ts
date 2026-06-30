@@ -48,6 +48,10 @@ export { routesApi, stopsApi } from './routes/routes.api';
 export type { Route, RouteStudent, RouteVehicle, Stop, EmergencyRouteEntry, EmergencyContact, EmergencyTeacher } from './routes/routes.api';
 export { routeKeys, useRoutes, useRouteById, useCreateRoute, useUpdateRoute, useDeactivateRoute, useReactivateRoute, useDeleteRoute, useEmergencyDirectory, useStops, useCreateStop, useAddStop, useUpdateStop } from './routes/routes.hooks';
 
+// Shifts (AgeGroups CRUD)
+export { shiftsApi } from './shifts/shifts.api';
+export { shiftKeys, useShifts, useCreateShift, useUpdateShift, useDeleteShift } from './shifts/shifts.hooks';
+
 // Trips
 export { tripsApi, pickupCancelInfo, PICKUP_CANCEL_CUTOFF_MINUTES } from './trips/trips.api';
 export type { ScheduleTripDto, TripStartExceptionWithTrip, TripCompletionExceptionWithTrip, OverdueTrip, LifecycleAlarmTrip, TripLifecycleEvent, TripLifecycleAction, TripFilters, UpdateTripDto, PickupCancelInfo, HistoryTrip, DriverEfficiency, DriverHistoryResponse, TripTrendDay } from './trips/trips.api';

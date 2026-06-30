@@ -262,6 +262,10 @@ export interface Tenant {
   brandingConfig: BrandingConfig;
   bellTimings: BellTiming[];
   alertNumbers: AlertNumber[];
+  /** School campus coordinates — the default "school end" of every trip; null until set. */
+  schoolLat?: number | null;
+  schoolLng?: number | null;
+  schoolName?: string | null;
   status: string;
   createdAt?: string;
 }
@@ -275,4 +279,7 @@ export interface UpdateTenantDto {
   brandingConfig?: BrandingConfig;
   bellTimings?: BellTiming[];
   alertNumbers?: AlertNumber[];
+  schoolLat?: number;
+  schoolLng?: number;
+  schoolName?: string;
 }
