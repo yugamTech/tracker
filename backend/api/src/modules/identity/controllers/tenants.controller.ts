@@ -6,6 +6,9 @@ import {
   IsOptional,
   IsObject,
   IsArray,
+  IsNumber,
+  Min,
+  Max,
   ValidateNested,
 } from 'class-validator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
@@ -41,6 +44,12 @@ class UpdateTenantDto {
   bellTimings?: BellTimingDto[];
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => AlertNumberDto)
   alertNumbers?: AlertNumberDto[];
+  // School campus coordinates — the default "school end" of every trip. Validated
+  // to real geographic ranges; the resolver (TripsService) uses them as the
+  // fallback when a trip has no per-trip anchor override.
+  @IsOptional() @IsNumber() @Min(-90) @Max(90) schoolLat?: number;
+  @IsOptional() @IsNumber() @Min(-180) @Max(180) schoolLng?: number;
+  @IsOptional() @IsString() schoolName?: string;
 }
 
 @ApiTags('tenants')
