@@ -80,7 +80,8 @@ export default function RouteDetailScreen() {
             toast.success('Route created');
             router.replace(`/(app)/routes/${created.id}` as never);
           },
-          onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed'),
+          // Surfaces the 409 "A route with this name already exists" as a toast.
+          onError: (e: any) => toast.error(e?.response?.data?.error?.message ?? e?.response?.data?.message ?? 'Failed'),
         },
       );
     } else {
@@ -89,7 +90,8 @@ export default function RouteDetailScreen() {
         { id: routeId, name: name.trim(), vehicleId },
         {
           onSuccess: () => { toast.success('Route updated'); setEditing(false); },
-          onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed'),
+          // Surfaces the 409 "A route with this name already exists" as a toast.
+          onError: (e: any) => toast.error(e?.response?.data?.error?.message ?? e?.response?.data?.message ?? 'Failed'),
         },
       );
     }

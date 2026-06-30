@@ -173,4 +173,29 @@ describe('Routes — direction-agnostic + unique name (e2e)', () => {
       created.tripIds.push(res.body.data.id);
     });
   });
+
+  // ── ITEM 3 — unique route name per tenant ──────────────────────────────────
+  describe('POST /routes — unique name per tenant', () => {
+    it('rejects a duplicate route name with 409', async () => {
+      if (!tokenAdmin) return;
+      // 'Both-Ways Route' was seeded above in this tenant.
+      const res = await request(app.getHttpServer())
+        .post('/routes')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({ name: 'Both-Ways Route' })
+        .expect(409);
+      expect(String(res.body.error?.message ?? res.body.message)).toMatch(/already exists/i);
+    });
+
+    it('allows a distinct route name (201)', async () => {
+      if (!tokenAdmin) return;
+      const res = await request(app.getHttpServer())
+        .post('/routes')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({ name: 'A Different Route' })
+        .expect(201);
+      expect(res.body.data.id).toBeDefined();
+      created.routeIds.push(res.body.data.id);
+    });
+  });
 });
