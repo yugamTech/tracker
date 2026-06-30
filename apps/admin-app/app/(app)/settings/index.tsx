@@ -38,6 +38,7 @@ export default function SettingsScreen() {
       hue: HUE,
       items: [
         { label: 'School Profile', icon: 'cog', iconBg: HUE_BG, iconColor: HUE, onPress: () => router.push('/(app)/settings/school' as never) },
+        { label: 'Shifts', icon: 'clock', iconBg: colors.peopleBg, iconColor: colors.people, onPress: () => router.push('/(app)/settings/shifts' as never) },
         { label: 'Bell Timings', icon: 'clock', iconBg: HUE_BG, iconColor: HUE, onPress: () => router.push('/(app)/settings/bell-timings' as never) },
         { label: 'Alert Numbers', icon: 'phone', iconBg: colors.critBg, iconColor: colors.crit, onPress: () => router.push('/(app)/settings/alert-numbers' as never) },
         { label: 'Feature Flags', icon: 'flag', iconBg: colors.talkBg, iconColor: colors.talk, onPress: () => router.push('/(app)/settings/feature-flags' as never) },
