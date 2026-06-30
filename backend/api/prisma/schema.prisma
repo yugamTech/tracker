@@ -49,6 +49,14 @@ model Tenant {
   // Emergency / alert contacts: [{ id, label, phone }]. Editable in
   // Settings → Alert Numbers; surfaced to staff/parents in later phases.
   alertNumbers   Json         @default("[]")
+  // School campus geolocation — the tenant-wide "school end" of every trip:
+  // the DESTINATION for a PICKUP (after the last stop) and the ORIGIN for a
+  // DROP (before the first stop). Optional: a tenant that hasn't set it yet has
+  // no anchor and the UI nudges them in Settings → School. A per-trip override
+  // lives on Trip.anchor* for the occasional different-destination run.
+  schoolLat      Float?
+  schoolLng      Float?
+  schoolName     String?
   status         TenantStatus @default(ACTIVE)
   createdAt      DateTime     @default(now())
 
@@ -356,6 +364,9 @@ model AgeGroup {
   tenant   Tenant    @relation(fields: [tenantId], references: [id])
   route    Route?    @relation(fields: [routeId], references: [id])
   students Student[]
+  trips    Trip[]
+
+  @@index([tenantId])
 }
 
 // ─── TRIPS & TRACKING ─────────────────────────────────────────────────────
@@ -367,12 +378,23 @@ model Trip {
   vehicleId   String?
   driverId    String?
   conductorId String?
+  // The shift (AgeGroup) this trip serves, when scheduled shift-aware. Drives
+  // scheduledStart (from the shift's pickup/drop time) and filters the roster to
+  // that shift's students, so one route can run a First- and Second-shift trip
+  // per direction per day. Optional — a plain whole-route trip leaves it null.
+  shiftId     String?
   date        DateTime
   direction   Direction
   // Planned departure time, set at scheduling. Drives the ±1h clean-start window
   // (2B trip-start governance). Nullable so the migration can backfill existing
   // rows from `date`; always populated for new trips.
   scheduledStart DateTime?
+  // Per-trip "school end" override (different-destination run). All three are set
+  // together or all null; when set they take precedence over the tenant's
+  // school* coordinates for this trip only. See TripsService.resolveSchoolAnchor.
+  anchorLat   Float?
+  anchorLng   Float?
+  anchorLabel String?
   status      TripStatus @default(SCHEDULED)
   startedAt   DateTime?
   completedAt DateTime?
@@ -383,6 +405,7 @@ model Trip {
   vehicle             Vehicle?              @relation(fields: [vehicleId], references: [id])
   driver              Person?               @relation("TripDriver", fields: [driverId], references: [id])
   conductor           Person?               @relation("TripConductor", fields: [conductorId], references: [id])
+  shift               AgeGroup?             @relation(fields: [shiftId], references: [id])
   riders              TripRider[]
   locationPings       LocationPing[]
   geofenceEvents      GeofenceEvent[]
@@ -400,6 +423,7 @@ model Trip {
   @@index([tenantId, status])
   @@index([driverId])
   @@index([conductorId])
+  @@index([shiftId])
 }
 
 enum TripStatus {
