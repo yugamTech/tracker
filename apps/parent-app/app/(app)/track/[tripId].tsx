@@ -331,6 +331,12 @@ export default function TrackScreen() {
                   <Text style={styles.skipHint}>You can skip until {fmtTime(skip.cutoffAt)}.</Text>
                 ) : null}
               </View>
+            ) : skip.isDrop ? (
+              // A drop is never skippable — no "Skip pickup" control (pickups only),
+              // just the explanation that the child still needs to get home.
+              <View style={styles.skipWrap}>
+                <Text style={styles.skipHintMuted}>{skip.reason}</Text>
+              </View>
             ) : (
               <View style={styles.skipWrap}>
                 <Button title="Skip pickup today" variant="outline" size="lg" fullWidth disabled onPress={() => {}} />

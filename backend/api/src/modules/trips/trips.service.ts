@@ -1421,8 +1421,15 @@ export class TripsService {
 
     const trip = await this.prisma.trip.findUniqueOrThrow({
       where: { id: tripId },
-      select: { tenantId: true, status: true, scheduledStart: true, date: true },
+      select: { tenantId: true, status: true, scheduledStart: true, date: true, direction: true },
     });
+
+    // A DROP can never be skipped: skipping a pickup just means "don't collect my
+    // child this morning", but a child already at school still needs to get home.
+    // (Only pickups are skippable — see pickupCancelInfo in the api-client.)
+    if (trip.direction === Direction.DROP) {
+      throw new BadRequestException('A drop cannot be skipped — your child still needs to get home');
+    }
 
     const cutoffMinutes = this.pickupCancelCutoffMinutes();
     const scheduledStart = trip.scheduledStart ?? trip.date;
