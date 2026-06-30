@@ -19,6 +19,21 @@ export enum RiderStatus {
   CANCELLED = 'CANCELLED',
 }
 
+/** Where the school end sits in a trip's geometry (PICKUP → end, DROP → start). */
+export type AnchorRole = 'ORIGIN' | 'DESTINATION';
+
+/**
+ * A trip's resolved "school end" (per-trip override → tenant school coords →
+ * none), as attached to the trip detail payload. Null when neither is set.
+ */
+export interface TripAnchor {
+  lat: number;
+  lng: number;
+  label: string | null;
+  /** DESTINATION for a PICKUP (after the last stop), ORIGIN for a DROP (before the first). */
+  role: AnchorRole;
+}
+
 export interface Trip {
   id: string;
   tenantId: string;
@@ -26,9 +41,17 @@ export interface Trip {
   vehicleId?: string;
   driverId?: string;
   conductorId?: string;
+  /** Shift (AgeGroup) this trip serves, when scheduled shift-aware. */
+  shiftId?: string | null;
   date: string;
   direction: Direction;
   scheduledStart?: string | null;
+  /** Per-trip school-end override (different-destination run); null when none. */
+  anchorLat?: number | null;
+  anchorLng?: number | null;
+  anchorLabel?: string | null;
+  /** Resolved school end (trip detail payload only); null when no coords exist. */
+  anchor?: TripAnchor | null;
   status: TripStatus;
   startedAt?: string;
   completedAt?: string;
