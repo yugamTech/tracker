@@ -10,7 +10,6 @@ import { Role } from '@yaanam/types';
 
 class CreateRouteDto {
   @IsString() name!: string;
-  @IsString() direction!: 'PICKUP' | 'DROP';
 }
 
 class UpdateRouteDto {

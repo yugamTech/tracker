@@ -278,7 +278,9 @@ model Route {
   id        String      @id @default(uuid())
   tenantId  String
   name      String
-  direction Direction
+  // A route is direction-agnostic: it serves both PICKUP and DROP trips. The
+  // direction lives on each Trip (Trip.direction), not on the route. (Was a
+  // required Route.direction column — dropped so one route can run both ways.)
   status    RouteStatus @default(ACTIVE)
   // The bus designated to serve this route. Optional — a route can exist before a
   // bus is assigned. This is the route-level link the per-Trip vehicleId never gave

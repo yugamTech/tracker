@@ -169,9 +169,8 @@ export default function ScheduleTripScreen() {
   );
 
   const selectRoute = (id: string) => {
+    // A route is direction-agnostic; the admin picks the trip direction explicitly.
     setRouteId(id);
-    const route = routes.find((r) => r.id === id);
-    if (route?.direction) setDirection(route.direction);
   };
 
   const isLoading = routesLoading || vehiclesLoading || driversLoading || (isEdit && tripLoading);

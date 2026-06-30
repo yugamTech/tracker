@@ -89,7 +89,7 @@ describe('Shifts + shift-aware trips (e2e)', () => {
     vehicleAId = vehicleA.id;
 
     const routeA = await prisma.route.create({
-      data: { tenantId: tenantA.id, name: 'Shift Route A', direction: 'PICKUP' },
+      data: { tenantId: tenantA.id, name: 'Shift Route A' },
     });
     created.routeIds.push(routeA.id);
     routeAId = routeA.id;

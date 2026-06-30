@@ -47,7 +47,6 @@ export const ENTITY_TEMPLATES: Record<ImportEntityType, EntityTemplate> = {
     description: 'One row per stop. Repeat the route name for each of its stops.',
     columns: [
       { key: 'routeName', required: true, hint: 'Route name', example: 'Route A - Morning' },
-      { key: 'direction', required: true, hint: 'PICKUP or DROP', example: 'PICKUP' },
       { key: 'stopName', required: true, hint: 'Stop name', example: 'Green Park Gate' },
       { key: 'sequence', required: true, hint: 'Stop order on route (1,2,3…)', example: '1' },
       { key: 'lat', required: true, hint: 'Latitude', example: '28.5601' },

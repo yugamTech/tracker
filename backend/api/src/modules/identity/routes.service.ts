@@ -72,7 +72,7 @@ export class RoutesService {
     return { ...route, deletable, seatsUsed, capacity: route.vehicle?.capacity ?? null };
   }
 
-  create(data: { tenantId: string; name: string; direction: 'PICKUP' | 'DROP' }) {
+  create(data: { tenantId: string; name: string }) {
     return this.prisma.route.create({ data });
   }
 
@@ -240,7 +240,6 @@ export class RoutesService {
     return routes.map((r) => ({
       routeId: r.id,
       routeName: r.name,
-      direction: r.direction,
       status: r.status,
       vehicle: r.vehicle ?? null,
       seatsUsed: seatsByRoute.get(r.id) ?? 0,

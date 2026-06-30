@@ -18,7 +18,6 @@ import {
 } from '../../../components/forms';
 
 const HUE = colors.route;
-const DIRECTIONS = ['PICKUP', 'DROP'] as const;
 
 /**
  * Client-side lat/lng range check (mirrors the backend DTO @Min/@Max). Returns a
@@ -48,7 +47,6 @@ export default function RouteDetailScreen() {
   const toast = useToast();
 
   const [name, setName] = useState('');
-  const [direction, setDirection] = useState<typeof DIRECTIONS[number]>('PICKUP');
   const [vehicleId, setVehicleId] = useState('');
   const [editing, setEditing] = useState(isNew);
 
@@ -68,7 +66,6 @@ export default function RouteDetailScreen() {
   useEffect(() => {
     if (route) {
       setName(route.name);
-      setDirection(route.direction);
       setVehicleId(route.vehicleId ?? '');
     }
   }, [route]);
@@ -77,7 +74,7 @@ export default function RouteDetailScreen() {
     if (!name.trim()) { toast.error('Route name is required'); return; }
     if (isNew) {
       createRoute.mutate(
-        { name: name.trim(), direction },
+        { name: name.trim() },
         {
           onSuccess: (created) => {
             toast.success('Route created');
@@ -243,7 +240,6 @@ export default function RouteDetailScreen() {
           <View style={styles.headerInfo}>
             <Text style={styles.headerName} numberOfLines={1}>{route.name}</Text>
             <View style={styles.badgeRow}>
-              <Badge label={route.direction} variant="default" size="sm" />
               <Badge label={route.status} variant={route.status === 'ACTIVE' ? 'active' : 'inactive'} size="sm" />
             </View>
           </View>
@@ -275,12 +271,6 @@ export default function RouteDetailScreen() {
           {editing
             ? <FormInput hue={HUE} value={name} onChangeText={setName} placeholder="e.g. Route A – Morning Pickup" />
             : <ReadValue value={name} />}
-        </Field>
-
-        <Field label="Direction">
-          {editing
-            ? <PillPicker hue={HUE} value={direction} onChange={(v) => setDirection(v as typeof DIRECTIONS[number])} options={DIRECTIONS.map((d) => ({ label: d, value: d }))} />
-            : <ReadValue value={direction} />}
         </Field>
 
         {editing ? (
