@@ -1,3 +1,5 @@
+import type { PoliceVerificationStatus } from './auth';
+
 export enum TripStatus {
   SCHEDULED = 'SCHEDULED',
   STARTED = 'STARTED',
@@ -5,6 +7,29 @@ export enum TripStatus {
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
   ABORTED = 'ABORTED',
+}
+
+/**
+ * Curated, privacy-scoped driver projection a PARENT receives on a trip that
+ * carries one of their children (TripsService.curatedDriverFor).
+ *
+ * FOUNDER DECISION (item 5): this intentionally exposes some driver PII —
+ * licence number and police/background-verification status — to parents so a
+ * family can vet who is driving their child, in addition to name/phone/photo.
+ * It can be dialed back by trimming these fields if policy changes. Always
+ * tenant + guardian-scoped server-side (only ever built for a trip the parent
+ * is authorised to load).
+ */
+export interface ParentDriverView {
+  name: string;
+  phone: string;
+  photoUrl: string | null;
+  /** Driving licence number (DriverProfile.licenseNumber), or null if unset. */
+  licenseNumber: string | null;
+  /** Police / background-verification outcome, or null when no profile exists. */
+  policeVerificationStatus: PoliceVerificationStatus | null;
+  /** Registration of the vehicle running this trip, or null. */
+  vehicleReg: string | null;
 }
 
 export enum Direction {

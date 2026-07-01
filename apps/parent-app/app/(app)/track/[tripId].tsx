@@ -8,6 +8,7 @@ import {
   LiveBusMap, AppHeader, AnimatedPressable, useToast,
 } from '@yaanam/ui';
 import type { BadgeVariant } from '@yaanam/ui';
+import type { ParentDriverView } from '@yaanam/types';
 import {
   useTripById,
   useLatestPosition,
@@ -45,6 +46,16 @@ const DONE_BADGE: Record<string, { label: string; variant: BadgeVariant }> = {
   CANCELLED: { label: 'Cancelled', variant: 'cancelled' },
   ABORTED: { label: 'Aborted', variant: 'error' },
 };
+
+/** The driver's police/background-verification, as a parent-facing badge. */
+function verificationBadge(status?: string | null): { label: string; variant: BadgeVariant } | null {
+  switch (status) {
+    case 'VERIFIED': return { label: '✓ Police-verified', variant: 'success' };
+    case 'PENDING': return { label: 'Verification pending', variant: 'warning' };
+    case 'REJECTED': return { label: 'Not verified', variant: 'error' };
+    default: return null;
+  }
+}
 
 export default function TrackScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
@@ -212,8 +223,9 @@ export default function TrackScreen() {
   ) : undefined;
 
   // ── Driver card (shared by scheduled + live + done) ───────────────────────
-  // Curated, server-built driver projection — only { name, photoUrl, phone }.
-  const driver = t?.driver as { name: string; photoUrl?: string | null; phone?: string | null } | null | undefined;
+  // Curated, server-built driver projection (name/photo/phone + vehicle/licence/verified, item 5).
+  const driver = t?.driver as ParentDriverView | null | undefined;
+  const driverVerified = verificationBadge(driver?.policeVerificationStatus);
   const driverCard = (
     <Card style={styles.driverCard} shadow="none">
       <View style={styles.driverRow}>
@@ -227,7 +239,7 @@ export default function TrackScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.driverName}>{driver?.name ?? 'Driver not assigned'}</Text>
           <Text style={styles.driverSub}>
-            Bus {t?.vehicle?.regNumber ?? '—'}
+            Bus {driver?.vehicleReg ?? t?.vehicle?.regNumber ?? '—'}
             {routeName ? `  ·  ${routeName}` : ''}
           </Text>
         </View>
@@ -254,6 +266,12 @@ export default function TrackScreen() {
           <Text style={styles.msgText}>Message</Text>
         </AnimatedPressable>
       </View>
+      {driver && (driverVerified || driver.licenseNumber) ? (
+        <View style={styles.driverExtra}>
+          {driverVerified ? <Badge label={driverVerified.label} variant={driverVerified.variant} size="sm" /> : null}
+          {driver.licenseNumber ? <Text style={styles.driverLicence}>Licence {driver.licenseNumber}</Text> : null}
+        </View>
+      ) : null}
     </Card>
   );
 
@@ -580,6 +598,11 @@ const styles = StyleSheet.create({
   // Driver card
   driverCard: { backgroundColor: colors.gray50 },
   driverRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  driverExtra: {
+    flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing[2],
+    marginTop: spacing[3], paddingTop: spacing[3], borderTopWidth: 1, borderTopColor: colors.gray200,
+  },
+  driverLicence: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
   driverAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.gray200, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   driverAvatarImg: { width: 44, height: 44 },
   driverName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
