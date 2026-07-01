@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking, RefreshControl, Alert,
+  View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, Linking, RefreshControl, Alert,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
@@ -11,6 +11,7 @@ import {
 import type { BadgeVariant, IconName, SpotIconName } from '@yaanam/ui';
 import {
   useTripById, useRoster, useCancelTrip, useLatestPosition, useTripSocket, useTripLifecycleEvents,
+  useDailyChecks, resolvePhotoUrl,
 } from '@yaanam/api-client';
 import type { RosterGuardian, TripLifecycleEvent } from '@yaanam/api-client';
 import { goBackTo } from '../../../lib/nav';
@@ -88,6 +89,25 @@ export default function TripMonitorScreen() {
   const { data: lifecycleEvents = [] } = useTripLifecycleEvents(tripId);
   const cancelTrip = useCancelTrip();
   const toast = useToast();
+
+  // Bus-condition photos: the driver's pre-trip check for THIS trip's vehicle, so an
+  // admin reviewing a past/completed trip sees the bus condition in-context.
+  const tripVehicleId: string | undefined = (trip as any)?.vehicle?.id ?? (trip as any)?.vehicleId ?? undefined;
+  const tripDay = ((trip as any)?.scheduledStart ?? (trip as any)?.date) as string | null | undefined;
+  const { data: dailyChecks = [] } = useDailyChecks(
+    tripVehicleId ? { vehicleId: tripVehicleId } : undefined,
+  );
+  // Prefer the check linked to this trip; else fall back to a same-day check for this vehicle.
+  const busCheck = useMemo(() => {
+    if (!tripVehicleId) return undefined;
+    const linked = dailyChecks.find((c) => c.tripId === tripId && (c.photoUrls?.length ?? 0) > 0);
+    if (linked) return linked;
+    if (!tripDay) return undefined;
+    const dayKey = new Date(tripDay).toDateString();
+    return dailyChecks.find(
+      (c) => new Date(c.createdAt).toDateString() === dayKey && (c.photoUrls?.length ?? 0) > 0,
+    );
+  }, [dailyChecks, tripId, tripVehicleId, tripDay]);
 
   // Live bus position: primed from the REST snapshot, then advanced by this
   // trip's own socket room — no need to subscribe to (and filter) the whole fleet.
@@ -355,6 +375,22 @@ export default function TripMonitorScreen() {
         </Card>
       )}
 
+      {/* Bus condition — the driver's pre-trip check photos + note for this trip's vehicle */}
+      {busCheck && busCheck.photoUrls.length > 0 && (
+        <Card style={styles.section}>
+          <View style={styles.headerMetaRow}>
+            <Icon name="bus" size={16} color={colors.ink2} />
+            <Text style={styles.cardbTitle}>Bus condition</Text>
+          </View>
+          {busCheck.note ? <Text style={styles.busNote}>{busCheck.note}</Text> : null}
+          <View style={styles.busPhotoRow}>
+            {busCheck.photoUrls.map((url) => (
+              <Image key={url} source={{ uri: resolvePhotoUrl(url) }} style={styles.busPhoto} resizeMode="cover" />
+            ))}
+          </View>
+        </Card>
+      )}
+
       {/* Exceptions */}
       {notBoarded.length > 0 && (
         <Card style={[styles.section, styles.exceptionCard]}>
@@ -512,6 +548,11 @@ const styles = StyleSheet.create({
   tlTime: { fontFamily: fontFamilies.displayHeavy, fontSize: 11, fontWeight: fontWeights.extrabold, color: colors.ink3, letterSpacing: 0.3, textTransform: 'uppercase' },
   tlHead: { fontFamily: fontFamilies.displayHeavy, fontSize: 15, fontWeight: fontWeights.extrabold, color: colors.ink, marginTop: 2 },
   tlSub: { fontSize: 13, color: colors.ink2, marginTop: 2, fontWeight: fontWeights.medium, lineHeight: 18 },
+
+  // bus condition
+  busNote: { fontSize: fontSizes.sm, color: colors.ink2, lineHeight: 19 },
+  busPhotoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
+  busPhoto: { width: 88, height: 88, borderRadius: 12, backgroundColor: colors.ground },
 
   // summary (live / scheduled)
   summaryCard: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: spacing[4] },
