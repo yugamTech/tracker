@@ -1,6 +1,12 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infra/database/prisma.service';
 import type { DeleteEligibility } from './students.service';
+
+/** A route name collides with an existing route in the same tenant (@@unique → P2002). */
+function isDuplicateRouteName(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+}
 
 @Injectable()
 export class RoutesService {
@@ -72,8 +78,15 @@ export class RoutesService {
     return { ...route, deletable, seatsUsed, capacity: route.vehicle?.capacity ?? null };
   }
 
-  create(data: { tenantId: string; name: string; direction: 'PICKUP' | 'DROP' }) {
-    return this.prisma.route.create({ data });
+  async create(data: { tenantId: string; name: string }) {
+    try {
+      return await this.prisma.route.create({ data });
+    } catch (error) {
+      if (isDuplicateRouteName(error)) {
+        throw new ConflictException('A route with this name already exists');
+      }
+      throw error;
+    }
   }
 
   async update(
@@ -98,7 +111,14 @@ export class RoutesService {
         patch.vehicleId = vehicleId;
       }
     }
-    return this.prisma.route.update({ where: { id }, data: patch });
+    try {
+      return await this.prisma.route.update({ where: { id }, data: patch });
+    } catch (error) {
+      if (isDuplicateRouteName(error)) {
+        throw new ConflictException('A route with this name already exists');
+      }
+      throw error;
+    }
   }
 
   /**
@@ -240,7 +260,6 @@ export class RoutesService {
     return routes.map((r) => ({
       routeId: r.id,
       routeName: r.name,
-      direction: r.direction,
       status: r.status,
       vehicle: r.vehicle ?? null,
       seatsUsed: seatsByRoute.get(r.id) ?? 0,

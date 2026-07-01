@@ -86,7 +86,6 @@ function RouteContactCard({ entry }: { entry: EmergencyRouteEntry }) {
       <View style={styles.cardTop}>
         <IconSplat shape="b2" splatColor={colors.routeBg} spot="route" size={42} />
         <Text style={styles.routeName} numberOfLines={1}>{entry.routeName}</Text>
-        <Badge label={entry.direction} variant="default" size="sm" />
         {entry.status !== 'ACTIVE' ? <Badge label={entry.status} variant="inactive" size="sm" /> : null}
       </View>
 

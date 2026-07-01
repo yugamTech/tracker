@@ -1300,9 +1300,19 @@ export class TripsService {
   private async notifyGuardiansOnTrip(tripId: string, eventType: NotifCategory) {
     const trip = await this.prisma.trip.findUnique({
       where: { id: tripId },
-      select: { tenantId: true, direction: true, route: { select: { name: true } } },
+      select: {
+        tenantId: true,
+        direction: true,
+        anchorLabel: true,
+        route: { select: { name: true } },
+        tenant: { select: { schoolName: true } },
+      },
     });
     if (!trip) return;
+    // School-aware copy (drop start / pickup end): prefer the per-trip destination
+    // override label, else the tenant's school name. Absent → the template falls
+    // back to a generic "the school" (never renders "undefined").
+    const schoolName = trip.anchorLabel ?? trip.tenant?.schoolName ?? undefined;
     const riders = await this.prisma.tripRider.findMany({
       where: { tripId },
       select: { studentId: true },
@@ -1323,6 +1333,7 @@ export class TripsService {
       variables: {
         tripId,
         ...(trip.route?.name ? { routeName: trip.route.name } : {}),
+        ...(schoolName ? { schoolName } : {}),
         direction: trip.direction,
         deepLink: `/track/${tripId}`,
       },
@@ -1421,8 +1432,15 @@ export class TripsService {
 
     const trip = await this.prisma.trip.findUniqueOrThrow({
       where: { id: tripId },
-      select: { tenantId: true, status: true, scheduledStart: true, date: true },
+      select: { tenantId: true, status: true, scheduledStart: true, date: true, direction: true },
     });
+
+    // A DROP can never be skipped: skipping a pickup just means "don't collect my
+    // child this morning", but a child already at school still needs to get home.
+    // (Only pickups are skippable — see pickupCancelInfo in the api-client.)
+    if (trip.direction === Direction.DROP) {
+      throw new BadRequestException('A drop cannot be skipped — your child still needs to get home');
+    }
 
     const cutoffMinutes = this.pickupCancelCutoffMinutes();
     const scheduledStart = trip.scheduledStart ?? trip.date;

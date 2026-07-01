@@ -65,16 +65,26 @@ export default function HomeScreen() {
   const myRider = (activeTrip as any)?.riders?.find((r: any) => r.studentId === activeChild?.id);
   const skip = pickupCancelInfo(activeTrip, myRider);
 
+  // Boarding outcome (presentation only): NOT_BOARDED means the child did not
+  // board a trip that ran (driver-marked or the geofence-departure automation);
+  // BOARDED confirms they are on the bus. Both come straight off the rider row.
+  const boarded = myRider?.boardStatus === 'BOARDED';
+  const notBoarded = myRider?.boardStatus === 'NOT_BOARDED';
+
   const startsAt =
     fmtTime((activeTrip as any)?.scheduledStart) ??
     (activeTrip?.direction === 'DROP' ? activeChild?.ageGroup?.dropTime : activeChild?.ageGroup?.pickupTime) ??
     null;
 
   const heroBadge: { label: string; variant: BadgeVariant } =
-    phase === 'live'
+    notBoarded
+      ? { label: 'Did not board', variant: 'not_boarded' }
+      : phase === 'live'
       ? { label: 'Live ●', variant: 'active' }
       : skip.alreadySkipped
       ? { label: 'Skipped today', variant: 'cancelled' }
+      : boarded
+      ? { label: 'Boarded', variant: 'boarded' }
       : phase === 'scheduled'
       ? { label: 'Scheduled', variant: 'warning' }
       : phase === 'done'
@@ -188,6 +198,17 @@ export default function HomeScreen() {
               <Divider spacingY={4} />
 
               <View style={styles.rows}>
+                {notBoarded ? (
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabel}>⚠️  Boarding</Text>
+                    <Text style={[styles.rowValue, styles.notBoardedValue]} numberOfLines={1}>{activeChild.name} did not board</Text>
+                  </View>
+                ) : boarded ? (
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabel}>✓  Boarding</Text>
+                    <Text style={[styles.rowValue, styles.boardedValue]} numberOfLines={1}>On the bus</Text>
+                  </View>
+                ) : null}
                 {phase === 'scheduled' && startsAt ? (
                   <View style={styles.row}>
                     <Text style={styles.rowLabel}>🕐  {activeTrip?.direction === 'DROP' ? 'Drop-off' : 'Pickup'} at</Text>
@@ -298,6 +319,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
   rowLabel: { fontSize: fontSizes.sm, color: colors.textSecondary },
   rowValue: { flex: 1, textAlign: 'right', fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textPrimary },
+  notBoardedValue: { color: colors.error, fontWeight: fontWeights.semibold },
+  boardedValue: { color: colors.success, fontWeight: fontWeights.semibold },
   skippedNote: { marginTop: spacing[3], fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium, textAlign: 'center' },
   skipClosedNote: { marginTop: spacing[3], fontSize: fontSizes.xs, color: colors.textMuted, textAlign: 'center' },
   emptyWrap: { minHeight: 320 },

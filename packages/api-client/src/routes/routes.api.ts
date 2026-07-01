@@ -37,7 +37,6 @@ export interface Route {
   id: string;
   tenantId: string;
   name: string;
-  direction: 'PICKUP' | 'DROP';
   status: 'ACTIVE' | 'INACTIVE';
   stops: Array<{ sequence: number; stop: Stop }>;
   _count?: { students: number };
@@ -75,7 +74,6 @@ export interface EmergencyTeacher {
 export interface EmergencyRouteEntry {
   routeId: string;
   routeName: string;
-  direction: 'PICKUP' | 'DROP';
   status: 'ACTIVE' | 'INACTIVE';
   vehicle: RouteVehicle | null;
   seatsUsed: number;
@@ -99,7 +97,7 @@ export const routesApi = {
     return data.data;
   },
 
-  create: async (dto: { name: string; direction: 'PICKUP' | 'DROP' }): Promise<Route> => {
+  create: async (dto: { name: string }): Promise<Route> => {
     const { data } = await apiClient.post('/routes', dto);
     return data.data;
   },

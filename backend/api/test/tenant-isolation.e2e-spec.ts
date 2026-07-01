@@ -116,7 +116,7 @@ describe('Tenant isolation regression (e2e)', () => {
 
     // Route + Trip owned by tenant B
     const routeB = await prisma.route.create({
-      data: { tenantId: tenantB.id, name: 'Route B', direction: 'PICKUP' },
+      data: { tenantId: tenantB.id, name: 'Route B' },
     });
     created.routeIds.push(routeB.id);
     const tripB = await prisma.trip.create({

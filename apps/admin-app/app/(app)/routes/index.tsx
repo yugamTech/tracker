@@ -90,8 +90,6 @@ export default function RoutesScreen() {
                       <Metric value={item.stops?.length ?? 0} label="Stops" />
                       <View style={styles.metricDivider} />
                       <Metric value={item.eligibleRiderCount ?? 0} label="Riders" />
-                      <View style={styles.metricDivider} />
-                      <Metric value={item.direction} label="Direction" small />
                     </View>
                     {item.stops?.length > 0 ? (
                       <View style={styles.line}>

@@ -144,7 +144,7 @@ async function seedSchool(s: SchoolSpec) {
   const route = await prisma.route.upsert({
     where: { id: routeId },
     update: {},
-    create: { id: routeId, tenantId: tenant.id, name: `Route A — ${s.name}`, direction: 'PICKUP' },
+    create: { id: routeId, tenantId: tenant.id, name: `Route A — ${s.name}` },
   });
 
   const routeStopIds = [...stopIds, schoolStopId];

@@ -119,10 +119,12 @@ const routesStopsImporter: Importer = async (prisma, ctx, rows) => {
 
   const existingRoutes = await prisma.route.findMany({
     where: { tenantId: ctx.tenantId },
-    select: { id: true, name: true, direction: true },
+    select: { id: true, name: true },
   });
-  const routeKey = (name: string, dir: string) => `${norm(name)}|${dir}`;
-  const existingRouteByKey = new Map(existingRoutes.map((r) => [routeKey(r.name, r.direction), r.id]));
+  // Routes are direction-agnostic and unique by name within a tenant (a route now
+  // serves both PICKUP and DROP trips), so they are keyed by normalized name alone.
+  // Any legacy `direction` column in the file is ignored.
+  const existingRouteByName = new Map(existingRoutes.map((r) => [norm(r.name), r.id]));
 
   const existingStops = await prisma.stop.findMany({
     where: { tenantId: ctx.tenantId },
@@ -138,12 +140,11 @@ const routesStopsImporter: Importer = async (prisma, ctx, rows) => {
 
   // Validate each row + detect in-file conflicts.
   const seenSeq = new Set<string>();
-  const routeDir = new Map<string, string>(); // routeName(norm) → direction (consistency check)
   let willCreate = 0;
   let willUpdate = 0;
 
   interface PlanRow {
-    routeName: string; direction: 'PICKUP' | 'DROP'; stopName: string;
+    routeName: string; stopName: string;
     sequence: number; lat: number; lng: number; geofence?: number;
   }
   const planRows: PlanRow[] = [];
@@ -151,7 +152,6 @@ const routesStopsImporter: Importer = async (prisma, ctx, rows) => {
   for (const row of rows) {
     const before = errors.length;
     const routeName = req(row, 'routeName', errors);
-    const dirRaw = req(row, 'direction', errors);
     const stopName = req(row, 'stopName', errors);
     const sequence = intField(row, 'sequence', errors, { min: 1 });
     const lat = floatField(row, 'lat', errors, { min: -90, max: 90 });
@@ -162,26 +162,10 @@ const routesStopsImporter: Importer = async (prisma, ctx, rows) => {
       if (g !== null) geofence = g;
     }
 
-    let direction: 'PICKUP' | 'DROP' | null = null;
-    if (dirRaw) {
-      const d = dirRaw.toUpperCase();
-      if (d !== 'PICKUP' && d !== 'DROP') {
-        errors.push({ row: row.rowNumber, field: 'direction', message: 'direction must be PICKUP or DROP' });
-      } else direction = d;
-    }
-
-    if (errors.length > before || !routeName || !stopName || sequence === null || lat === null || lng === null || !direction) continue;
-
-    // A route name must keep one direction across the file.
-    const rk = norm(routeName);
-    const priorDir = routeDir.get(rk);
-    if (priorDir && priorDir !== direction) {
-      errors.push({ row: row.rowNumber, field: 'direction', message: `route "${routeName}" has conflicting directions in the file` });
-      continue;
-    }
-    routeDir.set(rk, direction);
+    if (errors.length > before || !routeName || !stopName || sequence === null || lat === null || lng === null) continue;
 
     // (route, sequence) must be unique within the file.
+    const rk = norm(routeName);
     const seqKey = `${rk}|${sequence}`;
     if (seenSeq.has(seqKey)) {
       errors.push({ row: row.rowNumber, field: 'sequence', message: `duplicate sequence ${sequence} for route "${routeName}" in the file` });
@@ -189,10 +173,10 @@ const routesStopsImporter: Importer = async (prisma, ctx, rows) => {
     }
     seenSeq.add(seqKey);
 
-    planRows.push({ routeName, direction, stopName, sequence, lat, lng, geofence });
+    planRows.push({ routeName, stopName, sequence, lat, lng, geofence });
 
     // Count create vs update by whether this route already has this sequence.
-    const existingRouteId = existingRouteByKey.get(routeKey(routeName, direction));
+    const existingRouteId = existingRouteByName.get(rk);
     if (existingRouteId && existingLink.has(`${existingRouteId}|${sequence}`)) willUpdate++;
     else willCreate++;
   }
@@ -204,15 +188,15 @@ const routesStopsImporter: Importer = async (prisma, ctx, rows) => {
     const stopIdCache = new Map<string, string>();
 
     for (const r of planRows) {
-      // find-or-create route (name + direction), tenant-scoped.
-      const rk = routeKey(r.routeName, r.direction);
-      let routeId = routeIdCache.get(rk) ?? existingRouteByKey.get(rk);
+      // find-or-create route (by name), tenant-scoped.
+      const rk = norm(r.routeName);
+      let routeId = routeIdCache.get(rk) ?? existingRouteByName.get(rk);
       if (!routeId) {
         const route = await tx.route.create({
-          data: { tenantId: ctx.tenantId, name: r.routeName, direction: r.direction },
+          data: { tenantId: ctx.tenantId, name: r.routeName },
         });
         routeId = route.id;
-        existingRouteByKey.set(rk, routeId);
+        existingRouteByName.set(rk, routeId);
       }
       routeIdCache.set(rk, routeId);
 

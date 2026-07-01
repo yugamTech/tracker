@@ -29,7 +29,7 @@ export interface Student {
   tenantId: string;
   ageGroup?: { id: string; name: string; pickupTime: string; dropTime: string };
   stop?: { id: string; name: string; lat: number; lng: number };
-  route?: { id: string; name: string; direction: string };
+  route?: { id: string; name: string };
   guardianships?: Array<{
     id: string;
     relation: string;
@@ -54,7 +54,7 @@ export interface Member {
   /** Route(s) this staff member rides/supervises (teacher-on-route). Form manages one. */
   routeStaff?: Array<{
     id: string;
-    route: { id: string; name: string; direction: string };
+    route: { id: string; name: string };
   }>;
   /** Hard-delete eligibility (member detail payload only). */
   deletable?: DeleteEligibility;

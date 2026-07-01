@@ -20,6 +20,8 @@ export interface PickupCancelInfo {
   cutoffMinutes: number;
   /** True once the parent's rider has already been skipped for this trip. */
   alreadySkipped: boolean;
+  /** True for a DROP trip — drops can never be skipped (the child still needs to get home). */
+  isDrop: boolean;
 }
 
 /**
@@ -30,7 +32,7 @@ export interface PickupCancelInfo {
  * the trip date, exactly as the server does).
  */
 export function pickupCancelInfo(
-  trip: { status: string; scheduledStart?: string | null; date?: string } | undefined,
+  trip: { status: string; direction?: string; scheduledStart?: string | null; date?: string } | undefined,
   rider: { boardStatus: string } | undefined,
   now: Date = new Date(),
 ): PickupCancelInfo {
@@ -39,7 +41,14 @@ export function pickupCancelInfo(
   const cutoffAt = startSource
     ? new Date(new Date(startSource).getTime() - cutoffMinutes * 60_000).toISOString()
     : null;
-  const base = { cutoffAt, cutoffMinutes };
+  const isDrop = trip?.direction === 'DROP';
+  const base = { cutoffAt, cutoffMinutes, isDrop };
+
+  // A DROP can never be skipped (mirrors TripsService.cancelPickup): the control
+  // is hidden for drops, with copy explaining why the child still needs to ride.
+  if (isDrop) {
+    return { ...base, canCancel: false, alreadySkipped: false, reason: 'A drop can’t be skipped — your child still needs to get home.' };
+  }
 
   if (rider?.boardStatus === 'CANCELLED') {
     return { ...base, canCancel: false, alreadySkipped: true, reason: 'Pickup skipped for today.' };

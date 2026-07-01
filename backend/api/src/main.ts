@@ -18,6 +18,15 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Raise the JSON body-parser limit above Express's 100kb default: the driver
+  // boarding-photo upload (POST /attendance/photo) sends a base64-encoded image
+  // in the JSON body, which routinely exceeds 100kb and was being rejected with a
+  // 413/500 before it reached the handler. 10mb covers a phone photo with base64
+  // overhead (~33%).
+  // TODO: the proper long-term fix is multipart upload via FileInterceptor (as the
+  // onboarding CSV import already does) so image bytes never ride in a JSON body.
+  app.useBodyParser('json', { limit: '10mb' });
+
   // Serve locally-stored uploads (attendance photos in Phase 3) as static files.
   // Mounted as raw express middleware so it bypasses the global response
   // interceptor — these are binary files, not JSON envelopes. Lives outside the

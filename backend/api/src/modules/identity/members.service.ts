@@ -33,7 +33,7 @@ const MEMBER_INCLUDE = {
   vehicleAssignments: { include: { vehicle: true } },
   // The route(s) this staff member is assigned to (teacher-on-route, §2). The bus
   // is derived via route.vehicleId; the form manages a single assignment.
-  routeStaff: { include: { route: { select: { id: true, name: true, direction: true } } } },
+  routeStaff: { include: { route: { select: { id: true, name: true } } } },
 } as const;
 
 @Injectable()
