@@ -253,6 +253,11 @@ export class TripsService {
       return {
         ...trip,
         anchor,
+        // Curate the driver down to the parent-facing projection built server-side:
+        // only the name, phone and photo a family needs to recognise and reach the
+        // driver — never the full Person row or any DriverProfile KYC (aadhaar,
+        // licence, address, police-verification).
+        driver: await this.curatedDriverFor(trip.driver, trip.tenantId),
         riders: ownRiders,
         // Strip every other child's attendance event (and thus their photoUrl)
         // before the payload ever leaves the server.
@@ -261,6 +266,24 @@ export class TripsService {
     }
 
     return { ...trip, anchor };
+  }
+
+  /**
+   * Parent-facing driver projection (item 10). A guardian may see who is driving
+   * their child and how to reach them — nothing more. The driver's photo lives on
+   * the tenant-scoped DriverProfile (joined via the driver's DRIVER membership);
+   * KYC fields on that profile are never selected, so they can't leak.
+   */
+  private async curatedDriverFor(
+    driver: { id: string; name: string; phone: string } | null,
+    tenantId: string,
+  ): Promise<{ name: string; phone: string; photoUrl: string | null } | null> {
+    if (!driver) return null;
+    const profile = await this.prisma.driverProfile.findFirst({
+      where: { membership: { personId: driver.id, tenantId, role: Role.DRIVER } },
+      select: { photoUrl: true },
+    });
+    return { name: driver.name, phone: driver.phone, photoUrl: profile?.photoUrl ?? null };
   }
 
   /**

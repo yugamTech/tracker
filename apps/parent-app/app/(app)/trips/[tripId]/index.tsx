@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Badge, LoadingSpinner, EmptyState, AppHeader } from '@yaanam/ui';
@@ -44,6 +44,8 @@ export default function TripDetailScreen() {
   const t = trip as any;
   const routeName: string = t?.route?.name ?? trip.routeId;
   const vehicleReg: string = t?.vehicle?.regNumber ?? trip.vehicleId ?? '—';
+  // Curated, server-built driver projection — only { name, photoUrl, phone }.
+  const driver = t?.driver as { name: string; photoUrl?: string | null; phone?: string | null } | null | undefined;
   const stops: Array<{ id: string; name: string; sequence: number; riderCount: number }> =
     (t?.route?.stops ?? []).map((rs: any) => ({
       id: rs.stop?.id ?? rs.stopId,
@@ -69,6 +71,36 @@ export default function TripDetailScreen() {
             <Badge label={trip.status} variant={tripStatusVariant(trip.status)} size="sm" />
           </View>
         </View>
+
+        {/* Your driver — curated, privacy-scoped projection */}
+        {driver ? (
+          <>
+            <Text style={styles.sectionLabel}>Your Driver</Text>
+            <View style={styles.driverCard}>
+              <View style={styles.driverAvatar}>
+                {driver.photoUrl ? (
+                  <Image source={{ uri: driver.photoUrl }} style={styles.driverAvatarImg} resizeMode="cover" />
+                ) : (
+                  <Text style={{ fontSize: 22 }}>🧑‍✈️</Text>
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.driverName}>{driver.name}</Text>
+                <Text style={styles.driverSub}>{vehicleReg}</Text>
+              </View>
+              {driver.phone ? (
+                <TouchableOpacity
+                  style={styles.callBtn}
+                  onPress={() => Linking.openURL(`tel:${driver.phone}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Call driver"
+                >
+                  <Text style={styles.callBtnText}>📞 Call</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </>
+        ) : null}
 
         {/* Stop timeline */}
         <Text style={styles.sectionLabel}>Stop Sequence</Text>
@@ -134,6 +166,24 @@ const styles = StyleSheet.create({
   },
   stopName: { fontSize: fontSizes.base, fontWeight: fontWeights.medium, color: colors.textPrimary },
   riderCount: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  driverCard: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing[3],
+    marginHorizontal: spacing[4], padding: spacing[3],
+    backgroundColor: colors.white, borderRadius: radius.lg,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  driverAvatar: {
+    width: 48, height: 48, borderRadius: 24, backgroundColor: colors.gray100,
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+  },
+  driverAvatarImg: { width: 48, height: 48 },
+  driverName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
+  driverSub: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  callBtn: {
+    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
+    backgroundColor: colors.primaryBg, borderRadius: radius.full,
+  },
+  callBtnText: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.semibold },
   noStops: { margin: spacing[4], padding: spacing[4], backgroundColor: colors.white, borderRadius: radius.lg, alignItems: 'center' },
   noStopsText: { fontSize: fontSizes.sm, color: colors.textSecondary },
   replayBtn: {
