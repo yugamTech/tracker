@@ -36,9 +36,16 @@ export interface LiveBusMapProps {
   /** Live bus position. When it changes the bus marker tweens to the new spot. */
   busLat?: number | null;
   busLng?: number | null;
-  /** Optional destination (school) marker. */
+  /** Optional school / override-destination anchor marker. */
   schoolLat?: number;
   schoolLng?: number;
+  /** Display label for the anchor marker (school name or per-trip override label). */
+  schoolLabel?: string | null;
+  /**
+   * Where the anchor sits on the route: ORIGIN (the run starts at school — a DROP)
+   * or DESTINATION (the run ends at school — a PICKUP). Drives the marker caption.
+   */
+  schoolRole?: 'ORIGIN' | 'DESTINATION';
   /** Height of the map. Default 200. */
   height?: number;
   routeName?: string;
@@ -122,6 +129,8 @@ export function LiveBusMap({
   busLng,
   schoolLat,
   schoolLng,
+  schoolLabel,
+  schoolRole,
   height = 200,
   routeName,
 }: LiveBusMapProps) {
@@ -134,6 +143,8 @@ export function LiveBusMap({
   const busCoord = useSmoothLngLat(busTarget);
 
   const hasSchool = schoolLat != null && schoolLng != null;
+  // Caption under the anchor pin: its label, tagged by where it sits on the route.
+  const schoolRoleWord = schoolRole === 'ORIGIN' ? 'Route start' : schoolRole === 'DESTINATION' ? 'Route end' : null;
 
   // Fit the camera to every known point once, on first load.
   useEffect(() => {
@@ -188,7 +199,17 @@ export function LiveBusMap({
 
         {hasSchool && (
           <Marker id="school" lngLat={[schoolLng!, schoolLat!]} anchor="bottom">
-            <Text style={styles.schoolPin}>🏫</Text>
+            <View style={styles.schoolMarker}>
+              {(schoolLabel || schoolRoleWord) && (
+                <View style={styles.schoolChip}>
+                  {schoolLabel ? (
+                    <Text style={styles.schoolChipLabel} numberOfLines={1}>{schoolLabel}</Text>
+                  ) : null}
+                  {schoolRoleWord ? <Text style={styles.schoolChipRole}>{schoolRoleWord}</Text> : null}
+                </View>
+              )}
+              <Text style={styles.schoolPin}>🏫</Text>
+            </View>
           </Marker>
         )}
 
@@ -254,6 +275,16 @@ const styles = StyleSheet.create({
     width: 12, height: 12, borderRadius: 6,
     backgroundColor: colors.primary, borderWidth: 2, borderColor: colors.white,
   },
+  schoolMarker: { alignItems: 'center', maxWidth: 160 },
+  schoolChip: {
+    backgroundColor: colors.overlayStrong,
+    paddingHorizontal: spacing[2], paddingVertical: 3, borderRadius: radius.full,
+    marginBottom: 2, alignItems: 'center',
+  },
+  schoolChipLabel: {
+    fontSize: fontSizes.xs, color: colors.white, fontWeight: fontWeights.semibold, maxWidth: 140,
+  },
+  schoolChipRole: { fontSize: 9, color: colors.gray300, fontWeight: fontWeights.medium, letterSpacing: 0.5 },
   schoolPin: { fontSize: 26 },
   busMarker: {
     width: 30, height: 30, borderRadius: 15,

@@ -238,6 +238,10 @@ export default function TrackScreen() {
               stops={mapStops}
               busLat={latest?.lat}
               busLng={latest?.lng}
+              schoolLat={t?.anchor?.lat}
+              schoolLng={t?.anchor?.lng}
+              schoolLabel={t?.anchor?.label}
+              schoolRole={t?.anchor?.role}
               routeName={routeName}
               height={220}
             />

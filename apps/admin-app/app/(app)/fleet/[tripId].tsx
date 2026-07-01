@@ -111,6 +111,13 @@ export default function TripMonitorScreen() {
     [trip],
   );
 
+  // Resolved school / override-destination anchor (server-computed), or null when
+  // no school coords are configured for the tenant and no per-trip override is set.
+  const anchor = (trip as any)?.anchor as
+    | { lat: number; lng: number; label: string | null; role: 'ORIGIN' | 'DESTINATION' }
+    | null
+    | undefined;
+
   const handleCancel = () => {
     Alert.alert(
       'Cancel trip',
@@ -236,13 +243,24 @@ export default function TripMonitorScreen() {
     >
       {/* Live route map — shown when trip is started/in-progress */}
       {isLive && routeStops.length > 0 && (
-        <LiveBusMap
-          stops={routeStops}
-          busLat={busPos?.lat}
-          busLng={busPos?.lng}
-          routeName={routeName}
-          height={180}
-        />
+        <>
+          <LiveBusMap
+            stops={routeStops}
+            busLat={busPos?.lat}
+            busLng={busPos?.lng}
+            schoolLat={anchor?.lat}
+            schoolLng={anchor?.lng}
+            schoolLabel={anchor?.label}
+            schoolRole={anchor?.role}
+            routeName={routeName}
+            height={180}
+          />
+          {!anchor && (
+            <Text style={styles.anchorNudge}>
+              🏫 Set your school location in Settings to show it on the route.
+            </Text>
+          )}
+        </>
       )}
 
       {/* Header — post-mortem hero for ENDED trips, plain card otherwise */}
@@ -442,6 +460,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.ground },
   content: { padding: spacing[4], gap: spacing[3] },
   section: { gap: spacing[2] },
+  anchorNudge: {
+    fontSize: fontSizes.xs, color: colors.ink3,
+    marginTop: -spacing[1], marginHorizontal: spacing[1],
+  },
 
   // plain header (live / scheduled)
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
