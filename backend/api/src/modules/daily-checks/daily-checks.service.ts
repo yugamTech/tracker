@@ -5,6 +5,13 @@ import { PrismaService } from '../../infra/database/prisma.service';
 /** A check may only be submitted within this many hours before scheduledStart. */
 const CHECK_WINDOW_HOURS = 2;
 
+/**
+ * How far back a parent may see a vehicle's bus-condition photos. Mirrors the
+ * attendance-photo retention rule — a family can see recent bus condition, not an
+ * unbounded history.
+ */
+const PARENT_PHOTO_RETENTION_DAYS = 30;
+
 /** Prisma date filter for [start-of-day, end-of-day] around the given instant. */
 function dayRange(at: Date): { gte: Date; lte: Date } {
   const gte = new Date(at);
@@ -35,6 +42,7 @@ export class DailyChecksService {
     tripId?: string;
     items: Record<string, boolean>;
     note?: string;
+    photoUrls?: string[];
   }) {
     const now = new Date();
 
@@ -81,6 +89,7 @@ export class DailyChecksService {
         tripId: data.tripId,
         items: data.items,
         note: data.note,
+        photoUrls: data.photoUrls ?? [],
       },
     });
   }
@@ -93,5 +102,52 @@ export class DailyChecksService {
       where.createdAt = dayRange(filters.date);
     }
     return this.prisma.dailyCheck.findMany({ where, orderBy: { createdAt: 'desc' } });
+  }
+
+  /**
+   * Parent-facing bus-condition photos for the vehicle on their child's trip
+   * (item 9). Guardian- AND tenant-scoped, and clamped to the last
+   * {@link PARENT_PHOTO_RETENTION_DAYS} days. A parent may only reach it via a trip
+   * that actually carries one of their guarded children — anything else (foreign
+   * tenant, someone else's trip, no coords) 404s exactly like {@link TripsService.findById}.
+   * Returns only { id, createdAt, note, photoUrls } — never the checklist, driver
+   * id or vehicle internals.
+   */
+  async busPhotosForGuardian(tenantId: string, personId: string, tripId: string) {
+    const trip = await this.prisma.trip.findFirst({
+      where: { id: tripId, tenantId },
+      select: { vehicleId: true, riders: { select: { studentId: true } } },
+    });
+    if (!trip || !trip.vehicleId) {
+      throw new NotFoundException(`Trip ${tripId} not found`);
+    }
+
+    // The caller must guard at least one child riding this trip.
+    const riderStudentIds = trip.riders.map((r) => r.studentId);
+    const guardedOnTrip =
+      riderStudentIds.length > 0 &&
+      (await this.prisma.guardianship.count({
+        where: {
+          personId,
+          studentId: { in: riderStudentIds },
+          student: { tenantId },
+        },
+      })) > 0;
+    if (!guardedOnTrip) {
+      throw new NotFoundException(`Trip ${tripId} not found`);
+    }
+
+    const since = new Date(Date.now() - PARENT_PHOTO_RETENTION_DAYS * 24 * 60 * 60_000);
+    const checks = await this.prisma.dailyCheck.findMany({
+      where: {
+        tenantId,
+        vehicleId: trip.vehicleId,
+        createdAt: { gte: since },
+        photoUrls: { isEmpty: false },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, createdAt: true, note: true, photoUrls: true },
+    });
+    return checks;
   }
 }

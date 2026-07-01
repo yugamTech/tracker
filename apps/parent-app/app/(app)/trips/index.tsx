@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import { View, Text, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
@@ -33,7 +33,7 @@ function statusLabel(status: string): string {
 }
 
 export default function TripsScreen() {
-  const { data: trips, isLoading, isError } = useTodayTrips();
+  const { data: trips, isLoading, isError, refetch, isRefetching } = useTodayTrips();
   const { data: students } = useMyStudents();
   const count = trips?.length ?? 0;
   const myIds = new Set((students ?? []).map((s) => s.id));
@@ -60,6 +60,7 @@ export default function TripsScreen() {
           data={trips ?? []}
           keyExtractor={(t) => t.id}
           contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>

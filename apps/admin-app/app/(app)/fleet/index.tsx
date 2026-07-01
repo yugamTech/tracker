@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, fontFamilies,
@@ -112,7 +112,7 @@ const BusCard = React.memo(function BusCard({
 });
 
 export default function FleetMapScreen() {
-  const { data: fleet, isLoading } = useFleet();
+  const { data: fleet, isLoading, refetch, isRefetching } = useFleet();
   const { gridColumns } = useResponsive();
   const [buses, setBuses] = useState<Record<string, Bus>>({});
 
@@ -212,6 +212,7 @@ export default function FleetMapScreen() {
           data={list}
           columns={gridColumns}
           keyExtractor={(b) => b.tripId}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.fleet} />}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <EmptyState

@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Badge, LoadingSpinner, EmptyState, AppHeader } from '@yaanam/ui';
-import { useTripById } from '@yaanam/api-client';
+import { useTripById, useBusConditionPhotos } from '@yaanam/api-client';
 import type { BadgeVariant } from '@yaanam/ui';
 import { goBackTo } from '../../../../lib/nav';
 
@@ -21,6 +21,8 @@ function tripStatusVariant(status: string): BadgeVariant {
 export default function TripDetailScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const { data: trip, isLoading, isError } = useTripById(tripId);
+  // Bus-condition photos for this trip's vehicle — guardian + 30-day scoped server-side.
+  const { data: busPhotos } = useBusConditionPhotos(tripId);
   const back = () => goBackTo('trips/[tripId]/index');
 
   if (isLoading) {
@@ -44,6 +46,8 @@ export default function TripDetailScreen() {
   const t = trip as any;
   const routeName: string = t?.route?.name ?? trip.routeId;
   const vehicleReg: string = t?.vehicle?.regNumber ?? trip.vehicleId ?? '—';
+  // Curated, server-built driver projection — only { name, photoUrl, phone }.
+  const driver = t?.driver as { name: string; photoUrl?: string | null; phone?: string | null } | null | undefined;
   const stops: Array<{ id: string; name: string; sequence: number; riderCount: number }> =
     (t?.route?.stops ?? []).map((rs: any) => ({
       id: rs.stop?.id ?? rs.stopId,
@@ -69,6 +73,50 @@ export default function TripDetailScreen() {
             <Badge label={trip.status} variant={tripStatusVariant(trip.status)} size="sm" />
           </View>
         </View>
+
+        {/* Your driver — curated, privacy-scoped projection */}
+        {driver ? (
+          <>
+            <Text style={styles.sectionLabel}>Your Driver</Text>
+            <View style={styles.driverCard}>
+              <View style={styles.driverAvatar}>
+                {driver.photoUrl ? (
+                  <Image source={{ uri: driver.photoUrl }} style={styles.driverAvatarImg} resizeMode="cover" />
+                ) : (
+                  <Text style={{ fontSize: 22 }}>🧑‍✈️</Text>
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.driverName}>{driver.name}</Text>
+                <Text style={styles.driverSub}>{vehicleReg}</Text>
+              </View>
+              {driver.phone ? (
+                <TouchableOpacity
+                  style={styles.callBtn}
+                  onPress={() => Linking.openURL(`tel:${driver.phone}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Call driver"
+                >
+                  <Text style={styles.callBtnText}>📞 Call</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </>
+        ) : null}
+
+        {/* Bus condition — driver's recent pre-trip photos (read-only, last 30 days) */}
+        {busPhotos && busPhotos.length > 0 ? (
+          <>
+            <Text style={styles.sectionLabel}>Bus Condition</Text>
+            <View style={styles.busPhotoWrap}>
+              {busPhotos.flatMap((c) =>
+                c.photoUrls.map((url) => (
+                  <Image key={url} source={{ uri: url }} style={styles.busPhoto} resizeMode="cover" />
+                )),
+              )}
+            </View>
+          </>
+        ) : null}
 
         {/* Stop timeline */}
         <Text style={styles.sectionLabel}>Stop Sequence</Text>
@@ -134,6 +182,26 @@ const styles = StyleSheet.create({
   },
   stopName: { fontSize: fontSizes.base, fontWeight: fontWeights.medium, color: colors.textPrimary },
   riderCount: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  driverCard: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing[3],
+    marginHorizontal: spacing[4], padding: spacing[3],
+    backgroundColor: colors.white, borderRadius: radius.lg,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  driverAvatar: {
+    width: 48, height: 48, borderRadius: 24, backgroundColor: colors.gray100,
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+  },
+  driverAvatarImg: { width: 48, height: 48 },
+  driverName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
+  driverSub: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  callBtn: {
+    paddingHorizontal: spacing[3], paddingVertical: spacing[2],
+    backgroundColor: colors.primaryBg, borderRadius: radius.full,
+  },
+  callBtnText: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.semibold },
+  busPhotoWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginHorizontal: spacing[4] },
+  busPhoto: { width: 96, height: 96, borderRadius: radius.lg, backgroundColor: colors.gray100 },
   noStops: { margin: spacing[4], padding: spacing[4], backgroundColor: colors.white, borderRadius: radius.lg, alignItems: 'center' },
   noStopsText: { fontSize: fontSizes.sm, color: colors.textSecondary },
   replayBtn: {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import { View, Text, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, radius, letterSpacing,
@@ -173,6 +173,7 @@ export default function DriverHistoryScreen() {
           data={pastTrips}
           keyExtractor={(t) => t.id}
           contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={history.isRefetching} onRefresh={history.refetch} tintColor={colors.primary} />}
           ListHeaderComponent={
             <View>
               {history.data?.summary && <EfficiencySummary summary={history.data.summary} />}
@@ -189,6 +190,7 @@ export default function DriverHistoryScreen() {
           data={upcomingTrips}
           keyExtractor={(t) => t.id}
           contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={upcoming.isRefetching} onRefresh={upcoming.refetch} tintColor={colors.primary} />}
           ListHeaderComponent={<Text style={styles.sectionTitle}>UPCOMING · {upcomingTrips.length}</Text>}
           ListEmptyComponent={
             <EmptyState title="No upcoming trips" description="Scheduled trips assigned to you will show up here" />

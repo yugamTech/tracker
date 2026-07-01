@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, Image, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, Image, ScrollView, StyleSheet, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
@@ -182,19 +182,37 @@ export default function TrackScreen() {
   ) : undefined;
 
   // ── Driver card (shared by scheduled + live + done) ───────────────────────
+  // Curated, server-built driver projection — only { name, photoUrl, phone }.
+  const driver = t?.driver as { name: string; photoUrl?: string | null; phone?: string | null } | null | undefined;
   const driverCard = (
     <Card style={styles.driverCard} shadow="none">
       <View style={styles.driverRow}>
         <View style={styles.driverAvatar}>
-          <Text style={{ fontSize: 20 }}>🧑‍✈️</Text>
+          {driver?.photoUrl ? (
+            <Image source={{ uri: driver.photoUrl }} style={styles.driverAvatarImg} resizeMode="cover" />
+          ) : (
+            <Text style={{ fontSize: 20 }}>🧑‍✈️</Text>
+          )}
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.driverName}>{t?.driver?.name ?? 'Driver not assigned'}</Text>
+          <Text style={styles.driverName}>{driver?.name ?? 'Driver not assigned'}</Text>
           <Text style={styles.driverSub}>
             Bus {t?.vehicle?.regNumber ?? '—'}
             {routeName ? `  ·  ${routeName}` : ''}
           </Text>
         </View>
+        {driver?.phone ? (
+          <AnimatedPressable
+            style={styles.msgBtn}
+            scaleTo={0.92}
+            onPress={() => Linking.openURL(`tel:${driver.phone}`)}
+            accessibilityRole="button"
+            accessibilityLabel="Call driver"
+          >
+            <Text style={{ fontSize: 16 }}>📞</Text>
+            <Text style={styles.msgText}>Call</Text>
+          </AnimatedPressable>
+        ) : null}
         <AnimatedPressable
           style={styles.msgBtn}
           scaleTo={0.92}
@@ -238,6 +256,10 @@ export default function TrackScreen() {
               stops={mapStops}
               busLat={latest?.lat}
               busLng={latest?.lng}
+              schoolLat={t?.anchor?.lat}
+              schoolLng={t?.anchor?.lng}
+              schoolLabel={t?.anchor?.label}
+              schoolRole={t?.anchor?.role}
               routeName={routeName}
               height={220}
             />
@@ -524,7 +546,8 @@ const styles = StyleSheet.create({
   // Driver card
   driverCard: { backgroundColor: colors.gray50 },
   driverRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  driverAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.gray200, alignItems: 'center', justifyContent: 'center' },
+  driverAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.gray200, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  driverAvatarImg: { width: 44, height: 44 },
   driverName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   driverSub: { fontSize: fontSizes.sm, color: colors.textSecondary },
   msgBtn: { alignItems: 'center', gap: 2 },

@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert,
+  View, Text, Image, ScrollView, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, fontFamilies,
   Card, Badge, AnimatedPressable, IconSplat, Icon, useToast,
 } from '@yaanam/ui';
-import { useVehicleById, useCreateVehicle, useUpdateVehicle, useDeactivateVehicle, useReactivateVehicle } from '@yaanam/api-client';
+import { useVehicleById, useCreateVehicle, useUpdateVehicle, useDeactivateVehicle, useReactivateVehicle, useDailyChecks } from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
 import { GroupCard, Field, FormInput, PillPicker, ActionButton, ReadValue } from '../../../../components/forms';
 
@@ -20,6 +20,9 @@ export default function VehicleDetailScreen() {
   const isNew = vehicleId === 'new';
 
   const { data: vehicle, isLoading } = useVehicleById(isNew ? '' : vehicleId);
+  const { data: checks } = useDailyChecks(isNew ? undefined : { vehicleId });
+  // Recent pre-trip checks that captured bus-condition photos (newest first).
+  const checksWithPhotos = (checks ?? []).filter((c) => (c.photoUrls?.length ?? 0) > 0).slice(0, 10);
   const createVehicle = useCreateVehicle();
   const updateVehicle = useUpdateVehicle();
   const deactivateVehicle = useDeactivateVehicle();
@@ -165,6 +168,24 @@ export default function VehicleDetailScreen() {
         </GroupCard>
       ) : null}
 
+      {!isNew && checksWithPhotos.length > 0 ? (
+        <GroupCard title="Bus condition photos" spot="bus" hue={HUE}>
+          {checksWithPhotos.map((c, i) => (
+            <View key={c.id} style={[styles.checkRow, i > 0 && styles.assignBorder]}>
+              <Text style={styles.checkDate}>
+                {new Date(c.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </Text>
+              {c.note ? <Text style={styles.assignMeta}>{c.note}</Text> : null}
+              <View style={styles.photoRow}>
+                {c.photoUrls.map((url) => (
+                  <Image key={url} source={{ uri: url }} style={styles.photoThumb} resizeMode="cover" />
+                ))}
+              </View>
+            </View>
+          ))}
+        </GroupCard>
+      ) : null}
+
       {editing ? (
         <ActionButton
           title={isNew ? 'Add vehicle' : 'Save changes'}
@@ -210,4 +231,8 @@ const styles = StyleSheet.create({
   assignBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
   assignName: { fontFamily: fontFamilies.display, fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.ink },
   assignMeta: { fontFamily: fontFamilies.bodySemibold, fontSize: fontSizes.sm, color: colors.ink2, marginTop: 2 },
+  checkRow: { paddingVertical: spacing[3], gap: spacing[2] },
+  checkDate: { fontFamily: fontFamilies.display, fontSize: fontSizes.sm, fontWeight: fontWeights.bold, color: colors.ink },
+  photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
+  photoThumb: { width: 80, height: 80, borderRadius: 12, backgroundColor: colors.fleetBg },
 });

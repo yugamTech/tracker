@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import { View, Text, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
@@ -46,7 +46,7 @@ export default function DriverHomeScreen() {
   const person = useAuthStore((s) => s.person);
   const firstName = person?.name?.split(' ')[0] ?? 'Driver';
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' });
-  const { data: trips, isLoading, isError } = useTodayTrips();
+  const { data: trips, isLoading, isError, refetch, isRefetching } = useTodayTrips();
 
   // Cross-reference today's trips against today's vehicle checks so each past
   // trip can show whether it was checked. `en-CA` yields the IST `YYYY-MM-DD`.
@@ -117,6 +117,7 @@ export default function DriverHomeScreen() {
           data={sortedTrips}
           keyExtractor={(t) => t.id}
           contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
           ListHeaderComponent={
             <Text style={styles.sectionTitle}>
               TODAY'S TRIPS · {trips?.length ?? 0}
