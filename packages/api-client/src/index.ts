@@ -94,8 +94,8 @@ export { attendanceKeys, useTripAttendance, useMarkAttendance, useRoster } from 
 
 // Daily Checks
 export { dailyChecksApi } from './daily-checks/daily-checks.api';
-export type { DailyCheck, SubmitDailyCheckDto } from './daily-checks/daily-checks.api';
-export { dailyCheckKeys, useDailyChecks, useSubmitDailyCheck } from './daily-checks/daily-checks.hooks';
+export type { DailyCheck, SubmitDailyCheckDto, BusConditionPhotos } from './daily-checks/daily-checks.api';
+export { dailyCheckKeys, useDailyChecks, useSubmitDailyCheck, useBusConditionPhotos } from './daily-checks/daily-checks.hooks';
 export {
   CHECK_WINDOW_HOURS,
   checkWindowInfo,

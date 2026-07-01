@@ -4,12 +4,21 @@ import { dailyChecksApi, type SubmitDailyCheckDto } from './daily-checks.api';
 export const dailyCheckKeys = {
   all: ['daily-checks'] as const,
   list: (vehicleId?: string, date?: string) => ['daily-checks', vehicleId, date] as const,
+  busPhotos: (tripId: string) => ['daily-checks', 'bus-photos', tripId] as const,
 };
 
 export const useDailyChecks = (params?: { vehicleId?: string; date?: string }) =>
   useQuery({
     queryKey: dailyCheckKeys.list(params?.vehicleId, params?.date),
     queryFn: () => dailyChecksApi.list(params),
+  });
+
+/** Parent: bus-condition photos for the vehicle on their child's trip (last 30 days). */
+export const useBusConditionPhotos = (tripId: string) =>
+  useQuery({
+    queryKey: dailyCheckKeys.busPhotos(tripId),
+    queryFn: () => dailyChecksApi.busPhotos(tripId),
+    enabled: !!tripId,
   });
 
 export const useSubmitDailyCheck = () => {

@@ -3,7 +3,7 @@ import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, Linking } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Badge, LoadingSpinner, EmptyState, AppHeader } from '@yaanam/ui';
-import { useTripById } from '@yaanam/api-client';
+import { useTripById, useBusConditionPhotos } from '@yaanam/api-client';
 import type { BadgeVariant } from '@yaanam/ui';
 import { goBackTo } from '../../../../lib/nav';
 
@@ -21,6 +21,8 @@ function tripStatusVariant(status: string): BadgeVariant {
 export default function TripDetailScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const { data: trip, isLoading, isError } = useTripById(tripId);
+  // Bus-condition photos for this trip's vehicle — guardian + 30-day scoped server-side.
+  const { data: busPhotos } = useBusConditionPhotos(tripId);
   const back = () => goBackTo('trips/[tripId]/index');
 
   if (isLoading) {
@@ -98,6 +100,20 @@ export default function TripDetailScreen() {
                   <Text style={styles.callBtnText}>📞 Call</Text>
                 </TouchableOpacity>
               ) : null}
+            </View>
+          </>
+        ) : null}
+
+        {/* Bus condition — driver's recent pre-trip photos (read-only, last 30 days) */}
+        {busPhotos && busPhotos.length > 0 ? (
+          <>
+            <Text style={styles.sectionLabel}>Bus Condition</Text>
+            <View style={styles.busPhotoWrap}>
+              {busPhotos.flatMap((c) =>
+                c.photoUrls.map((url) => (
+                  <Image key={url} source={{ uri: url }} style={styles.busPhoto} resizeMode="cover" />
+                )),
+              )}
             </View>
           </>
         ) : null}
@@ -184,6 +200,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryBg, borderRadius: radius.full,
   },
   callBtnText: { fontSize: fontSizes.sm, color: colors.primary, fontWeight: fontWeights.semibold },
+  busPhotoWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginHorizontal: spacing[4] },
+  busPhoto: { width: 96, height: 96, borderRadius: radius.lg, backgroundColor: colors.gray100 },
   noStops: { margin: spacing[4], padding: spacing[4], backgroundColor: colors.white, borderRadius: radius.lg, alignItems: 'center' },
   noStopsText: { fontSize: fontSizes.sm, color: colors.textSecondary },
   replayBtn: {

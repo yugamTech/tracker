@@ -974,8 +974,9 @@ enum MessageKey {
 // ─── DAILY CHECKS ─────────────────────────────────────────────────────────
 
 // Driver's daily pre-trip vehicle check (PRD-00 §4 driver persona). `items` is
-// the checklist result map (e.g. { tyres: true, brakes: true }). Photo/video
-// upload is intentionally out of scope (object-storage cost phase).
+// the checklist result map (e.g. { tyres: true, brakes: true }). `photoUrls`
+// holds optional bus-condition photos captured at check time (reuses the shared
+// upload path); empty when the driver skips the camera step.
 model DailyCheck {
   id            String   @id @default(uuid())
   tenantId      String
@@ -984,6 +985,7 @@ model DailyCheck {
   submittedById String
   items         Json
   note          String?
+  photoUrls     String[] @default([])
   createdAt     DateTime @default(now())
 
   @@index([tenantId, createdAt])

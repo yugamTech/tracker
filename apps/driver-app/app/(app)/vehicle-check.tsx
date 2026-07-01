@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, Image, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@yaanam/ui';
 import {
   useTodayTrips, useSubmitDailyCheck, useDailyChecks,
-  checkWindowInfo, formatTripTime,
+  checkWindowInfo, formatTripTime, attendanceApi,
 } from '@yaanam/api-client';
+
+type Shot = { uri: string; base64: string };
 
 /** Today's calendar day in IST (`YYYY-MM-DD`) — matches the daily-checks list filter. */
 function istToday(): string {
@@ -25,6 +28,12 @@ const CHECKS = [
 export default function VehicleCheckScreen() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [note, setNote] = useState('');
+  // Optional bus-condition photos — captured inline, uploaded on submit.
+  const [photos, setPhotos] = useState<Shot[]>([]);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+  const cameraRef = useRef<CameraView>(null);
 
   // When opened from the pre-trip flow, the trip + vehicle arrive as params.
   // Opened standalone (from home), we fall back to the driver's assigned vehicle.
@@ -58,7 +67,32 @@ export default function VehicleCheckScreen() {
   const toggle = (id: string) => setChecked((s) => ({ ...s, [id]: !s[id] }));
   const allDone = CHECKS.every((c) => checked[c.id]);
 
-  const handleSubmit = () => {
+  const openCamera = async () => {
+    if (!permission?.granted) {
+      const res = await requestPermission();
+      if (!res.granted) {
+        toast.error('Allow camera access to add a bus photo, or submit without one.', 'Camera access needed');
+        return;
+      }
+    }
+    setCameraOpen(true);
+  };
+
+  const capture = async () => {
+    if (!cameraRef.current) return;
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.6 });
+      if (photo?.base64) setPhotos((p) => [...p, { uri: photo.uri, base64: photo.base64! }]);
+    } catch {
+      toast.error('Could not capture the photo. Please try again.', 'Camera error');
+    } finally {
+      setCameraOpen(false);
+    }
+  };
+
+  const removePhoto = (uri: string) => setPhotos((p) => p.filter((s) => s.uri !== uri));
+
+  const handleSubmit = async () => {
     if (!allDone) { toast.error('Complete all checks first'); return; }
     if (!window.canSubmit) { toast.error(window.reason ?? 'Check not yet available.', 'Too early'); return; }
     if (!vehicleId) {
@@ -71,8 +105,29 @@ export default function VehicleCheckScreen() {
       return acc;
     }, {});
 
+    // Upload any bus-condition photos first (reuses the shared /attendance/photo
+    // upload path); their returned URLs ride along in the check payload.
+    let photoUrls: string[] | undefined;
+    if (photos.length) {
+      try {
+        setUploading(true);
+        photoUrls = [];
+        for (let i = 0; i < photos.length; i++) {
+          const filename = `daily-checks/${vehicleId}-${tripId ?? 'novehicletrip'}-${i}-${Date.now()}.jpg`;
+          const { url } = await attendanceApi.uploadPhoto(filename, photos[i].base64, 'image/jpeg');
+          photoUrls.push(url);
+        }
+      } catch (e: any) {
+        toast.error(e?.response?.data?.message ?? 'Could not upload the bus photos. Please try again.', 'Upload failed');
+        setUploading(false);
+        return;
+      } finally {
+        setUploading(false);
+      }
+    }
+
     submitCheck.mutate(
-      { vehicleId, tripId, items, note: note.trim() || undefined },
+      { vehicleId, tripId, items, note: note.trim() || undefined, photoUrls },
       {
         onSuccess: () => {
           toast.success('Vehicle check submitted.', 'Check complete');
@@ -131,6 +186,18 @@ export default function VehicleCheckScreen() {
               <Text style={styles.noteReadonly}>{existingCheck.note}</Text>
             </>
           )}
+          {existingCheck.photoUrls?.length > 0 && (
+            <>
+              <Text style={styles.label}>Bus condition photos</Text>
+              <View style={styles.photoRow}>
+                {existingCheck.photoUrls.map((url) => (
+                  <View key={url} style={styles.photoThumb}>
+                    <Image source={{ uri: url }} style={styles.photoImg} resizeMode="cover" />
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
           <Button
             title="Back"
             variant="outline"
@@ -175,6 +242,32 @@ export default function VehicleCheckScreen() {
             multiline
           />
 
+          <Text style={styles.label}>Bus condition photos (optional)</Text>
+          <View style={styles.photoRow}>
+            {photos.map((p) => (
+              <View key={p.uri} style={styles.photoThumb}>
+                <Image source={{ uri: p.uri }} style={styles.photoImg} resizeMode="cover" />
+                <TouchableOpacity
+                  style={styles.photoRemove}
+                  onPress={() => removePhoto(p.uri)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove photo"
+                >
+                  <Text style={styles.photoRemoveText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+            <TouchableOpacity
+              style={styles.photoAdd}
+              onPress={openCamera}
+              accessibilityRole="button"
+              accessibilityLabel="Add bus photo"
+            >
+              <Text style={{ fontSize: 22 }}>📷</Text>
+              <Text style={styles.photoAddText}>Add</Text>
+            </TouchableOpacity>
+          </View>
+
           {!vehicleId && (
             <Text style={styles.warn}>No trip with an assigned vehicle today — submit will be disabled.</Text>
           )}
@@ -184,22 +277,51 @@ export default function VehicleCheckScreen() {
 
           <Button
             title={
-              !window.canSubmit && window.opensAt
-                ? `Available from ${formatTripTime(window.opensAt)}`
-                : allDone
-                  ? '✅ Submit Check'
-                  : `${Object.values(checked).filter(Boolean).length}/${CHECKS.length} Done`
+              uploading
+                ? 'Uploading photos…'
+                : !window.canSubmit && window.opensAt
+                  ? `Available from ${formatTripTime(window.opensAt)}`
+                  : allDone
+                    ? '✅ Submit Check'
+                    : `${Object.values(checked).filter(Boolean).length}/${CHECKS.length} Done`
             }
             onPress={handleSubmit}
-            loading={submitCheck.isPending}
+            loading={submitCheck.isPending || uploading}
             fullWidth
             size="lg"
             style={{ marginTop: spacing[4] }}
-            disabled={!allDone || !vehicleId || !window.canSubmit}
+            disabled={!allDone || !vehicleId || !window.canSubmit || uploading}
           />
         </ScrollView>
         </KeyboardAvoidingView>
       )}
+
+      {/* Inline capture — opens over the form; one shot appended per confirm. */}
+      <Modal visible={cameraOpen} animationType="slide" onRequestClose={() => setCameraOpen(false)}>
+        <SafeAreaView style={styles.cameraModal}>
+          <View style={styles.cameraHeader}>
+            <TouchableOpacity onPress={() => setCameraOpen(false)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close camera">
+              <Text style={styles.cameraClose}>✕</Text>
+            </TouchableOpacity>
+            <Text style={styles.cameraTitle}>Bus condition photo</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <View style={styles.cameraBox}>
+            {cameraOpen && <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />}
+          </View>
+          <View style={styles.cameraCaptureRow}>
+            <TouchableOpacity
+              style={styles.shutterBtn}
+              onPress={capture}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Take bus photo"
+            >
+              <View style={styles.shutterOuter}><View style={styles.shutterInner} /></View>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -244,4 +366,29 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray50, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
     padding: spacing[3], fontSize: fontSizes.base, color: colors.textPrimary,
   },
+  photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
+  photoThumb: { width: 72, height: 72, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.gray100 },
+  photoImg: { width: 72, height: 72 },
+  photoRemove: {
+    position: 'absolute', top: 2, right: 2, width: 20, height: 20, borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center',
+  },
+  photoRemoveText: { color: colors.white, fontSize: 11, fontWeight: '700' },
+  photoAdd: {
+    width: 72, height: 72, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
+    borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gray50,
+  },
+  photoAddText: { fontSize: fontSizes.xs, color: colors.textSecondary },
+  cameraModal: { flex: 1, backgroundColor: '#000' },
+  cameraHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing[4] },
+  cameraClose: { fontSize: 20, color: colors.white },
+  cameraTitle: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.white },
+  cameraBox: { flex: 1, margin: spacing[4], borderRadius: radius.xl, overflow: 'hidden', backgroundColor: '#111' },
+  cameraCaptureRow: { alignItems: 'center', paddingBottom: spacing[6] },
+  shutterBtn: {},
+  shutterOuter: {
+    width: 72, height: 72, borderRadius: 36, borderWidth: 4, borderColor: colors.white,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  shutterInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.white },
 });
