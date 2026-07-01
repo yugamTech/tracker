@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, Image, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, EmptyState } from '@yaanam/ui';
-import { useMyNotifications, useMarkRead, useMarkAllRead } from '@yaanam/api-client';
+import { useMyNotifications, useMarkRead, useMarkAllRead, resolvePhotoUrl } from '@yaanam/api-client';
 import type { Notification } from '@yaanam/types';
 
 // Backend includes readAt on the row; types package doesn't declare it yet.
@@ -78,6 +78,8 @@ export default function NotificationCenterScreen() {
           contentContainerStyle={styles.list}
           renderItem={({ item }) => {
             const isRead = !!item.readAt;
+            // Driver-captured boarding photo rides on the BOARDING notification (item 4).
+            const photo = resolvePhotoUrl(item.variables?.photoUrl);
             return (
               <TouchableOpacity
                 onPress={() => handlePress(item)}
@@ -101,7 +103,11 @@ export default function NotificationCenterScreen() {
                     {item.variables?.body ?? item.eventType}
                   </Text>
                 </View>
-                {!isRead && <View style={styles.unreadBadge} />}
+                {photo ? (
+                  <Image source={{ uri: photo }} style={styles.photo} resizeMode="cover" />
+                ) : !isRead ? (
+                  <View style={styles.unreadBadge} />
+                ) : null}
               </TouchableOpacity>
             );
           }}
@@ -144,5 +150,6 @@ const styles = StyleSheet.create({
   itemTime: { fontSize: fontSizes.xs, color: colors.textMuted },
   itemText: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 20 },
   unreadBadge: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, marginTop: 6 },
+  photo: { width: 44, height: 44, borderRadius: 8, backgroundColor: colors.gray100 },
   separator: { height: 1, backgroundColor: colors.border },
 });

@@ -109,10 +109,15 @@ export class AttendanceService {
         data: { boardStatus: 'BOARDED' },
       });
       // Fire-and-forget: tell the guardians their child boarded. Never block or
-      // fail the attendance write on a notification error.
-      this.notifyBoarding(data.tripId, data.studentId, data.tenantId, event.student.name).catch(
-        (err) => this.logger.error(`BOARDING dispatch failed: ${(err as Error).message}`),
-      );
+      // fail the attendance write on a notification error. The driver-captured
+      // boarding photo rides on the notification so the parent sees it (item 4).
+      this.notifyBoarding(
+        data.tripId,
+        data.studentId,
+        data.tenantId,
+        event.student.name,
+        event.photoUrl,
+      ).catch((err) => this.logger.error(`BOARDING dispatch failed: ${(err as Error).message}`));
     }
     return event;
   }
@@ -123,6 +128,7 @@ export class AttendanceService {
     studentId: string,
     tenantId: string,
     studentName: string,
+    photoUrl?: string | null,
   ) {
     const guardians = await this.prisma.guardianship.findMany({
       where: { studentId },
@@ -148,6 +154,9 @@ export class AttendanceService {
         ...(rider?.stop?.name ? { stopName: rider.stop.name } : {}),
         ...(rider?.trip?.route?.name ? { routeName: rider.trip.route.name } : {}),
         ...(rider?.trip?.direction ? { direction: rider.trip.direction } : {}),
+        // The boarding photo (item 4). Stored server-relative when STORAGE_PUBLIC_URL
+        // is unset; the parent app resolves it to an absolute URL via resolvePhotoUrl.
+        ...(photoUrl ? { photoUrl } : {}),
         time: new Date().toISOString(),
         deepLink: `/track/${tripId}`,
       },
