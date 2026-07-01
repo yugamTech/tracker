@@ -56,6 +56,23 @@ const routePhrase = (vars: Vars): string => {
   return 'your child’s route';
 };
 
+/** "The Route A bus" when a route name is known, else "The bus". */
+const busLabel = (vars: Vars): string => {
+  const route = v(vars, 'routeName');
+  return route ? `The ${route} bus` : 'The bus';
+};
+
+/**
+ * The school name for school-anchored copy (drop start / pickup end). Falls back
+ * to a generic "the school" when no schoolName was supplied — never renders a
+ * blank or "undefined". schoolName is resolved at the call site from the trip's
+ * anchorLabel (per-trip destination override) or the tenant's schoolName.
+ */
+const schoolPhrase = (vars: Vars): string => v(vars, 'schoolName') || 'the school';
+
+const isDrop = (vars: Vars): boolean => v(vars, 'direction').toUpperCase() === 'DROP';
+const isPickup = (vars: Vars): boolean => v(vars, 'direction').toUpperCase() === 'PICKUP';
+
 /**
  * The single source of truth for what each event does. dispatch() looks the
  * eventType up here; if there is no spec it logs and no-ops (never throws).
@@ -93,7 +110,12 @@ export const NOTIFICATION_EVENT_SPECS: Record<NotifCategory, NotificationEventSp
     templateId: 'trip-start.v1',
     recipients: 'all guardians on trip',
     title: (vars) => (v(vars, 'routeName') ? `${v(vars, 'routeName')} — trip started` : 'Trip started'),
-    body: (vars) => `The bus on ${routePhrase(vars)} has started its trip. Track it live.`,
+    // A DROP starts FROM the school (school-aware); a PICKUP start stays generic
+    // (it begins at the first stop, not the school).
+    body: (vars) =>
+      isDrop(vars)
+        ? `${busLabel(vars)} has started from ${schoolPhrase(vars)}. Track it live.`
+        : `The bus on ${routePhrase(vars)} has started its trip. Track it live.`,
   },
   // Trip-start governance (2B): raised when a driver starts a trip outside the
   // clean-start rule. Targets tenant admins so they can review/resolve the alarm.
@@ -170,8 +192,19 @@ export const NOTIFICATION_EVENT_SPECS: Record<NotifCategory, NotificationEventSp
     priority: NotifPriority.MEDIUM,
     templateId: 'trip-end.v1',
     recipients: 'all guardians on trip',
-    title: (vars) => (v(vars, 'routeName') ? `${v(vars, 'routeName')} — trip completed` : 'Trip completed'),
-    body: (vars) => `The bus on ${routePhrase(vars)} has completed its trip.`,
+    title: (vars) =>
+      isPickup(vars) && v(vars, 'routeName')
+        ? `${v(vars, 'routeName')} — reached ${schoolPhrase(vars)}`
+        : v(vars, 'routeName')
+          ? `${v(vars, 'routeName')} — trip completed`
+          : 'Trip completed',
+    // A PICKUP ends by REACHING the school (school-aware); a DROP end stays generic
+    // (it ends at the last stop / home, not the school). Reuses TRIP_END rather
+    // than a new category — the only difference is direction-dependent wording.
+    body: (vars) =>
+      isPickup(vars)
+        ? `${busLabel(vars)} has reached ${schoolPhrase(vars)}.`
+        : `The bus on ${routePhrase(vars)} has completed its trip.`,
   },
   // Arrival alarms (PRD-03 §4.1). The dedup window is generous (1h) so a single
   // approach to a stop fires each stage once — entityId carries (trip, stop), so

@@ -1300,9 +1300,19 @@ export class TripsService {
   private async notifyGuardiansOnTrip(tripId: string, eventType: NotifCategory) {
     const trip = await this.prisma.trip.findUnique({
       where: { id: tripId },
-      select: { tenantId: true, direction: true, route: { select: { name: true } } },
+      select: {
+        tenantId: true,
+        direction: true,
+        anchorLabel: true,
+        route: { select: { name: true } },
+        tenant: { select: { schoolName: true } },
+      },
     });
     if (!trip) return;
+    // School-aware copy (drop start / pickup end): prefer the per-trip destination
+    // override label, else the tenant's school name. Absent → the template falls
+    // back to a generic "the school" (never renders "undefined").
+    const schoolName = trip.anchorLabel ?? trip.tenant?.schoolName ?? undefined;
     const riders = await this.prisma.tripRider.findMany({
       where: { tripId },
       select: { studentId: true },
@@ -1323,6 +1333,7 @@ export class TripsService {
       variables: {
         tripId,
         ...(trip.route?.name ? { routeName: trip.route.name } : {}),
+        ...(schoolName ? { schoolName } : {}),
         direction: trip.direction,
         deepLink: `/track/${tripId}`,
       },
