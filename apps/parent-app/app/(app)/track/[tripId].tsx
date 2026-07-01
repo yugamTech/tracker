@@ -16,6 +16,8 @@ import {
   useCancelPickup,
   pickupCancelInfo,
   resolvePhotoUrl,
+  tripStatusLabel,
+  tripLabelVariant,
 } from '@yaanam/api-client';
 import { useChildStore } from '../../../store/child.store';
 import { goBackTo } from '../../../lib/nav';
@@ -92,6 +94,33 @@ export default function TrackScreen() {
       .filter((e) => e.studentId === myRider?.studentId && e.type === 'BOARDED')
       .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())[0];
   }, [t, myRider]);
+
+  // The child's latest ALIGHTED event (a drop has actually happened) — drives the
+  // "Dropped at {stop}" label. boardStatus stays BOARDED after alighting, so this
+  // is the only signal that the child is off the bus.
+  const myAlighting = useMemo(() => {
+    const events: any[] = t?.attendanceEvents ?? [];
+    return [...events]
+      .filter((e) => e.studentId === myRider?.studentId && e.type === 'ALIGHTED')
+      .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())[0];
+  }, [t, myRider]);
+
+  // THE per-child status, from the single source of truth (trip.status × boardStatus).
+  // A terminal trip can never read as a live label here (item 2).
+  const childStatus = tripStatusLabel({
+    direction: t?.direction,
+    status,
+    boardStatus: myRider?.boardStatus,
+    scheduledStart: t?.scheduledStart,
+    completedAt: t?.completedAt,
+    alightedAt: myAlighting?.ts,
+    stopName: childStopName,
+  });
+  const childStatusPill = (
+    <View style={styles.childStatusRow}>
+      <Badge label={childStatus.label} variant={tripLabelVariant(childStatus.state) as BadgeVariant} size="md" />
+    </View>
+  );
 
   // Ordered route stops + progress. Departed stops are primed from the trip's
   // historical geofence events (so a reload keeps progress) and merged with
@@ -268,6 +297,7 @@ export default function TrackScreen() {
 
           <ScrollView contentContainerStyle={styles.sheetScroll} showsVerticalScrollIndicator={false}>
             <View style={styles.sheet}>
+              {childStatusPill}
               {alarm !== 'none' && ALARM_RANK[alarm] > ALARM_RANK[alarmDismissed] && (
                 <AlarmBanner level={alarm} stopName={childStopName ?? eta?.stopName} onDismiss={() => setAlarmDismissed(alarm)} />
               )}
@@ -307,6 +337,7 @@ export default function TrackScreen() {
       ) : isScheduled ? (
         /* ─── SCHEDULED: pre-trip, no live map ─── */
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {childStatusPill}
           <Card style={styles.preTripCard} shadow="md">
             <Text style={styles.preLabel}>{directionLabel.toUpperCase()} STARTS AT</Text>
             <Text style={styles.preTime}>
@@ -373,6 +404,7 @@ export default function TrackScreen() {
       ) : (
         /* ─── DONE: read-only summary ─── */
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {childStatusPill}
           <Card style={styles.preTripCard} shadow="md">
             <View style={styles.summaryTop}>
               <View style={{ flex: 1 }}>
@@ -488,6 +520,7 @@ const styles = StyleSheet.create({
 
   loadingWrap: { padding: spacing[4] },
   scroll: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[8] },
+  childStatusRow: { flexDirection: 'row', alignItems: 'center' },
 
   // Live pill (header)
   livePill: {

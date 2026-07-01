@@ -5,6 +5,10 @@ export { queryClient } from './query-client';
 // Photo URL resolution (relative "/uploads/…" → absolute, for RN <Image>)
 export { resolvePhotoUrl, withPhotoHost, apiOrigin } from './photo-url';
 
+// Parent-facing trip status label (the single source of truth — trip.status × boardStatus)
+export { tripStatusLabel, tripLabelVariant, TRIP_LABEL_VARIANT } from './trips/trip-status-label';
+export type { TripLabel, TripLabelInput, TripLabelState, TripLabelDirection } from './trips/trip-status-label';
+
 // Auth
 export { authApi } from './auth/auth.api';
 export type { RequestOtpDto, VerifyOtpDto, AuthResponse } from './auth/auth.api';
