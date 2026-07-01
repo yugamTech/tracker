@@ -6,7 +6,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { colors, spacing, fontSizes, fontWeights, radius, Button, useToast } from '@yaanam/ui';
 import {
   useTodayTrips, useSubmitDailyCheck, useDailyChecks,
-  checkWindowInfo, formatTripTime, attendanceApi,
+  checkWindowInfo, formatTripTime, attendanceApi, resolvePhotoUrl,
 } from '@yaanam/api-client';
 
 type Shot = { uri: string; base64: string };
@@ -192,7 +192,7 @@ export default function VehicleCheckScreen() {
               <View style={styles.photoRow}>
                 {existingCheck.photoUrls.map((url) => (
                   <View key={url} style={styles.photoThumb}>
-                    <Image source={{ uri: url }} style={styles.photoImg} resizeMode="cover" />
+                    <Image source={{ uri: resolvePhotoUrl(url) }} style={styles.photoImg} resizeMode="cover" />
                   </View>
                 ))}
               </View>

@@ -3,7 +3,7 @@ import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, Linking } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Badge, LoadingSpinner, EmptyState, AppHeader } from '@yaanam/ui';
-import { useTripById, useBusConditionPhotos } from '@yaanam/api-client';
+import { useTripById, useBusConditionPhotos, resolvePhotoUrl } from '@yaanam/api-client';
 import type { BadgeVariant } from '@yaanam/ui';
 import { goBackTo } from '../../../../lib/nav';
 
@@ -81,7 +81,7 @@ export default function TripDetailScreen() {
             <View style={styles.driverCard}>
               <View style={styles.driverAvatar}>
                 {driver.photoUrl ? (
-                  <Image source={{ uri: driver.photoUrl }} style={styles.driverAvatarImg} resizeMode="cover" />
+                  <Image source={{ uri: resolvePhotoUrl(driver.photoUrl) }} style={styles.driverAvatarImg} resizeMode="cover" />
                 ) : (
                   <Text style={{ fontSize: 22 }}>🧑‍✈️</Text>
                 )}
@@ -111,7 +111,7 @@ export default function TripDetailScreen() {
             <View style={styles.busPhotoWrap}>
               {busPhotos.flatMap((c) =>
                 c.photoUrls.map((url) => (
-                  <Image key={url} source={{ uri: url }} style={styles.busPhoto} resizeMode="cover" />
+                  <Image key={url} source={{ uri: resolvePhotoUrl(url) }} style={styles.busPhoto} resizeMode="cover" />
                 )),
               )}
             </View>

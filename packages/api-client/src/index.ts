@@ -1,6 +1,9 @@
 // Axios + Query Client
-export { apiClient, createApiClient, TOKEN_KEY, REFRESH_KEY, setUnauthorizedHandler } from './axios';
+export { apiClient, createApiClient, TOKEN_KEY, REFRESH_KEY, setUnauthorizedHandler, API_BASE_URL } from './axios';
 export { queryClient } from './query-client';
+
+// Photo URL resolution (relative "/uploads/…" → absolute, for RN <Image>)
+export { resolvePhotoUrl, withPhotoHost, apiOrigin } from './photo-url';
 
 // Auth
 export { authApi } from './auth/auth.api';

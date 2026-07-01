@@ -7,7 +7,7 @@ import {
   colors, spacing, fontSizes, fontWeights, fontFamilies,
   Card, Badge, AnimatedPressable, IconSplat, Icon, useToast,
 } from '@yaanam/ui';
-import { useVehicleById, useCreateVehicle, useUpdateVehicle, useDeactivateVehicle, useReactivateVehicle, useDailyChecks } from '@yaanam/api-client';
+import { useVehicleById, useCreateVehicle, useUpdateVehicle, useDeactivateVehicle, useReactivateVehicle, useDailyChecks, resolvePhotoUrl } from '@yaanam/api-client';
 import { goBackTo } from '../../../../lib/nav';
 import { GroupCard, Field, FormInput, PillPicker, ActionButton, ReadValue } from '../../../../components/forms';
 
@@ -178,7 +178,7 @@ export default function VehicleDetailScreen() {
               {c.note ? <Text style={styles.assignMeta}>{c.note}</Text> : null}
               <View style={styles.photoRow}>
                 {c.photoUrls.map((url) => (
-                  <Image key={url} source={{ uri: url }} style={styles.photoThumb} resizeMode="cover" />
+                  <Image key={url} source={{ uri: resolvePhotoUrl(url) }} style={styles.photoThumb} resizeMode="cover" />
                 ))}
               </View>
             </View>

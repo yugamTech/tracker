@@ -15,6 +15,7 @@ import {
   useMyStudents,
   useCancelPickup,
   pickupCancelInfo,
+  resolvePhotoUrl,
 } from '@yaanam/api-client';
 import { useChildStore } from '../../../store/child.store';
 import { goBackTo } from '../../../lib/nav';
@@ -189,7 +190,7 @@ export default function TrackScreen() {
       <View style={styles.driverRow}>
         <View style={styles.driverAvatar}>
           {driver?.photoUrl ? (
-            <Image source={{ uri: driver.photoUrl }} style={styles.driverAvatarImg} resizeMode="cover" />
+            <Image source={{ uri: resolvePhotoUrl(driver.photoUrl) }} style={styles.driverAvatarImg} resizeMode="cover" />
           ) : (
             <Text style={{ fontSize: 20 }}>🧑‍✈️</Text>
           )}
@@ -456,7 +457,7 @@ function BoardingCard({ childName, photoUrl, ts }: { childName?: string; photoUr
     <Card style={styles.boardingCard} shadow="none">
       <View style={styles.boardingRow}>
         {photoUrl ? (
-          <Image source={{ uri: photoUrl }} style={styles.boardingPhoto} resizeMode="cover" />
+          <Image source={{ uri: resolvePhotoUrl(photoUrl) }} style={styles.boardingPhoto} resizeMode="cover" />
         ) : (
           <View style={[styles.boardingPhoto, styles.boardingPhotoEmpty]}>
             <Text style={{ fontSize: 22 }}>🎒</Text>
