@@ -37,6 +37,8 @@ export default function TripsScreen() {
   const { data: students } = useMyStudents();
   const count = trips?.length ?? 0;
   const myIds = new Set((students ?? []).map((s) => s.id));
+  const nameById = new Map((students ?? []).map((s) => [s.id, s.name] as const));
+  const firstName = (id: string) => (nameById.get(id) ?? 'Your child').split(' ')[0];
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -71,9 +73,14 @@ export default function TripsScreen() {
           renderItem={({ item, index }) => {
             const routeName = (item as any)?.route?.name ?? item.routeId;
             const completed = item.status === 'COMPLETED';
-            const skipped = ((item as any)?.riders ?? []).some(
-              (r: any) => myIds.has(r.studentId) && r.boardStatus === 'CANCELLED',
-            );
+            const myRiders = ((item as any)?.riders ?? []).filter((r: any) => myIds.has(r.studentId));
+            const skipped = myRiders.some((r: any) => r.boardStatus === 'CANCELLED');
+            // A child that did NOT board a trip that ran (NOT_BOARDED is only set
+            // once the trip is under way / done — presentation only, off the rider).
+            const notBoardedNames = myRiders
+              .filter((r: any) => r.boardStatus === 'NOT_BOARDED')
+              .map((r: any) => firstName(r.studentId));
+            const boarded = myRiders.some((r: any) => r.boardStatus === 'BOARDED');
             return (
               <SlideIn delay={Math.min(index, 8) * 45}>
               <AnimatedPressable
@@ -89,6 +96,14 @@ export default function TripsScreen() {
                           {item.direction === 'PICKUP' ? 'Pickup' : 'Drop'}
                         </Text>
                         {skipped && <Text style={styles.skippedChip}>Pickup skipped</Text>}
+                        {notBoardedNames.length > 0 && (
+                          <Text style={styles.notBoardedChip}>
+                            {notBoardedNames.join(' & ')} did not board
+                          </Text>
+                        )}
+                        {boarded && notBoardedNames.length === 0 && (
+                          <Text style={styles.boardedChip}>Boarded</Text>
+                        )}
                       </View>
                     </View>
                     <Badge label={statusLabel(item.status)} variant={tripStatusVariant(item.status)} size="sm" />
@@ -125,6 +140,14 @@ const styles = StyleSheet.create({
   skippedChip: {
     fontSize: fontSizes.xs, color: colors.gray500, fontWeight: fontWeights.semibold,
     backgroundColor: colors.gray100, paddingHorizontal: spacing[2], paddingVertical: 1, borderRadius: radius.full, overflow: 'hidden',
+  },
+  notBoardedChip: {
+    fontSize: fontSizes.xs, color: colors.errorDark, fontWeight: fontWeights.semibold,
+    backgroundColor: colors.errorBg, paddingHorizontal: spacing[2], paddingVertical: 1, borderRadius: radius.full, overflow: 'hidden',
+  },
+  boardedChip: {
+    fontSize: fontSizes.xs, color: colors.successDark, fontWeight: fontWeights.semibold,
+    backgroundColor: colors.successBg, paddingHorizontal: spacing[2], paddingVertical: 1, borderRadius: radius.full, overflow: 'hidden',
   },
   rateBtn: {
     alignSelf: 'flex-start', marginTop: spacing[3],
