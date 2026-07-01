@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, fontFamilies,
@@ -26,13 +26,20 @@ function statusBadge(status: string): { label: string; variant: BadgeVariant } {
 
 export default function DashboardScreen() {
   const { isDesktop } = useResponsive();
-  const { data: fleet, isLoading: fleetLoading } = useFleet();
-  const { data: trips, isLoading: tripsLoading } = useTodayTrips();
-  const { data: lifecycleAlarms, isLoading: alarmsLoading } = useLifecycleAlarms();
+  const { data: fleet, isLoading: fleetLoading, refetch: refetchFleet, isRefetching: fleetRefetching } = useFleet();
+  const { data: trips, isLoading: tripsLoading, refetch: refetchTrips, isRefetching: tripsRefetching } = useTodayTrips();
+  const { data: lifecycleAlarms, isLoading: alarmsLoading, refetch: refetchAlarms, isRefetching: alarmsRefetching } = useLifecycleAlarms();
   // Today's on-time / boarding rates come from the last day of the trend series;
   // open-complaint count from the complaint KPI rollup. Both degrade to '—' / 0.
-  const { data: trends, isLoading: trendsLoading } = useTripTrends(7);
-  const { data: complaintKpi, isLoading: kpiLoading } = useComplaintKpi();
+  const { data: trends, isLoading: trendsLoading, refetch: refetchTrends, isRefetching: trendsRefetching } = useTripTrends(7);
+  const { data: complaintKpi, isLoading: kpiLoading, refetch: refetchKpi, isRefetching: kpiRefetching } = useComplaintKpi();
+
+  // The dashboard aggregates five independent queries; pull-to-refresh fans out to
+  // all of them and spins until every one settles.
+  const isRefetching = fleetRefetching || tripsRefetching || alarmsRefetching || trendsRefetching || kpiRefetching;
+  const onRefresh = React.useCallback(() => {
+    void Promise.all([refetchFleet(), refetchTrips(), refetchAlarms(), refetchTrends(), refetchKpi()]);
+  }, [refetchFleet, refetchTrips, refetchAlarms, refetchTrends, refetchKpi]);
 
   const list = fleet ?? [];
   const active = list.filter((f) => ACTIVE.has(f.status));
@@ -51,7 +58,11 @@ export default function DashboardScreen() {
       subtitle="Today at a glance"
       subnav={<SubNav segments={SUBNAV.dashboard} value="overview" />}
     >
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         {/* KPI grid — calm white tiles that light up only when something needs you. */}
         <View style={[styles.kpiRow, isDesktop ? styles.kpiRowDesktop : styles.kpiRowPhone]}>
           <Stagger interval={60} itemStyle={isDesktop ? styles.kpiCellDesktop : styles.kpiCellPhone}>

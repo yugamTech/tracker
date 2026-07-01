@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, Text, ScrollView, FlatList, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, fontFamilies,
@@ -183,7 +183,7 @@ export default function TripScheduleScreen() {
   const { data: routes = [] } = useRoutes();
   const { data: drivers = [] } = useMembers('DRIVER');
 
-  const { data: trips, isLoading, isError } = useFilteredTrips({
+  const { data: trips, isLoading, isError, refetch, isRefetching } = useFilteredTrips({
     date: selectedKey,
     route: routeId || undefined,
     driver: driverId || undefined,
@@ -382,6 +382,7 @@ export default function TripScheduleScreen() {
             ItemSeparatorComponent={TripSeparator}
             ListHeaderComponent={listHeader}
             ListEmptyComponent={listEmpty}
+            refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.trip} />}
             showsVerticalScrollIndicator={false}
           />
         </View>
@@ -394,6 +395,7 @@ export default function TripScheduleScreen() {
           ItemSeparatorComponent={TripSeparator}
           ListHeaderComponent={listHeader}
           ListEmptyComponent={listEmpty}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.trip} />}
           showsVerticalScrollIndicator={false}
         />
       )}

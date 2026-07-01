@@ -36,6 +36,7 @@ interface GridListProps<T> {
   removeClippedSubviews?: boolean;
   ListHeaderComponent?: React.ComponentProps<typeof FlatList>['ListHeaderComponent'];
   ListEmptyComponent?: React.ComponentProps<typeof FlatList>['ListEmptyComponent'];
+  refreshControl?: React.ComponentProps<typeof FlatList>['refreshControl'];
   contentContainerStyle?: StyleProp<ViewStyle>;
 }
 
@@ -49,6 +50,7 @@ export function GridList<T>({
   removeClippedSubviews,
   ListHeaderComponent,
   ListEmptyComponent,
+  refreshControl,
   contentContainerStyle,
 }: GridListProps<T>) {
   const multi = columns > 1;
@@ -107,6 +109,7 @@ export function GridList<T>({
       contentContainerStyle={[styles.listContent, { gap }, contentContainerStyle]}
       ListHeaderComponent={ListHeaderComponent}
       ListEmptyComponent={ListEmptyComponent}
+      refreshControl={refreshControl}
       showsVerticalScrollIndicator={false}
       getItemLayout={getItemLayout}
       removeClippedSubviews={removeClippedSubviews}
