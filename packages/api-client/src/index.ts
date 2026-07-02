@@ -9,6 +9,10 @@ export { resolvePhotoUrl, withPhotoHost, apiOrigin } from './photo-url';
 export { tripStatusLabel, tripLabelVariant, TRIP_LABEL_VARIANT } from './trips/trip-status-label';
 export type { TripLabel, TripLabelInput, TripLabelState, TripLabelDirection } from './trips/trip-status-label';
 
+// Parent trip selection: which child a trip shows, and the home-feed order
+export { pickTripRider, sortParentTrips, compareParentTrips } from './trips/trip-selection';
+export type { RiderLike, TripOrderLike } from './trips/trip-selection';
+
 // Auth
 export { authApi } from './auth/auth.api';
 export type { RequestOtpDto, VerifyOtpDto, AuthResponse } from './auth/auth.api';

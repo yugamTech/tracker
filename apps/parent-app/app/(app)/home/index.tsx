@@ -11,7 +11,7 @@ import { useAuthStore } from '../../../store/auth.store';
 import { useChildStore } from '../../../store/child.store';
 import {
   useMyStudents, useTodayTrips, useCancelPickup, pickupCancelInfo,
-  tripStatusLabel, tripLabelVariant,
+  tripStatusLabel, tripLabelVariant, sortParentTrips,
 } from '@yaanam/api-client';
 
 function greeting() {
@@ -55,16 +55,16 @@ export default function HomeScreen() {
   // ALL of the active child's trips today (pickup + drop), the active ride first,
   // then chronological — the Uber "active ride is the hero" layout. Each card
   // derives its label from the CORE helper, so a completed trip reads terminal.
-  const childTrips = (todayTrips ?? []).filter((t) => t.routeId === activeChild?.routeId);
-  const timeOf = (t: { scheduledStart?: string | null; date?: string }) =>
-    new Date(t.scheduledStart ?? t.date ?? 0).getTime();
+  // The active child's trips today = the trips this child actually rides
+  // (rider-based, so switching child re-filters correctly — not a routeId proxy
+  // that can go stale when children share a route).
+  const childTrips = (todayTrips ?? []).filter((t: any) =>
+    (t.riders ?? []).some((r: any) => r.studentId === activeChild?.id),
+  );
   const isLiveTrip = (t: { status: string }) => t.status === 'STARTED' || t.status === 'IN_PROGRESS';
-  const sortedTrips = [...childTrips].sort((a, b) => {
-    const la = isLiveTrip(a) ? 0 : 1;
-    const lb = isLiveTrip(b) ? 0 : 1;
-    if (la !== lb) return la - lb; // live floats to the top
-    return timeOf(a) - timeOf(b); // otherwise morning → evening
-  });
+  // Deterministic home order: the live ride first, then upcoming soonest-first,
+  // then finished most-recent-first — never "childTrips[0]".
+  const sortedTrips = sortParentTrips(childTrips);
 
   const onSkipPickup = (tripId: string) => {
     if (!activeChild) return;

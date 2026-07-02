@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, Image, ScrollView, StyleSheet, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useNavigation, useFocusEffect } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
   StatusDot, Card, Badge, Button, Divider, Skeleton, EmptyState,
@@ -19,6 +19,7 @@ import {
   resolvePhotoUrl,
   tripStatusLabel,
   tripLabelVariant,
+  pickTripRider,
 } from '@yaanam/api-client';
 import { useChildStore } from '../../../store/child.store';
 import { goBackTo } from '../../../lib/nav';
@@ -73,6 +74,42 @@ export default function TrackScreen() {
   const [alarm, setAlarm] = useState<AlarmLevel>('none');
   const [alarmDismissed, setAlarmDismissed] = useState<AlarmLevel>('none');
 
+  const navigation = useNavigation();
+
+  // BUG A fix: `track` is a hidden tab with its own stack and NO root screen, so
+  // successively opened trips would pile up ([tripA, tripB, …]) and the in-screen
+  // Back would surface a previously-opened trip instead of returning to home/list.
+  // On focus, collapse the stack down to just the trip being viewed — preserving
+  // its route key so this screen is NOT remounted — so Back always exits to the
+  // tab the user came from, and no stale trip lingers underneath.
+  useFocusEffect(
+    useCallback(() => {
+      const nav = navigation as unknown as {
+        getState?: () => { routes: Array<{ key: string; name: string; params?: unknown }> } | undefined;
+        reset: (state: { index: number; routes: Array<{ key: string; name: string; params?: unknown }> }) => void;
+      };
+      const state = nav.getState?.();
+      // Guard: only ever collapse the track Stack itself — every route must be a
+      // trip screen — so we can never accidentally reset the parent tab navigator.
+      const isTrackStack =
+        !!state && state.routes.every((r) => r.name.includes('[tripId]'));
+      if (isTrackStack && state.routes.length > 1) {
+        nav.reset({ index: 0, routes: [state.routes[state.routes.length - 1]] });
+      }
+    }, [navigation]),
+  );
+
+  // Reset live-only state whenever the viewed trip changes, so a previously-opened
+  // trip's socket / ETA / alarm state never bleeds into this one.
+  useEffect(() => {
+    setPos(null);
+    setEta(null);
+    setLive(false);
+    setLiveDeparted(new Set());
+    setAlarm('none');
+    setAlarmDismissed('none');
+  }, [tripId]);
+
   const t = trip as any;
   const status: string | undefined = trip?.status;
   const isScheduled = status === 'SCHEDULED';
@@ -83,11 +120,14 @@ export default function TrackScreen() {
   // Memoised on [trip, myStudents, activeChildId] so a location/ETA ping (which
   // calls setState and re-renders) doesn't re-run these Array.find scans.
   const myIds = useMemo(() => new Set((myStudents ?? []).map((s) => s.id)), [myStudents]);
+  // BUG B fix: the child/rider is derived from THIS trip's own riders ∩ the
+  // parent's guarded students — the route param + fetched trip are the single
+  // source of truth. `activeChildId` is only a tiebreak for a sibling trip and is
+  // ignored unless that child is actually a rider here, so a stale active-child
+  // selection can never surface the wrong (previous) child.
   const { myRider, child, childStopId, childStopName } = useMemo(() => {
     const rs: any[] = (trip as any)?.riders ?? [];
-    const mine =
-      rs.find((r) => r.studentId === activeChildId && myIds.has(r.studentId)) ??
-      rs.find((r) => myIds.has(r.studentId));
+    const mine = pickTripRider(rs, myIds, activeChildId);
     const c = (myStudents ?? []).find((s) => s.id === mine?.studentId);
     return {
       myRider: mine,
