@@ -362,6 +362,9 @@ export class TripsController {
     @Body() dto: CancelPickupDto,
     @ActiveMembershipDec() membership: ActiveMembership,
   ) {
-    return this.tripsService.cancelPickup(id, dto.studentId, membership.membershipId, dto.reason);
+    // Pass the full membership (not just its id): the service authorizes the
+    // caller against the trip's tenant AND — for a parent — a guardianship over
+    // the child, so no one can skip another family's (or tenant's) pickup.
+    return this.tripsService.cancelPickup(id, dto.studentId, membership, dto.reason);
   }
 }

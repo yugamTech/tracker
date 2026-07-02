@@ -1457,20 +1457,48 @@ export class TripsService {
    * and notifies the driver/conductor + admin (fire-and-forget). The cutoff info
    * is returned either way so the client can show/hide the action.
    */
-  async cancelPickup(tripId: string, studentId: string, cancelledBy: string, reason?: string) {
+  async cancelPickup(tripId: string, studentId: string, actor: ActiveMembership, reason?: string) {
+    // Authorization (NFR-05): only a guardian of the child — or a tenant admin —
+    // may skip a pickup. Never a driver/conductor, and never for a child the
+    // caller has no relation to.
+    if (
+      actor.role !== Role.PARENT &&
+      actor.role !== Role.ADMIN &&
+      actor.role !== Role.TRANSPORT_MANAGER
+    ) {
+      throw new ForbiddenException('Only a parent or an administrator can cancel a pickup');
+    }
+
+    // Scope the rider to the caller's tenant up front, and pull the trip fields we
+    // need in the same query. A foreign-tenant trip is now indistinguishable from a
+    // non-existent one — this closes the cross-tenant / cross-family IDOR and also
+    // removes the prior findUniqueOrThrow that 500'd on a bogus id.
     const rider = await this.prisma.tripRider.findFirst({
-      where: { tripId, studentId },
-      include: { student: { select: { name: true } } },
+      where: { tripId, studentId, trip: { tenantId: actor.tenantId } },
+      include: {
+        student: { select: { name: true } },
+        trip: { select: { tenantId: true, status: true, scheduledStart: true, date: true, direction: true } },
+      },
     });
     if (!rider) throw new NotFoundException(`Student ${studentId} is not a rider on trip ${tripId}`);
+
+    // A parent may only cancel their OWN child's pickup. Same 404 as above so a
+    // parent cannot probe which students ride a trip.
+    if (actor.role === Role.PARENT) {
+      const guardian = await this.prisma.guardianship.findFirst({
+        where: { personId: actor.personId, studentId },
+        select: { id: true },
+      });
+      if (!guardian) {
+        throw new NotFoundException(`Student ${studentId} is not a rider on trip ${tripId}`);
+      }
+    }
+
     if (rider.boardStatus === RiderStatus.BOARDED) {
       throw new BadRequestException('Cannot cancel pickup — student already boarded');
     }
 
-    const trip = await this.prisma.trip.findUniqueOrThrow({
-      where: { id: tripId },
-      select: { tenantId: true, status: true, scheduledStart: true, date: true, direction: true },
-    });
+    const trip = rider.trip;
 
     // A DROP can never be skipped: skipping a pickup just means "don't collect my
     // child this morning", but a child already at school still needs to get home.
@@ -1512,7 +1540,7 @@ export class TripsService {
 
     const [cancellation] = await this.prisma.$transaction([
       this.prisma.pickupCancellation.create({
-        data: { tripId, studentId, tenantId: trip.tenantId, cancelledBy, reason },
+        data: { tripId, studentId, tenantId: trip.tenantId, cancelledBy: actor.membershipId, reason },
       }),
       this.prisma.tripRider.update({
         where: { id: rider.id },
