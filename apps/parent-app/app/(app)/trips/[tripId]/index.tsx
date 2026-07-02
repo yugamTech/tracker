@@ -3,8 +3,9 @@ import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, Linking } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, fontSizes, fontWeights, radius, Badge, LoadingSpinner, EmptyState, AppHeader } from '@yaanam/ui';
-import { useTripById, useBusConditionPhotos } from '@yaanam/api-client';
+import { useTripById, useBusConditionPhotos, resolvePhotoUrl } from '@yaanam/api-client';
 import type { BadgeVariant } from '@yaanam/ui';
+import type { ParentDriverView } from '@yaanam/types';
 import { goBackTo } from '../../../../lib/nav';
 
 function tripStatusVariant(status: string): BadgeVariant {
@@ -15,6 +16,16 @@ function tripStatusVariant(status: string): BadgeVariant {
     case 'CANCELLED': return 'cancelled';
     case 'ABORTED': return 'error';
     default: return 'default';
+  }
+}
+
+/** The driver's police/background-verification, as a parent-facing badge. */
+function verificationBadge(status?: string | null): { label: string; variant: BadgeVariant } | null {
+  switch (status) {
+    case 'VERIFIED': return { label: '✓ Police-verified', variant: 'success' };
+    case 'PENDING': return { label: 'Verification pending', variant: 'warning' };
+    case 'REJECTED': return { label: 'Not verified', variant: 'error' };
+    default: return null;
   }
 }
 
@@ -46,8 +57,9 @@ export default function TripDetailScreen() {
   const t = trip as any;
   const routeName: string = t?.route?.name ?? trip.routeId;
   const vehicleReg: string = t?.vehicle?.regNumber ?? trip.vehicleId ?? '—';
-  // Curated, server-built driver projection — only { name, photoUrl, phone }.
-  const driver = t?.driver as { name: string; photoUrl?: string | null; phone?: string | null } | null | undefined;
+  // Curated, server-built driver projection (name/phone/photo + licence/vehicle/verified, item 5).
+  const driver = t?.driver as ParentDriverView | null | undefined;
+  const verified = verificationBadge(driver?.policeVerificationStatus);
   const stops: Array<{ id: string; name: string; sequence: number; riderCount: number }> =
     (t?.route?.stops ?? []).map((rs: any) => ({
       id: rs.stop?.id ?? rs.stopId,
@@ -74,32 +86,50 @@ export default function TripDetailScreen() {
           </View>
         </View>
 
-        {/* Your driver — curated, privacy-scoped projection */}
+        {/* Your driver — curated, privacy-scoped projection (name/photo/phone + vehicle/licence/verified) */}
         {driver ? (
           <>
             <Text style={styles.sectionLabel}>Your Driver</Text>
             <View style={styles.driverCard}>
-              <View style={styles.driverAvatar}>
-                {driver.photoUrl ? (
-                  <Image source={{ uri: driver.photoUrl }} style={styles.driverAvatarImg} resizeMode="cover" />
-                ) : (
-                  <Text style={{ fontSize: 22 }}>🧑‍✈️</Text>
-                )}
+              <View style={styles.driverTopRow}>
+                <View style={styles.driverAvatar}>
+                  {driver.photoUrl ? (
+                    <Image source={{ uri: resolvePhotoUrl(driver.photoUrl) }} style={styles.driverAvatarImg} resizeMode="cover" />
+                  ) : (
+                    <Text style={{ fontSize: 22 }}>🧑‍✈️</Text>
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.driverName}>{driver.name}</Text>
+                  {verified ? (
+                    <View style={styles.verifyRow}>
+                      <Badge label={verified.label} variant={verified.variant} size="sm" />
+                    </View>
+                  ) : null}
+                </View>
+                {driver.phone ? (
+                  <TouchableOpacity
+                    style={styles.callBtn}
+                    onPress={() => Linking.openURL(`tel:${driver.phone}`)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Call driver"
+                  >
+                    <Text style={styles.callBtnText}>📞 Call</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.driverName}>{driver.name}</Text>
-                <Text style={styles.driverSub}>{vehicleReg}</Text>
+              <View style={styles.driverDetails}>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Vehicle</Text>
+                  <Text style={styles.detailValue} numberOfLines={1}>{driver.vehicleReg ?? vehicleReg}</Text>
+                </View>
+                {driver.licenseNumber ? (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Licence no.</Text>
+                    <Text style={styles.detailValue} numberOfLines={1}>{driver.licenseNumber}</Text>
+                  </View>
+                ) : null}
               </View>
-              {driver.phone ? (
-                <TouchableOpacity
-                  style={styles.callBtn}
-                  onPress={() => Linking.openURL(`tel:${driver.phone}`)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Call driver"
-                >
-                  <Text style={styles.callBtnText}>📞 Call</Text>
-                </TouchableOpacity>
-              ) : null}
             </View>
           </>
         ) : null}
@@ -111,7 +141,7 @@ export default function TripDetailScreen() {
             <View style={styles.busPhotoWrap}>
               {busPhotos.flatMap((c) =>
                 c.photoUrls.map((url) => (
-                  <Image key={url} source={{ uri: url }} style={styles.busPhoto} resizeMode="cover" />
+                  <Image key={url} source={{ uri: resolvePhotoUrl(url) }} style={styles.busPhoto} resizeMode="cover" />
                 )),
               )}
             </View>
@@ -183,18 +213,22 @@ const styles = StyleSheet.create({
   stopName: { fontSize: fontSizes.base, fontWeight: fontWeights.medium, color: colors.textPrimary },
   riderCount: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
   driverCard: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing[3],
-    marginHorizontal: spacing[4], padding: spacing[3],
+    marginHorizontal: spacing[4], padding: spacing[3], gap: spacing[3],
     backgroundColor: colors.white, borderRadius: radius.lg,
     borderWidth: 1, borderColor: colors.border,
   },
+  driverTopRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   driverAvatar: {
     width: 48, height: 48, borderRadius: 24, backgroundColor: colors.gray100,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   driverAvatarImg: { width: 48, height: 48 },
   driverName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  driverSub: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  verifyRow: { flexDirection: 'row', marginTop: spacing[1] },
+  driverDetails: { gap: spacing[1], borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing[2] },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
+  detailLabel: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  detailValue: { flex: 1, textAlign: 'right', fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textPrimary },
   callBtn: {
     paddingHorizontal: spacing[3], paddingVertical: spacing[2],
     backgroundColor: colors.primaryBg, borderRadius: radius.full,

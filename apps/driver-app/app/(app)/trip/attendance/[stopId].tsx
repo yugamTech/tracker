@@ -5,7 +5,7 @@ import {
   colors, spacing, fontSizes, fontWeights, radius,
   Card, Button, Avatar, Skeleton, EmptyState, AppHeader, AnimatedPressable, ScreenContainer, SlideIn, useToast,
 } from '@yaanam/ui';
-import { useRoster, useMarkAttendance } from '@yaanam/api-client';
+import { useRoster, useMarkAttendance, resolvePhotoUrl } from '@yaanam/api-client';
 import type { RosterRider } from '@yaanam/api-client';
 
 export default function AttendanceScreen() {
@@ -101,7 +101,7 @@ export default function AttendanceScreen() {
             <Card shadow="sm">
               <View style={styles.cardRow}>
                 {status === 'BOARDED' && item.photoUrl ? (
-                  <Image source={{ uri: item.photoUrl }} style={styles.thumb} />
+                  <Image source={{ uri: resolvePhotoUrl(item.photoUrl) }} style={styles.thumb} />
                 ) : (
                   <Avatar name={item.studentName} size={40} />
                 )}

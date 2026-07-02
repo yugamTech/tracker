@@ -4,12 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
-  Card, Badge, Avatar, Skeleton, EmptyState, AnimatedPressable, Button, Divider, SlideIn, useToast,
+  Card, Badge, Avatar, Skeleton, EmptyState, AnimatedPressable, Button, SlideIn, useToast,
 } from '@yaanam/ui';
 import type { BadgeVariant } from '@yaanam/ui';
 import { useAuthStore } from '../../../store/auth.store';
 import { useChildStore } from '../../../store/child.store';
-import { useMyStudents, useTodayTrips, useCancelPickup, pickupCancelInfo } from '@yaanam/api-client';
+import {
+  useMyStudents, useTodayTrips, useCancelPickup, pickupCancelInfo,
+  tripStatusLabel, tripLabelVariant, sortParentTrips,
+} from '@yaanam/api-client';
 
 function greeting() {
   const h = new Date().getHours();
@@ -49,58 +52,22 @@ export default function HomeScreen() {
     }
   }, [isLoading, students, activeChildId, setActiveChild]);
 
-  // The relevant trip for this child today: a live one wins, else a scheduled one.
-  const childTrips = (todayTrips ?? []).filter((t) => t.routeId === activeChild?.routeId);
-  const liveTrip = childTrips.find((t) => t.status === 'STARTED' || t.status === 'IN_PROGRESS');
-  const scheduledTrip = childTrips.find((t) => t.status === 'SCHEDULED');
-  const activeTrip = liveTrip ?? scheduledTrip ?? childTrips[0];
-  const phase: 'live' | 'scheduled' | 'done' | 'none' = liveTrip
-    ? 'live'
-    : scheduledTrip
-    ? 'scheduled'
-    : activeTrip
-    ? 'done'
-    : 'none';
+  // ALL of the active child's trips today (pickup + drop), the active ride first,
+  // then chronological — the Uber "active ride is the hero" layout. Each card
+  // derives its label from the CORE helper, so a completed trip reads terminal.
+  // The active child's trips today = the trips this child actually rides
+  // (rider-based, so switching child re-filters correctly — not a routeId proxy
+  // that can go stale when children share a route).
+  const childTrips = (todayTrips ?? []).filter((t: any) =>
+    (t.riders ?? []).some((r: any) => r.studentId === activeChild?.id),
+  );
+  const isLiveTrip = (t: { status: string }) => t.status === 'STARTED' || t.status === 'IN_PROGRESS';
+  // Deterministic home order: the live ride first, then upcoming soonest-first,
+  // then finished most-recent-first — never "childTrips[0]".
+  const sortedTrips = sortParentTrips(childTrips);
 
-  const myRider = (activeTrip as any)?.riders?.find((r: any) => r.studentId === activeChild?.id);
-  const skip = pickupCancelInfo(activeTrip, myRider);
-
-  // Boarding outcome (presentation only): NOT_BOARDED means the child did not
-  // board a trip that ran (driver-marked or the geofence-departure automation);
-  // BOARDED confirms they are on the bus. Both come straight off the rider row.
-  const boarded = myRider?.boardStatus === 'BOARDED';
-  const notBoarded = myRider?.boardStatus === 'NOT_BOARDED';
-
-  const startsAt =
-    fmtTime((activeTrip as any)?.scheduledStart) ??
-    (activeTrip?.direction === 'DROP' ? activeChild?.ageGroup?.dropTime : activeChild?.ageGroup?.pickupTime) ??
-    null;
-
-  const heroBadge: { label: string; variant: BadgeVariant } =
-    notBoarded
-      ? { label: 'Did not board', variant: 'not_boarded' }
-      : phase === 'live'
-      ? { label: 'Live ●', variant: 'active' }
-      : skip.alreadySkipped
-      ? { label: 'Skipped today', variant: 'cancelled' }
-      : boarded
-      ? { label: 'Boarded', variant: 'boarded' }
-      : phase === 'scheduled'
-      ? { label: 'Scheduled', variant: 'warning' }
-      : phase === 'done'
-      ? { label: 'Trip ended', variant: 'inactive' }
-      : { label: 'No trip', variant: 'inactive' };
-
-  const primaryTitle =
-    phase === 'live' ? 'Track live →' : phase === 'scheduled' ? 'View pickup →' : phase === 'done' ? 'View summary →' : 'View trips';
-
-  const onPrimary = () => {
-    if (activeTrip) router.push(`/(app)/track/${activeTrip.id}` as never);
-    else router.push('/(app)/trips' as never);
-  };
-
-  const onSkipPickup = () => {
-    if (!activeTrip || !activeChild || !skip.canCancel) return;
+  const onSkipPickup = (tripId: string) => {
+    if (!activeChild) return;
     Alert.alert('Skip pickup today?', `${activeChild.name} will be skipped for this trip. The driver roster updates immediately.`, [
       { text: 'Keep pickup', style: 'cancel' },
       {
@@ -108,7 +75,7 @@ export default function HomeScreen() {
         style: 'destructive',
         onPress: () =>
           cancelPickup.mutate(
-            { tripId: activeTrip.id, studentId: activeChild.id, reason: 'Skipped by parent' },
+            { tripId, studentId: activeChild.id, reason: 'Skipped by parent' },
             {
               onSuccess: () => toast.success('The driver roster has been updated.', 'Pickup skipped'),
               onError: (e: any) =>
@@ -162,8 +129,8 @@ export default function HomeScreen() {
 
         {isLoading ? (
           <Card style={styles.heroCard} shadow="sm">
-            <View style={styles.heroTop}>
-              <Skeleton width={48} height={48} circle />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+              <Skeleton width={40} height={40} circle />
               <View style={{ flex: 1, gap: spacing[2] }}>
                 <Skeleton width="50%" height={18} />
                 <Skeleton width="35%" height={13} />
@@ -182,82 +149,117 @@ export default function HomeScreen() {
           </View>
         ) : activeChild ? (
           <>
-            {/* Active child hero */}
+            {/* Active child + all of today's trips (active one is the hero) */}
+            <View style={styles.childRow}>
+              <Avatar name={activeChild.name} size={40} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.childName} numberOfLines={1}>{activeChild.name}</Text>
+                {activeChild.route?.name ? <Text style={styles.childSub} numberOfLines={1}>{activeChild.route.name}</Text> : null}
+              </View>
+            </View>
             <Text style={styles.sectionTitle}>TODAY</Text>
-            <SlideIn>
-            <Card style={styles.heroCard} shadow="md">
-              <View style={styles.heroTop}>
-                <Avatar name={activeChild.name} size={48} />
-                <View style={styles.heroInfo}>
-                  <Text style={styles.heroName} numberOfLines={1}>{activeChild.name}</Text>
-                  {activeChild.regId ? <Text style={styles.heroSub}>{activeChild.regId}</Text> : null}
+
+            {sortedTrips.length === 0 ? (
+              <Card style={styles.heroCard} shadow="sm">
+                <View style={styles.noTripRow}>
+                  <Text style={{ fontSize: 22 }}>🗓️</Text>
+                  <Text style={styles.noTripText}>No trips scheduled for {activeChild.name} today.</Text>
                 </View>
-                <Badge label={heroBadge.label} variant={heroBadge.variant} size="sm" />
-              </View>
+              </Card>
+            ) : (
+              sortedTrips.map((trip, idx) => {
+                const t = trip as any;
+                const myRider = t.riders?.find((r: any) => r.studentId === activeChild.id);
+                const live = isLiveTrip(trip);
+                const done = trip.status === 'COMPLETED' || trip.status === 'CANCELLED' || trip.status === 'ABORTED';
+                const notBoarded = myRider?.boardStatus === 'NOT_BOARDED';
+                const skipped = myRider?.boardStatus === 'CANCELLED';
+                const dirLabel = trip.direction === 'DROP' ? 'Drop-off' : 'Pickup';
+                const planned = fmtTime(t.scheduledStart);
+                const label = tripStatusLabel({
+                  direction: trip.direction,
+                  status: trip.status,
+                  boardStatus: myRider?.boardStatus,
+                  scheduledStart: t.scheduledStart,
+                  completedAt: t.completedAt,
+                  stopName: t.stop?.name ?? activeChild.stop?.name ?? null,
+                });
+                const skipInfo = pickupCancelInfo(trip, myRider);
+                return (
+                  <SlideIn key={trip.id} delay={Math.min(idx, 6) * 60}>
+                    <AnimatedPressable
+                      onPress={() => router.push(`/(app)/track/${trip.id}` as never)}
+                      scaleTo={0.985}
+                    >
+                      <Card style={[styles.tripCard, live && styles.tripCardLive]} shadow={live ? 'md' : 'sm'}>
+                        {/* Exception banner — clear + colored */}
+                        {notBoarded ? (
+                          <View style={[styles.banner, styles.bannerError]}>
+                            <Text style={styles.bannerErrorText}>⚠️  {activeChild.name} did not board this {dirLabel.toLowerCase()}</Text>
+                          </View>
+                        ) : skipped ? (
+                          <View style={[styles.banner, styles.bannerMuted]}>
+                            <Text style={styles.bannerMutedText}>Pickup skipped for today</Text>
+                          </View>
+                        ) : null}
 
-              <Divider spacingY={4} />
+                        <View style={styles.tripHead}>
+                          <View style={{ flex: 1 }}>
+                            <View style={styles.tripDirRow}>
+                              {live ? <View style={styles.liveDot} /> : null}
+                              <Text style={styles.tripDir}>{dirLabel}</Text>
+                              {planned ? <Text style={styles.tripTime}>· {planned}</Text> : null}
+                            </View>
+                            <Badge
+                              label={label.label}
+                              variant={tripLabelVariant(label.state) as BadgeVariant}
+                              size="sm"
+                            />
+                          </View>
+                        </View>
 
-              <View style={styles.rows}>
-                {notBoarded ? (
-                  <View style={styles.row}>
-                    <Text style={styles.rowLabel}>⚠️  Boarding</Text>
-                    <Text style={[styles.rowValue, styles.notBoardedValue]} numberOfLines={1}>{activeChild.name} did not board</Text>
-                  </View>
-                ) : boarded ? (
-                  <View style={styles.row}>
-                    <Text style={styles.rowLabel}>✓  Boarding</Text>
-                    <Text style={[styles.rowValue, styles.boardedValue]} numberOfLines={1}>On the bus</Text>
-                  </View>
-                ) : null}
-                {phase === 'scheduled' && startsAt ? (
-                  <View style={styles.row}>
-                    <Text style={styles.rowLabel}>🕐  {activeTrip?.direction === 'DROP' ? 'Drop-off' : 'Pickup'} at</Text>
-                    <Text style={styles.rowValue}>{startsAt}</Text>
-                  </View>
-                ) : null}
-                {activeChild.route?.name ? (
-                  <View style={styles.row}>
-                    <Text style={styles.rowLabel}>🛣  Route</Text>
-                    <Text style={styles.rowValue} numberOfLines={1}>{activeChild.route.name}</Text>
-                  </View>
-                ) : null}
-                {activeChild.stop?.name ? (
-                  <View style={styles.row}>
-                    <Text style={styles.rowLabel}>📍  Stop</Text>
-                    <Text style={styles.rowValue} numberOfLines={1}>{activeChild.stop.name}</Text>
-                  </View>
-                ) : null}
-              </View>
+                        {live ? (
+                          <Button
+                            title="Track live →"
+                            variant="primary"
+                            size="lg"
+                            fullWidth
+                            onPress={() => router.push(`/(app)/track/${trip.id}` as never)}
+                            style={{ marginTop: spacing[3] }}
+                          />
+                        ) : !done ? (
+                          <Button
+                            title={`View ${dirLabel.toLowerCase()} →`}
+                            variant="outline"
+                            size="md"
+                            fullWidth
+                            onPress={() => router.push(`/(app)/track/${trip.id}` as never)}
+                            style={{ marginTop: spacing[3] }}
+                          />
+                        ) : null}
 
-              <Button
-                title={primaryTitle}
-                variant={phase === 'live' ? 'primary' : 'outline'}
-                size="lg"
-                fullWidth
-                onPress={onPrimary}
-                style={{ marginTop: spacing[4] }}
-              />
-
-              {/* Skip pickup — only before a scheduled trip, gated on the cutoff. */}
-              {phase === 'scheduled' && myRider ? (
-                skip.alreadySkipped ? (
-                  <Text style={styles.skippedNote}>✓  Pickup skipped for today</Text>
-                ) : skip.canCancel ? (
-                  <Button
-                    title={cancelPickup.isPending ? 'Skipping…' : 'Skip pickup today'}
-                    variant="ghost"
-                    size="md"
-                    fullWidth
-                    loading={cancelPickup.isPending}
-                    onPress={onSkipPickup}
-                    style={{ marginTop: spacing[1] }}
-                  />
-                ) : (
-                  <Text style={styles.skipClosedNote}>{skip.reason}</Text>
-                )
-              ) : null}
-            </Card>
-            </SlideIn>
+                        {/* Skip pickup — only before a scheduled pickup, gated on the cutoff. */}
+                        {trip.status === 'SCHEDULED' && myRider && !skipped ? (
+                          skipInfo.canCancel ? (
+                            <Button
+                              title={cancelPickup.isPending ? 'Skipping…' : 'Skip pickup today'}
+                              variant="ghost"
+                              size="md"
+                              fullWidth
+                              loading={cancelPickup.isPending}
+                              onPress={() => onSkipPickup(trip.id)}
+                              style={{ marginTop: spacing[1] }}
+                            />
+                          ) : skipInfo.isDrop ? null : (
+                            <Text style={styles.skipClosedNote}>{skipInfo.reason}</Text>
+                          )
+                        ) : null}
+                      </Card>
+                    </AnimatedPressable>
+                  </SlideIn>
+                );
+              })
+            )}
           </>
         ) : null}
 
@@ -311,17 +313,27 @@ const styles = StyleSheet.create({
     marginTop: spacing[5], marginBottom: spacing[3],
   },
   heroCard: { marginHorizontal: spacing[4] },
-  heroTop: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  heroInfo: { flex: 1 },
-  heroName: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
-  heroSub: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
-  rows: { gap: spacing[2] },
-  row: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
-  rowLabel: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  rowValue: { flex: 1, textAlign: 'right', fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textPrimary },
-  notBoardedValue: { color: colors.error, fontWeight: fontWeights.semibold },
-  boardedValue: { color: colors.success, fontWeight: fontWeights.semibold },
-  skippedNote: { marginTop: spacing[3], fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium, textAlign: 'center' },
+  childRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing[3],
+    marginHorizontal: spacing[5], marginTop: spacing[2],
+  },
+  childName: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
+  childSub: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 1 },
+  noTripRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  noTripText: { flex: 1, fontSize: fontSizes.sm, color: colors.textSecondary },
+  // Trip cards — the active ride is the hero (accented + primary CTA).
+  tripCard: { marginHorizontal: spacing[4], marginBottom: spacing[3], gap: spacing[1] },
+  tripCardLive: { borderWidth: 1.5, borderColor: colors.primary },
+  tripHead: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] },
+  tripDirRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[2] },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success },
+  tripDir: { fontSize: fontSizes.base, fontWeight: fontWeights.bold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
+  tripTime: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  banner: { borderRadius: radius.lg, paddingVertical: spacing[2], paddingHorizontal: spacing[3], marginBottom: spacing[2] },
+  bannerError: { backgroundColor: colors.errorBg },
+  bannerErrorText: { fontSize: fontSizes.sm, color: colors.errorDark, fontWeight: fontWeights.semibold },
+  bannerMuted: { backgroundColor: colors.gray100 },
+  bannerMutedText: { fontSize: fontSizes.sm, color: colors.gray600, fontWeight: fontWeights.medium },
   skipClosedNote: { marginTop: spacing[3], fontSize: fontSizes.xs, color: colors.textMuted, textAlign: 'center' },
   emptyWrap: { minHeight: 320 },
   quickActions: { flexDirection: 'row', marginHorizontal: spacing[4], gap: spacing[3] },

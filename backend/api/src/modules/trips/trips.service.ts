@@ -2,8 +2,8 @@ import { Injectable, BadRequestException, NotFoundException, ForbiddenException,
 import { ConfigService } from '@nestjs/config';
 import { Prisma, TripLifecycleAction } from '@prisma/client';
 import { PrismaService } from '../../infra/database/prisma.service';
-import { TripStatus, RiderStatus, NotifCategory, Role, Direction } from '@yaanam/types';
-import type { ActiveMembership } from '@yaanam/types';
+import { TripStatus, RiderStatus, NotifCategory, Role, Direction, PoliceVerificationStatus } from '@yaanam/types';
+import type { ActiveMembership, ParentDriverView } from '@yaanam/types';
 import { TrackingGateway } from '../tracking/tracking.gateway';
 import { LocationService } from '../tracking/location.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -253,11 +253,10 @@ export class TripsService {
       return {
         ...trip,
         anchor,
-        // Curate the driver down to the parent-facing projection built server-side:
-        // only the name, phone and photo a family needs to recognise and reach the
-        // driver — never the full Person row or any DriverProfile KYC (aadhaar,
-        // licence, address, police-verification).
-        driver: await this.curatedDriverFor(trip.driver, trip.tenantId),
+        // Curate the driver down to the parent-facing projection built server-side
+        // (name/phone/photo + licence/vehicle/verification per item 5) — never the
+        // full Person row, and never the sensitive KYC fields (aadhaar, address).
+        driver: await this.curatedDriverFor(trip.driver, trip.tenantId, trip.vehicle?.regNumber ?? null),
         riders: ownRiders,
         // Strip every other child's attendance event (and thus their photoUrl)
         // before the payload ever leaves the server.
@@ -269,21 +268,36 @@ export class TripsService {
   }
 
   /**
-   * Parent-facing driver projection (item 10). A guardian may see who is driving
-   * their child and how to reach them — nothing more. The driver's photo lives on
-   * the tenant-scoped DriverProfile (joined via the driver's DRIVER membership);
-   * KYC fields on that profile are never selected, so they can't leak.
+   * Parent-facing driver projection.
+   *
+   * FOUNDER DECISION (item 5, reverses the earlier curation): a guardian now sees
+   * enough to VET who is driving their child — name, phone, photo AND the driver's
+   * licence number, vehicle registration, and police/background-verification
+   * status. This intentionally exposes driver PII to parents and can be dialed
+   * back by trimming the extra fields here if policy changes. Aadhaar and address
+   * are still NEVER selected, so they can't leak. Still tenant + guardian-scoped:
+   * this is only ever built for a trip the parent is authorised to load (findById
+   * 404s a trip that carries none of their children).
    */
   private async curatedDriverFor(
     driver: { id: string; name: string; phone: string } | null,
     tenantId: string,
-  ): Promise<{ name: string; phone: string; photoUrl: string | null } | null> {
+    vehicleReg?: string | null,
+  ): Promise<ParentDriverView | null> {
     if (!driver) return null;
     const profile = await this.prisma.driverProfile.findFirst({
       where: { membership: { personId: driver.id, tenantId, role: Role.DRIVER } },
-      select: { photoUrl: true },
+      select: { photoUrl: true, licenseNumber: true, policeVerificationStatus: true },
     });
-    return { name: driver.name, phone: driver.phone, photoUrl: profile?.photoUrl ?? null };
+    return {
+      name: driver.name,
+      phone: driver.phone,
+      photoUrl: profile?.photoUrl ?? null,
+      licenseNumber: profile?.licenseNumber ?? null,
+      policeVerificationStatus:
+        (profile?.policeVerificationStatus as PoliceVerificationStatus | undefined) ?? null,
+      vehicleReg: vehicleReg ?? null,
+    };
   }
 
   /**

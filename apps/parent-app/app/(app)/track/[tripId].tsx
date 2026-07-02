@@ -1,13 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, Image, ScrollView, StyleSheet, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useNavigation, useFocusEffect } from 'expo-router';
 import {
   colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
   StatusDot, Card, Badge, Button, Divider, Skeleton, EmptyState,
   LiveBusMap, AppHeader, AnimatedPressable, useToast,
 } from '@yaanam/ui';
 import type { BadgeVariant } from '@yaanam/ui';
+import type { ParentDriverView } from '@yaanam/types';
 import {
   useTripById,
   useLatestPosition,
@@ -15,6 +16,10 @@ import {
   useMyStudents,
   useCancelPickup,
   pickupCancelInfo,
+  resolvePhotoUrl,
+  tripStatusLabel,
+  tripLabelVariant,
+  pickTripRider,
 } from '@yaanam/api-client';
 import { useChildStore } from '../../../store/child.store';
 import { goBackTo } from '../../../lib/nav';
@@ -43,6 +48,16 @@ const DONE_BADGE: Record<string, { label: string; variant: BadgeVariant }> = {
   ABORTED: { label: 'Aborted', variant: 'error' },
 };
 
+/** The driver's police/background-verification, as a parent-facing badge. */
+function verificationBadge(status?: string | null): { label: string; variant: BadgeVariant } | null {
+  switch (status) {
+    case 'VERIFIED': return { label: '✓ Police-verified', variant: 'success' };
+    case 'PENDING': return { label: 'Verification pending', variant: 'warning' };
+    case 'REJECTED': return { label: 'Not verified', variant: 'error' };
+    default: return null;
+  }
+}
+
 export default function TrackScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const { data: trip, isLoading, isError } = useTripById(tripId);
@@ -59,6 +74,42 @@ export default function TrackScreen() {
   const [alarm, setAlarm] = useState<AlarmLevel>('none');
   const [alarmDismissed, setAlarmDismissed] = useState<AlarmLevel>('none');
 
+  const navigation = useNavigation();
+
+  // BUG A fix: `track` is a hidden tab with its own stack and NO root screen, so
+  // successively opened trips would pile up ([tripA, tripB, …]) and the in-screen
+  // Back would surface a previously-opened trip instead of returning to home/list.
+  // On focus, collapse the stack down to just the trip being viewed — preserving
+  // its route key so this screen is NOT remounted — so Back always exits to the
+  // tab the user came from, and no stale trip lingers underneath.
+  useFocusEffect(
+    useCallback(() => {
+      const nav = navigation as unknown as {
+        getState?: () => { routes: Array<{ key: string; name: string; params?: unknown }> } | undefined;
+        reset: (state: { index: number; routes: Array<{ key: string; name: string; params?: unknown }> }) => void;
+      };
+      const state = nav.getState?.();
+      // Guard: only ever collapse the track Stack itself — every route must be a
+      // trip screen — so we can never accidentally reset the parent tab navigator.
+      const isTrackStack =
+        !!state && state.routes.every((r) => r.name.includes('[tripId]'));
+      if (isTrackStack && state.routes.length > 1) {
+        nav.reset({ index: 0, routes: [state.routes[state.routes.length - 1]] });
+      }
+    }, [navigation]),
+  );
+
+  // Reset live-only state whenever the viewed trip changes, so a previously-opened
+  // trip's socket / ETA / alarm state never bleeds into this one.
+  useEffect(() => {
+    setPos(null);
+    setEta(null);
+    setLive(false);
+    setLiveDeparted(new Set());
+    setAlarm('none');
+    setAlarmDismissed('none');
+  }, [tripId]);
+
   const t = trip as any;
   const status: string | undefined = trip?.status;
   const isScheduled = status === 'SCHEDULED';
@@ -69,11 +120,14 @@ export default function TrackScreen() {
   // Memoised on [trip, myStudents, activeChildId] so a location/ETA ping (which
   // calls setState and re-renders) doesn't re-run these Array.find scans.
   const myIds = useMemo(() => new Set((myStudents ?? []).map((s) => s.id)), [myStudents]);
+  // BUG B fix: the child/rider is derived from THIS trip's own riders ∩ the
+  // parent's guarded students — the route param + fetched trip are the single
+  // source of truth. `activeChildId` is only a tiebreak for a sibling trip and is
+  // ignored unless that child is actually a rider here, so a stale active-child
+  // selection can never surface the wrong (previous) child.
   const { myRider, child, childStopId, childStopName } = useMemo(() => {
     const rs: any[] = (trip as any)?.riders ?? [];
-    const mine =
-      rs.find((r) => r.studentId === activeChildId && myIds.has(r.studentId)) ??
-      rs.find((r) => myIds.has(r.studentId));
+    const mine = pickTripRider(rs, myIds, activeChildId);
     const c = (myStudents ?? []).find((s) => s.id === mine?.studentId);
     return {
       myRider: mine,
@@ -91,6 +145,33 @@ export default function TrackScreen() {
       .filter((e) => e.studentId === myRider?.studentId && e.type === 'BOARDED')
       .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())[0];
   }, [t, myRider]);
+
+  // The child's latest ALIGHTED event (a drop has actually happened) — drives the
+  // "Dropped at {stop}" label. boardStatus stays BOARDED after alighting, so this
+  // is the only signal that the child is off the bus.
+  const myAlighting = useMemo(() => {
+    const events: any[] = t?.attendanceEvents ?? [];
+    return [...events]
+      .filter((e) => e.studentId === myRider?.studentId && e.type === 'ALIGHTED')
+      .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())[0];
+  }, [t, myRider]);
+
+  // THE per-child status, from the single source of truth (trip.status × boardStatus).
+  // A terminal trip can never read as a live label here (item 2).
+  const childStatus = tripStatusLabel({
+    direction: t?.direction,
+    status,
+    boardStatus: myRider?.boardStatus,
+    scheduledStart: t?.scheduledStart,
+    completedAt: t?.completedAt,
+    alightedAt: myAlighting?.ts,
+    stopName: childStopName,
+  });
+  const childStatusPill = (
+    <View style={styles.childStatusRow}>
+      <Badge label={childStatus.label} variant={tripLabelVariant(childStatus.state) as BadgeVariant} size="md" />
+    </View>
+  );
 
   // Ordered route stops + progress. Departed stops are primed from the trip's
   // historical geofence events (so a reload keeps progress) and merged with
@@ -182,14 +263,15 @@ export default function TrackScreen() {
   ) : undefined;
 
   // ── Driver card (shared by scheduled + live + done) ───────────────────────
-  // Curated, server-built driver projection — only { name, photoUrl, phone }.
-  const driver = t?.driver as { name: string; photoUrl?: string | null; phone?: string | null } | null | undefined;
+  // Curated, server-built driver projection (name/photo/phone + vehicle/licence/verified, item 5).
+  const driver = t?.driver as ParentDriverView | null | undefined;
+  const driverVerified = verificationBadge(driver?.policeVerificationStatus);
   const driverCard = (
     <Card style={styles.driverCard} shadow="none">
       <View style={styles.driverRow}>
         <View style={styles.driverAvatar}>
           {driver?.photoUrl ? (
-            <Image source={{ uri: driver.photoUrl }} style={styles.driverAvatarImg} resizeMode="cover" />
+            <Image source={{ uri: resolvePhotoUrl(driver.photoUrl) }} style={styles.driverAvatarImg} resizeMode="cover" />
           ) : (
             <Text style={{ fontSize: 20 }}>🧑‍✈️</Text>
           )}
@@ -197,7 +279,7 @@ export default function TrackScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.driverName}>{driver?.name ?? 'Driver not assigned'}</Text>
           <Text style={styles.driverSub}>
-            Bus {t?.vehicle?.regNumber ?? '—'}
+            Bus {driver?.vehicleReg ?? t?.vehicle?.regNumber ?? '—'}
             {routeName ? `  ·  ${routeName}` : ''}
           </Text>
         </View>
@@ -224,6 +306,12 @@ export default function TrackScreen() {
           <Text style={styles.msgText}>Message</Text>
         </AnimatedPressable>
       </View>
+      {driver && (driverVerified || driver.licenseNumber) ? (
+        <View style={styles.driverExtra}>
+          {driverVerified ? <Badge label={driverVerified.label} variant={driverVerified.variant} size="sm" /> : null}
+          {driver.licenseNumber ? <Text style={styles.driverLicence}>Licence {driver.licenseNumber}</Text> : null}
+        </View>
+      ) : null}
     </Card>
   );
 
@@ -267,6 +355,7 @@ export default function TrackScreen() {
 
           <ScrollView contentContainerStyle={styles.sheetScroll} showsVerticalScrollIndicator={false}>
             <View style={styles.sheet}>
+              {childStatusPill}
               {alarm !== 'none' && ALARM_RANK[alarm] > ALARM_RANK[alarmDismissed] && (
                 <AlarmBanner level={alarm} stopName={childStopName ?? eta?.stopName} onDismiss={() => setAlarmDismissed(alarm)} />
               )}
@@ -306,6 +395,7 @@ export default function TrackScreen() {
       ) : isScheduled ? (
         /* ─── SCHEDULED: pre-trip, no live map ─── */
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {childStatusPill}
           <Card style={styles.preTripCard} shadow="md">
             <Text style={styles.preLabel}>{directionLabel.toUpperCase()} STARTS AT</Text>
             <Text style={styles.preTime}>
@@ -372,6 +462,7 @@ export default function TrackScreen() {
       ) : (
         /* ─── DONE: read-only summary ─── */
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {childStatusPill}
           <Card style={styles.preTripCard} shadow="md">
             <View style={styles.summaryTop}>
               <View style={{ flex: 1 }}>
@@ -456,7 +547,7 @@ function BoardingCard({ childName, photoUrl, ts }: { childName?: string; photoUr
     <Card style={styles.boardingCard} shadow="none">
       <View style={styles.boardingRow}>
         {photoUrl ? (
-          <Image source={{ uri: photoUrl }} style={styles.boardingPhoto} resizeMode="cover" />
+          <Image source={{ uri: resolvePhotoUrl(photoUrl) }} style={styles.boardingPhoto} resizeMode="cover" />
         ) : (
           <View style={[styles.boardingPhoto, styles.boardingPhotoEmpty]}>
             <Text style={{ fontSize: 22 }}>🎒</Text>
@@ -487,6 +578,7 @@ const styles = StyleSheet.create({
 
   loadingWrap: { padding: spacing[4] },
   scroll: { padding: spacing[4], gap: spacing[4], paddingBottom: spacing[8] },
+  childStatusRow: { flexDirection: 'row', alignItems: 'center' },
 
   // Live pill (header)
   livePill: {
@@ -546,6 +638,11 @@ const styles = StyleSheet.create({
   // Driver card
   driverCard: { backgroundColor: colors.gray50 },
   driverRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  driverExtra: {
+    flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing[2],
+    marginTop: spacing[3], paddingTop: spacing[3], borderTopWidth: 1, borderTopColor: colors.gray200,
+  },
+  driverLicence: { fontSize: fontSizes.sm, color: colors.textSecondary, fontWeight: fontWeights.medium },
   driverAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.gray200, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   driverAvatarImg: { width: 44, height: 44 },
   driverName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },

@@ -1,15 +1,17 @@
 /**
- * Curated parent-facing driver projection (e2e) — ITEM 10.
+ * Parent-facing driver projection (e2e) — ITEM 5 (reverses the ITEM 10 curation).
  *
- * A parent loading their own child's trip may see who is driving and how to reach
- * them — nothing more. Seeds one tenant with a route/stop/shift, an ACTIVE student,
- * a vehicle and a driver whose DriverProfile carries KYC (aadhaar, licence, address,
- * police-verification) plus a photoUrl, a PARENT who guards the student, then
- * schedules a PICKUP trip (student is an EXPECTED rider). Authenticated as the
- * PARENT via OTP bypass, asserts GET /trips/:id returns:
- *   - driver.name / driver.phone / driver.photoUrl  ✓ present
- *   - driver.aadhaarNumber / licenseNumber / address / policeVerificationStatus  ✗ absent
- *   - the full Person fields (email / status / locale / id) also stripped
+ * FOUNDER DECISION: a parent loading their own child's trip may now VET the driver —
+ * name, phone, photo AND licence number, vehicle registration and police-verification
+ * status — but aadhaar/address and the full Person row are still never exposed. Seeds
+ * one tenant with a route/stop/shift, an ACTIVE student, a vehicle and a driver whose
+ * DriverProfile carries KYC (aadhaar, licence, address, police-verification) plus a
+ * photoUrl, a PARENT who guards the student, plus a SECOND parent who guards nobody.
+ * Schedules a PICKUP trip, authenticates via OTP bypass, and asserts GET /trips/:id:
+ *   - driver.name / phone / photoUrl / licenseNumber / policeVerificationStatus / vehicleReg  ✓ present
+ *   - driver.aadhaarNumber / address  ✗ absent  (sensitive KYC still stripped)
+ *   - the full Person fields (id / email / status / locale) also stripped
+ *   - guardian scope: the non-guarding parent gets 404 (can't load the trip at all)
  *
  * Requires OTP_BYPASS_MODE=true + OTP_BYPASS_CODE=123456.
  */
@@ -31,6 +33,7 @@ describe('Curated driver projection (e2e)', () => {
 
   let tokenAdmin: string;
   let tokenParent: string;
+  let tokenOther: string;
   let tripId: string;
   let driverPhone: string;
 
@@ -104,6 +107,15 @@ describe('Curated driver projection (e2e)', () => {
     });
     created.membershipIds.push(mParent.id);
 
+    // A second PARENT in the same tenant who guards NO student — used to prove the
+    // trip read is still guardian-scoped (they must not be able to load the trip).
+    const pOther = await prisma.person.create({ data: { phone: `${PH}13`, name: 'Parent B' } });
+    created.personIds.push(pOther.id);
+    const mOther = await prisma.membership.create({
+      data: { personId: pOther.id, tenantId: tenant.id, role: 'PARENT', status: 'ACTIVE' },
+    });
+    created.membershipIds.push(mOther.id);
+
     const vehicle = await prisma.vehicle.create({
       data: { tenantId: tenant.id, regNumber: 'KA01DRV', capacity: 40, status: 'ACTIVE' },
     });
@@ -137,13 +149,14 @@ describe('Curated driver projection (e2e)', () => {
       for (const [phone, set] of [
         [`${PH}10`, (t: string) => (tokenAdmin = t)],
         [`${PH}12`, (t: string) => (tokenParent = t)],
+        [`${PH}13`, (t: string) => (tokenOther = t)],
       ] as const) {
         await request(app.getHttpServer()).post('/auth/otp/request').send({ phone });
         const res = await request(app.getHttpServer()).post('/auth/otp/verify').send({ phone, otp: '123456' });
         set(res.body?.data?.accessToken);
       }
     }
-    if (process.env.OTP_BYPASS_CODE === '123456' && (!tokenAdmin || !tokenParent)) {
+    if (process.env.OTP_BYPASS_CODE === '123456' && (!tokenAdmin || !tokenParent || !tokenOther)) {
       throw new Error('e2e setup: OTP bypass enabled but tokens not obtained — tests would vacuously skip.');
     }
 
@@ -184,7 +197,7 @@ describe('Curated driver projection (e2e)', () => {
   });
 
   describe('GET /trips/:id (parent actor)', () => {
-    it('exposes only the curated driver { name, photoUrl, phone }', async () => {
+    it('exposes the vetting projection { name, phone, photoUrl, licenseNumber, policeVerificationStatus, vehicleReg }', async () => {
       if (!tokenParent) return;
       const res = await request(app.getHttpServer())
         .get(`/trips/${tripId}`)
@@ -196,12 +209,18 @@ describe('Curated driver projection (e2e)', () => {
       expect(driver.name).toBe('Driver A');
       expect(driver.phone).toBe(driverPhone);
       expect(driver.photoUrl).toBe(DRIVER_PHOTO);
+      // Item 5 — the parent can now vet the driver.
+      expect(driver.licenseNumber).toBe('KA-DL-9988');
+      expect(driver.policeVerificationStatus).toBe('VERIFIED');
+      expect(driver.vehicleReg).toBe('KA01DRV');
 
-      // Exactly the three curated keys — nothing more.
-      expect(Object.keys(driver).sort()).toEqual(['name', 'phone', 'photoUrl']);
+      // Exactly the six projected keys — nothing more.
+      expect(Object.keys(driver).sort()).toEqual(
+        ['licenseNumber', 'name', 'phone', 'photoUrl', 'policeVerificationStatus', 'vehicleReg'],
+      );
     });
 
-    it('never leaks DriverProfile KYC or the full Person row', async () => {
+    it('still never leaks the sensitive KYC (aadhaar/address) or the full Person row', async () => {
       if (!tokenParent) return;
       const res = await request(app.getHttpServer())
         .get(`/trips/${tripId}`)
@@ -209,23 +228,28 @@ describe('Curated driver projection (e2e)', () => {
         .expect(200);
 
       const driver = res.body.data.driver;
-      // KYC — must never appear.
+      // Sensitive KYC — must never appear.
       expect(driver.aadhaarNumber).toBeUndefined();
-      expect(driver.licenseNumber).toBeUndefined();
       expect(driver.address).toBeUndefined();
-      expect(driver.policeVerificationStatus).toBeUndefined();
       // Full Person fields — also stripped.
       expect(driver.id).toBeUndefined();
       expect(driver.email).toBeUndefined();
       expect(driver.status).toBeUndefined();
       expect(driver.locale).toBeUndefined();
 
-      // Defence in depth: the serialized payload contains none of the KYC values.
+      // Defence in depth: the serialized payload contains no aadhaar/address/email.
       const raw = JSON.stringify(res.body.data);
       expect(raw).not.toContain('1234-5678-9012');
-      expect(raw).not.toContain('KA-DL-9988');
       expect(raw).not.toContain('Secret Lane');
       expect(raw).not.toContain('driver.a@example.com');
+    });
+
+    it('stays guardian-scoped — a parent who guards no rider on the trip gets 404', async () => {
+      if (!tokenOther) return;
+      await request(app.getHttpServer())
+        .get(`/trips/${tripId}`)
+        .set('Authorization', `Bearer ${tokenOther}`)
+        .expect(404);
     });
   });
 });

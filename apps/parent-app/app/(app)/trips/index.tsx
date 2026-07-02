@@ -3,34 +3,11 @@ import { View, Text, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
-  colors, spacing, fontSizes, fontWeights, letterSpacing, radius,
+  colors, spacing, fontSizes, fontWeights, letterSpacing,
   AppHeader, Card, Badge, Skeleton, EmptyState, AnimatedPressable, SlideIn,
 } from '@yaanam/ui';
-import { useTodayTrips, useMyStudents } from '@yaanam/api-client';
+import { useTodayTrips, useMyStudents, tripStatusLabel, tripLabelVariant } from '@yaanam/api-client';
 import type { BadgeVariant } from '@yaanam/ui';
-
-function tripStatusVariant(status: string): BadgeVariant {
-  switch (status) {
-    case 'COMPLETED': return 'success';
-    case 'IN_PROGRESS': case 'STARTED': return 'info';
-    case 'SCHEDULED': return 'warning';
-    case 'CANCELLED': return 'cancelled';
-    case 'ABORTED': return 'error';
-    default: return 'default';
-  }
-}
-
-function statusLabel(status: string): string {
-  switch (status) {
-    case 'IN_PROGRESS': return 'In progress';
-    case 'STARTED': return 'Started';
-    case 'SCHEDULED': return 'Scheduled';
-    case 'COMPLETED': return 'Completed';
-    case 'CANCELLED': return 'Cancelled';
-    case 'ABORTED': return 'Aborted';
-    default: return status;
-  }
-}
 
 export default function TripsScreen() {
   const { data: trips, isLoading, isError, refetch, isRefetching } = useTodayTrips();
@@ -72,16 +49,26 @@ export default function TripsScreen() {
             </View>
           }
           renderItem={({ item, index }) => {
-            const routeName = (item as any)?.route?.name ?? item.routeId;
+            const trip = item as any;
+            const routeName = trip?.route?.name ?? item.routeId;
             const completed = item.status === 'COMPLETED';
-            const myRiders = ((item as any)?.riders ?? []).filter((r: any) => myIds.has(r.studentId));
-            const skipped = myRiders.some((r: any) => r.boardStatus === 'CANCELLED');
-            // A child that did NOT board a trip that ran (NOT_BOARDED is only set
-            // once the trip is under way / done — presentation only, off the rider).
-            const notBoardedNames = myRiders
-              .filter((r: any) => r.boardStatus === 'NOT_BOARDED')
-              .map((r: any) => firstName(r.studentId));
-            const boarded = myRiders.some((r: any) => r.boardStatus === 'BOARDED');
+            const myRiders = (trip?.riders ?? []).filter((r: any) => myIds.has(r.studentId));
+            // Per-child status via the CORE helper — a pure function of trip.status
+            // AND boardStatus, so a completed trip reads terminal (never "On the bus").
+            const childLabels: { id: string; name: string; label: string; variant: BadgeVariant }[] = myRiders.map((r: any) => {
+              const l = tripStatusLabel({
+                direction: item.direction,
+                status: item.status,
+                boardStatus: r.boardStatus,
+                scheduledStart: trip.scheduledStart,
+                completedAt: trip.completedAt,
+                stopName: r.stop?.name ?? null,
+              });
+              return { id: r.studentId, name: firstName(r.studentId), label: l.label, variant: tripLabelVariant(l.state) as BadgeVariant };
+            });
+            // Fall back to a pure trip-status label if the family has no rider mapped.
+            const fallback = tripStatusLabel({ direction: item.direction, status: item.status, scheduledStart: trip.scheduledStart, completedAt: trip.completedAt });
+            const rows = childLabels.length ? childLabels : [{ id: item.id, name: '', label: fallback.label, variant: tripLabelVariant(fallback.state) as BadgeVariant }];
             return (
               <SlideIn delay={Math.min(index, 8) * 45}>
               <AnimatedPressable
@@ -92,22 +79,18 @@ export default function TripsScreen() {
                   <View style={styles.cardRow}>
                     <View style={styles.cardInfo}>
                       <Text style={styles.route} numberOfLines={1}>{routeName}</Text>
-                      <View style={styles.subRow}>
-                        <Text style={styles.direction}>
-                          {item.direction === 'PICKUP' ? 'Pickup' : 'Drop'}
-                        </Text>
-                        {skipped && <Text style={styles.skippedChip}>Pickup skipped</Text>}
-                        {notBoardedNames.length > 0 && (
-                          <Text style={styles.notBoardedChip}>
-                            {notBoardedNames.join(' & ')} did not board
-                          </Text>
-                        )}
-                        {boarded && notBoardedNames.length === 0 && (
-                          <Text style={styles.boardedChip}>Boarded</Text>
-                        )}
-                      </View>
+                      <Text style={styles.direction}>
+                        {item.direction === 'PICKUP' ? 'Pickup' : 'Drop'}
+                      </Text>
                     </View>
-                    <Badge label={statusLabel(item.status)} variant={tripStatusVariant(item.status)} size="sm" />
+                    <View style={styles.badgeCol}>
+                      {rows.map((c) => (
+                        <View key={c.id} style={styles.badgeRow}>
+                          {rows.length > 1 && c.name ? <Text style={styles.childName}>{c.name}</Text> : null}
+                          <Badge label={c.label} variant={c.variant} size="sm" />
+                        </View>
+                      ))}
+                    </View>
                   </View>
 
                   {completed && (
@@ -133,23 +116,13 @@ export default function TripsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.backgroundMuted },
   list: { padding: spacing[4], gap: spacing[3], flexGrow: 1 },
-  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[3] },
+  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing[3] },
   cardInfo: { flex: 1 },
   route: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary, letterSpacing: letterSpacing.tight },
-  subRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginTop: 2 },
-  direction: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  skippedChip: {
-    fontSize: fontSizes.xs, color: colors.gray500, fontWeight: fontWeights.semibold,
-    backgroundColor: colors.gray100, paddingHorizontal: spacing[2], paddingVertical: 1, borderRadius: radius.full, overflow: 'hidden',
-  },
-  notBoardedChip: {
-    fontSize: fontSizes.xs, color: colors.errorDark, fontWeight: fontWeights.semibold,
-    backgroundColor: colors.errorBg, paddingHorizontal: spacing[2], paddingVertical: 1, borderRadius: radius.full, overflow: 'hidden',
-  },
-  boardedChip: {
-    fontSize: fontSizes.xs, color: colors.successDark, fontWeight: fontWeights.semibold,
-    backgroundColor: colors.successBg, paddingHorizontal: spacing[2], paddingVertical: 1, borderRadius: radius.full, overflow: 'hidden',
-  },
+  direction: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2 },
+  badgeCol: { alignItems: 'flex-end', gap: spacing[1], maxWidth: '55%' },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[1], flexShrink: 1 },
+  childName: { fontSize: fontSizes.xs, color: colors.textMuted, fontWeight: fontWeights.medium },
   rateBtn: {
     alignSelf: 'flex-start', marginTop: spacing[3],
     paddingHorizontal: spacing[3], paddingVertical: spacing[2],
