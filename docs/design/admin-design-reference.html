@@ -1,0 +1,524 @@
+<title>Yaanam Admin — Design Direction</title>
+<style>
+  :root{
+    /* ── neutrals (project slate system) ── */
+    --ground:#F4F6FB; --surface:#FFFFFF; --surface-muted:#F8FAFC;
+    --text:#16203B; --text-2:#52607A; --text-3:#9AA6BE;
+    --border:#E7EBF3; --border-strong:#D4DAE8;
+
+    /* ── domain hues (used carefully, one per area) ── */
+    --trip:#4F46E5;     --trip-bg:#ECEBFF;     /* indigo */
+    --people:#0D9488;   --people-bg:#D5F4EF;   /* teal   */
+    --route:#0284C7;    --route-bg:#D9EFFC;    /* sky    */
+    --fleet:#7C3AED;    --fleet-bg:#EFE5FF;    /* violet */
+    --talk:#DB2777;     --talk-bg:#FCE2F0;     /* pink   */
+    --pay:#059669;      --pay-bg:#D6F5E6;      /* emerald*/
+    --sun:#EA8C00;      --sun-bg:#FDEFD3;      /* amber  */
+
+    /* ── severity ── */
+    --crit:#E11D48; --crit-bg:#FFE4EA;   /* rose  */
+    --warn:#EA8C00; --warn-bg:#FDEFD3;   /* amber */
+    --ok:#059669;   --ok-bg:#D6F5E6;     /* green */
+
+    --font-d:ui-rounded,"SF Pro Rounded","Hiragino Maru Gothic ProN","Quicksand",system-ui,sans-serif;
+    --font-b:"Avenir Next","Avenir","Segoe UI",system-ui,-apple-system,sans-serif;
+    --sh-sm:0 1px 2px rgba(22,32,59,.05),0 2px 6px rgba(22,32,59,.05);
+    --sh:0 8px 22px -8px rgba(22,32,59,.16),0 2px 6px rgba(22,32,59,.05);
+    --sh-lg:0 28px 56px -18px rgba(22,32,59,.34);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  .page{font-family:var(--font-b);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;
+    background:
+      radial-gradient(1100px 520px at 88% -8%, #E9E7FF80, transparent 60%),
+      radial-gradient(820px 460px at -6% 4%, #D2F3EC66, transparent 58%),
+      radial-gradient(680px 520px at 50% 108%, #FCE2F04d, transparent 60%),
+      var(--ground);
+    min-height:100vh;padding:46px 22px 90px}
+  .wrap{max-width:1180px;margin:0 auto}
+  h1,h2,h3,h4,.fd{font-family:var(--font-d)}
+
+  /* ── icons (duotone: .f fill layer, .s stroke layer) ── */
+  svg.i{width:22px;height:22px;display:block}
+  svg.i .s{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  svg.i .f{fill:currentColor;stroke:none;opacity:.2}
+  svg.i .fs{fill:currentColor;stroke:none}
+  svg.i.sm{width:16px;height:16px} svg.i.sm .s{stroke-width:2}
+  svg.i.lg{width:26px;height:26px}
+
+  /* organic "brush splat" icon holders */
+  .splat{position:relative;width:50px;height:50px;flex:0 0 auto;display:grid;place-items:center}
+  svg.blob{fill:currentColor}                 /* tint comes from inline color */
+  .splat svg.blob{position:absolute;inset:0;width:118%;height:118%;left:-9%;top:-9%}
+  .splat .ic{position:relative;z-index:1}
+  .splat.sm{width:40px;height:40px}
+  /* multi-colour spot icons (colours baked in, ignore currentColor) */
+  svg.mi{width:25px;height:25px;display:block;position:relative;z-index:1}
+  svg.mi.lg{width:30px;height:30px}
+  svg.mi.sm{width:19px;height:19px}
+  /* tab-bar painted icon holder */
+  .tsplat{position:relative;width:42px;height:38px;display:grid;place-items:center;margin-bottom:3px}
+  .tsplat svg.blob{position:absolute;inset:0;width:100%;height:100%}
+  .tsplat svg.mi{width:24px;height:24px}
+
+  /* ── masthead ── */
+  .masthead{max-width:780px;margin-bottom:18px}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-d);font-size:12.5px;font-weight:700;
+    letter-spacing:.04em;color:var(--trip);background:#fff;border:1px solid var(--border);
+    padding:7px 14px 7px 10px;border-radius:999px;margin-bottom:20px;box-shadow:var(--sh-sm)}
+  .eyebrow .dd{display:flex;gap:3px}.eyebrow .dd i{width:7px;height:7px;border-radius:50%}
+  h1.title{font-size:clamp(31px,5vw,49px);font-weight:800;letter-spacing:-.02em;line-height:1.04}
+  h1.title em{font-style:normal;background:linear-gradient(120deg,var(--trip),var(--talk) 55%,var(--sun));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{margin-top:16px;font-size:17px;color:var(--text-2);max-width:640px}
+
+  /* ── sections ── */
+  .section{margin-top:58px}
+  .sec-head{display:flex;align-items:center;gap:13px;margin-bottom:22px;flex-wrap:wrap}
+  .sec-badge{font-family:var(--font-d);font-weight:800;font-size:15px;width:38px;height:38px;border-radius:14px 16px 15px 17px;
+    display:grid;place-items:center;color:#fff;font-variant-numeric:tabular-nums}
+  .sec-title{font-size:24px;font-weight:800;letter-spacing:-.02em}
+  .sec-desc{font-size:15.5px;color:var(--text-2);flex-basis:100%;max-width:700px}
+
+  /* ── phone ── */
+  .stage{display:flex;gap:38px;flex-wrap:wrap;align-items:flex-start}
+  .phone{width:344px;flex:0 0 344px;background:#fff;border-radius:46px;border:1px solid var(--border);
+    box-shadow:var(--sh-lg);padding:11px;position:relative}
+  .phone-inner{background:var(--surface-muted);border-radius:36px;overflow:hidden;height:716px;
+    display:flex;flex-direction:column;position:relative}
+  .notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:104px;height:28px;
+    background:#0c1326;border-radius:999px;z-index:40}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;
+    padding:0 24px 7px;font-family:var(--font-d);font-size:13px;font-weight:700;background:#fff}
+  .caption{flex:0 0 344px;width:344px;font-size:13.5px;color:var(--text-2);margin-top:15px;line-height:1.55}
+  .caption b{color:var(--text);font-weight:700;font-family:var(--font-d)}
+
+  .screen{flex:1;overflow:hidden;display:flex;flex-direction:column}
+  .scroll{flex:1;overflow:hidden;padding:15px 16px}
+
+  /* app header */
+  .appbar{background:#fff;padding:8px 18px 15px;border-bottom:1px solid var(--border)}
+  .appbar-top{display:flex;align-items:center;justify-content:space-between}
+  .appbar h2{font-size:23px;font-weight:800;letter-spacing:-.02em}
+  .appbar .sub{font-size:12.5px;color:var(--text-3);margin-top:2px;font-weight:600}
+  .hbtn{width:42px;height:42px;border-radius:15px 17px 14px 16px;display:grid;place-items:center;
+    color:#fff;box-shadow:var(--sh-sm)}
+
+  /* tabs */
+  .tabs{display:flex;gap:4px;background:var(--surface-muted);border:1px solid var(--border);
+    padding:4px;border-radius:16px;margin-top:15px}
+  .tab{flex:1;text-align:center;font-family:var(--font-d);font-size:13px;font-weight:700;color:var(--text-2);
+    padding:8px 4px;border-radius:12px;transition:.2s}
+  .tab.active{background:#fff;color:var(--trip);box-shadow:var(--sh-sm)}
+
+  /* triage tiles */
+  .triage{display:flex;gap:9px;margin-bottom:16px}
+  .tcell{flex:1;border-radius:20px;padding:13px 13px 12px;position:relative;overflow:hidden;border:1px solid transparent}
+  .tcell .n{font-family:var(--font-d);font-size:27px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+  .tcell .l{font-size:11.5px;font-weight:700;margin-top:5px}
+  .tcell .gl{position:absolute;right:-14px;bottom:-16px;width:58px;height:58px;border-radius:50%;opacity:.16}
+  .tcell.crit{background:var(--crit-bg);border-color:#FBCBD6}.tcell.crit .n,.tcell.crit .l{color:var(--crit)}.tcell.crit .gl{background:var(--crit)}
+  .tcell.warn{background:var(--warn-bg);border-color:#FAE2B5}.tcell.warn .n,.tcell.warn .l{color:#B45309}.tcell.warn .gl{background:var(--warn)}
+  .tcell.ok{background:var(--ok-bg);border-color:#B7EBCF}.tcell.ok .n,.tcell.ok .l{color:#047857}.tcell.ok .gl{background:var(--ok)}
+
+  /* filters */
+  .filters{display:flex;gap:7px;margin-bottom:16px;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-d);font-size:12.5px;font-weight:700;
+    padding:8px 13px;border-radius:999px;border:1.5px solid var(--border-strong);background:#fff;color:var(--text-2)}
+  .chip .cd{width:8px;height:8px;border-radius:50%}
+  .chip.active{background:var(--text);color:#fff;border-color:var(--text)}
+
+  /* exception card — NO left stripe. Tinted top wash + brush-splat icon. */
+  .ex{background:#fff;border:1px solid var(--border);border-radius:22px;padding:0;margin-bottom:13px;
+    overflow:hidden;box-shadow:var(--sh-sm);
+    opacity:0;transform:translateY(12px) scale(.99);animation:rise .55s cubic-bezier(.2,.75,.3,1) forwards}
+  .ex:nth-child(1){animation-delay:.05s}.ex:nth-child(2){animation-delay:.12s}
+  .ex:nth-child(3){animation-delay:.19s}.ex:nth-child(4){animation-delay:.26s}
+  @keyframes rise{to{opacity:1;transform:none}}
+  .ex-body{padding:14px 15px}
+  .ex-wash{height:6px;width:100%}
+  .ex.crit .ex-wash{background:linear-gradient(90deg,var(--crit),#FB7185)}
+  .ex.warn .ex-wash{background:linear-gradient(90deg,var(--warn),#FCC65B)}
+  .ex.done{background:var(--surface-muted)}.ex.done .ex-wash{background:var(--border-strong)}
+  .ex-top{display:flex;align-items:flex-start;gap:12px}
+  .ex-main{flex:1;min-width:0}
+  .ex-kind{display:flex;align-items:center;gap:8px}
+  .tag{font-family:var(--font-d);font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:999px}
+  .tag.crit{background:var(--crit-bg);color:var(--crit)}
+  .tag.warn{background:var(--warn-bg);color:#B45309}
+  .tag.done{background:var(--border);color:var(--text-2)}
+  .ex-route{font-family:var(--font-d);font-size:16px;font-weight:800;margin-top:7px;letter-spacing:-.01em}
+  .ex-meta{font-size:13px;color:var(--text-2);margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:500}
+  .ex-meta .sep{width:3px;height:3px;border-radius:50%;background:var(--text-3)}
+  .ex-reason{font-size:12.5px;color:#92400E;background:var(--warn-bg);border-radius:13px;padding:9px 11px;margin-top:11px;display:flex;gap:8px;align-items:flex-start;font-weight:500}
+  .ex-actions{display:flex;gap:9px;margin-top:13px}
+  .btn{flex:1;text-align:center;font-family:var(--font-d);font-size:13.5px;font-weight:800;padding:11px;border-radius:14px;border:1.5px solid var(--border-strong);background:#fff;color:var(--text)}
+  .btn.solid{border:none;color:#fff}
+  .btn.ghost{flex:0 0 auto;padding:11px 14px;color:var(--text-2)}
+  .ex-rez{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#047857;font-weight:700;margin-top:10px;font-family:var(--font-d)}
+
+  /* post-mortem */
+  .pm-head{color:#fff;padding:18px 80px 18px 18px;border-radius:26px;margin-bottom:17px;position:relative;overflow:hidden;
+    background:linear-gradient(135deg,#3B2C8F,#5B4DE0 60%,#7C5CF0)}
+  .pm-head .pm-orb{position:absolute;border-radius:50%;filter:blur(2px);opacity:.3}
+  .pm-badge{position:absolute;right:16px;top:16px;width:52px;height:52px;background:#fff;
+    border-radius:18px 20px 16px 19px;display:grid;place-items:center;z-index:2;box-shadow:0 8px 18px rgba(20,12,60,.3)}
+  .pm-badge svg.mi{width:32px;height:32px}
+  .pm-tag{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-d);font-size:11px;font-weight:800;
+    letter-spacing:.05em;text-transform:uppercase;background:#ffffff2b;padding:5px 11px;border-radius:999px}
+  .pm-head h3{font-size:23px;font-weight:800;margin-top:12px;letter-spacing:-.02em}
+  .pm-head .pm-sub{font-size:13.5px;color:#DDD8FF;margin-top:4px;font-weight:500}
+  .pm-stats{display:flex;gap:9px;margin-bottom:17px}
+  .pm-stat{flex:1;background:#fff;border:1px solid var(--border);border-radius:19px;padding:13px;text-align:center}
+  .pm-stat .v{font-family:var(--font-d);font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .pm-stat .k{font-size:11px;color:var(--text-2);margin-top:3px;font-weight:600}
+  .pm-stat .v.ok{color:var(--ok)} .pm-stat .v.bad{color:var(--crit)}
+  .cardb{background:#fff;border:1px solid var(--border);border-radius:24px;padding:16px;margin-bottom:15px}
+  .cb-title{font-family:var(--font-d);font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);margin-bottom:15px}
+
+  /* timeline */
+  .tl{position:relative;padding-left:34px}
+  .tl::before{content:"";position:absolute;left:13px;top:8px;bottom:12px;width:2.5px;
+    background:linear-gradient(var(--ok),var(--warn),var(--crit));border-radius:9px;opacity:.5}
+  .tl-item{position:relative;padding-bottom:19px}
+  .tl-dot{position:absolute;left:-34px;top:0;width:28px;height:28px;border-radius:50%;
+    display:grid;place-items:center;color:#fff;box-shadow:0 3px 7px rgba(22,32,59,.18)}
+  .tl-t{font-family:var(--font-d);font-size:11px;font-weight:800;color:var(--text-3);letter-spacing:.03em;text-transform:uppercase}
+  .tl-h{font-family:var(--font-d);font-size:15px;font-weight:800;margin-top:2px}
+  .tl-s{font-size:13px;color:var(--text-2);margin-top:2px;font-weight:500}
+  .tl-s b{color:var(--text);font-weight:700}
+
+  /* form */
+  .secnote{font-family:var(--font-d);font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--people);margin:4px 0 12px;display:flex;align-items:center;gap:8px}
+  .secnote.route{color:var(--route)}
+  .field{margin-bottom:16px}
+  .lbl{font-family:var(--font-d);font-size:13.5px;font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+  .lbl .req{color:var(--crit)}
+  .inp{width:100%;background:#fff;border:1.8px solid var(--border-strong);border-radius:15px;padding:13px 14px;font-size:15px;font-family:var(--font-b);color:var(--text)}
+  .inp.focus{border-color:var(--people);box-shadow:0 0 0 4px #0D948822}
+  .seg{display:flex;gap:8px}
+  .seg .opt{flex:1;text-align:center;padding:12px;border:1.8px solid var(--border-strong);border-radius:15px;font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--text-2);background:#fff}
+  .seg .opt.sel{border-color:var(--people);background:var(--people-bg);color:#0B6E66}
+  .pickrow{display:flex;gap:8px;flex-wrap:wrap}
+  .pick{padding:10px 15px;border:1.8px solid var(--border-strong);border-radius:999px;font-family:var(--font-d);font-size:13.5px;font-weight:700;color:var(--text-2);background:#fff}
+  .pick.sel{border-color:var(--route);background:var(--route);color:#fff}
+  .capbar{margin-top:11px;background:var(--route-bg);border-radius:15px;padding:11px 13px;display:flex;align-items:center;gap:11px}
+  .capbar .track{flex:1;height:8px;background:#ffffffcc;border-radius:99px;overflow:hidden}
+  .capbar .fill{height:100%;width:80%;background:linear-gradient(90deg,var(--ok),var(--people));border-radius:99px}
+  .capbar .ct{font-family:var(--font-d);font-size:12.5px;font-weight:800;color:var(--route);font-variant-numeric:tabular-nums}
+  .hint{font-size:12px;color:#047857;margin-top:8px;display:flex;align-items:center;gap:6px;font-weight:600}
+  .formbtn{color:#fff;text-align:center;font-family:var(--font-d);font-size:15.5px;font-weight:800;padding:15px;border-radius:18px;margin-top:8px;background:linear-gradient(120deg,var(--people),#0BB39E);box-shadow:0 10px 22px -8px #0D9488aa}
+
+  .tabbar{background:#fff;border-top:1px solid var(--border);display:flex;padding:9px 6px 24px}
+  .tb{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-family:var(--font-d);font-size:10.5px;font-weight:700;color:var(--text-3)}
+  .tb.on{color:var(--people)}
+
+  /* IA map */
+  .ia-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:15px}
+  .ia-node{border:1px solid var(--border);border-radius:24px;padding:17px;background:#fff;box-shadow:var(--sh-sm)}
+  .ia-h{display:flex;align-items:center;gap:11px;font-family:var(--font-d);font-weight:800;font-size:15.5px}
+  .ia-subs{margin-top:13px;display:flex;flex-direction:column;gap:6px}
+  .ia-sub{font-size:12.5px;color:var(--text-2);display:flex;align-items:center;gap:8px;font-weight:500}
+  .ia-sub .l{width:11px;height:11px;border-left:1.6px solid var(--border-strong);border-bottom:1.6px solid var(--border-strong);border-bottom-left-radius:4px;margin-left:4px}
+  .ia-sub b{font-family:var(--font-d)}
+
+  /* design language */
+  .princ{display:grid;grid-template-columns:repeat(auto-fit,minmax(228px,1fr));gap:16px}
+  .pr{background:#fff;border:1px solid var(--border);border-radius:24px;padding:19px;box-shadow:var(--sh-sm)}
+  .pr h4{font-size:16px;font-weight:800;letter-spacing:-.01em;margin-top:13px}
+  .pr p{font-size:13.5px;color:var(--text-2);margin-top:6px;font-weight:500}
+  .swatches{display:flex;gap:7px;margin-top:13px;flex-wrap:wrap}
+  .sw{width:30px;height:30px;border-radius:11px 13px 10px 14px;box-shadow:var(--sh-sm)}
+
+  .footnote{margin-top:52px;background:linear-gradient(135deg,#101a33,#1c2747);color:#C3CCE0;border-radius:28px;padding:28px 30px}
+  .footnote h4{color:#fff;font-size:17px;font-weight:800;display:flex;align-items:center;gap:10px}
+  .footnote p{font-size:14px;margin-top:11px;max-width:760px;line-height:1.65;font-weight:500}
+  .footnote .ok{color:#5EEAD4;font-weight:800;font-family:var(--font-d)}
+  .footnote .no{color:#FDA4AF;font-weight:800;font-family:var(--font-d)}
+
+  @media (prefers-reduced-motion:reduce){.ex{animation:none;opacity:1;transform:none}}
+</style>
+
+<!-- ───── duotone icon + brush-blob defs ───── -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <!-- brush splats (irregular) -->
+  <symbol id="b1" viewBox="0 0 100 100"><path d="M54 7c16-2 33 5 39 21 5 13 14 21 11 35-3 14-20 15-31 24-12 9-26 10-39 2C21 82 23 64 17 50 12 36 5 24 16 16 27 8 43 8 54 7z"/></symbol>
+  <symbol id="b2" viewBox="0 0 100 100"><path d="M63 6c14 6 18 23 27 34 8 11 2 27-8 36-11 9-29 5-43 7-14 2-29-7-29-22C10 56 23 50 24 38 25 24 20 8 36 5c10-2 18 0 27 1z"/></symbol>
+  <symbol id="b3" viewBox="0 0 100 100"><path d="M45 5c19-3 31 12 47 17 13 4 8 24 4 37-4 13-21 15-32 25-12 11-29 4-34-10C26 61 12 56 11 42 10 27 9 12 25 8c7-1 13-2 20-3z"/></symbol>
+
+  <!-- duotone glyphs -->
+  <symbol id="i-bus" viewBox="0 0 24 24"><rect class="f" x="3.5" y="5" width="17" height="11.5" rx="3"/><rect class="s" x="3.5" y="4.5" width="17" height="13" rx="3"/><path class="s" d="M4 11h16"/><path class="s" d="M7.5 17.5v2M16.5 17.5v2"/><circle class="fs" cx="7.6" cy="14" r="1.1"/><circle class="fs" cx="16.4" cy="14" r="1.1"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path class="f" d="M12 4 3 19h18L12 4z"/><path class="s" d="M12 3.5 2.6 19.5h18.8L12 3.5z"/><path class="s" d="M12 10v4.2"/><circle class="fs" cx="12" cy="17.4" r="1"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle class="f" cx="12" cy="12" r="8.5"/><circle class="s" cx="12" cy="12" r="8.5"/><path class="s" d="M12 7.2v5l3.2 2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle class="f" cx="11" cy="11" r="6.6"/><circle class="s" cx="11" cy="11" r="6.6"/><path class="s" d="m20 20-3.6-3.6"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle class="f" cx="9" cy="8" r="3.6"/><circle class="s" cx="9" cy="8" r="3.6"/><path class="s" d="M2.6 20c0-3.6 3.1-5.4 6.4-5.4s6.4 1.8 6.4 5.4"/><path class="s" d="M16.4 5.2a3.5 3.5 0 0 1 0 6.4M17.6 15.2c2.6.5 4.2 2 4.2 4.8"/></symbol>
+  <symbol id="i-route" viewBox="0 0 24 24"><circle class="f" cx="6" cy="18.5" r="3"/><circle class="f" cx="18" cy="5.5" r="3"/><circle class="s" cx="6" cy="18.5" r="2.6"/><circle class="s" cx="18" cy="5.5" r="2.6"/><path class="s" d="M8.4 18.5H14a3.5 3.5 0 0 0 0-7H9.8a3.5 3.5 0 0 1 0-7h1.8"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect class="f" x="3" y="3" width="8" height="8" rx="2.4"/><rect class="s" x="3" y="3" width="8" height="8" rx="2.4"/><rect class="s" x="13" y="3" width="8" height="8" rx="2.4"/><rect class="s" x="3" y="13" width="8" height="8" rx="2.4"/><rect class="f" x="13" y="13" width="8" height="8" rx="2.4"/><rect class="s" x="13" y="13" width="8" height="8" rx="2.4"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path class="f" d="M21 12a8 8 0 0 1-11.6 7.1L4.5 20.5l1.4-4.9A8 8 0 1 1 21 12z"/><path class="s" d="M21 12a8 8 0 0 1-11.6 7.1L4.5 20.5l1.4-4.9A8 8 0 1 1 21 12z"/><path class="s" d="M9 11h6M9 14h4"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect class="f" x="3" y="5.5" width="18" height="13" rx="3.2"/><rect class="s" x="3" y="5.5" width="18" height="13" rx="3.2"/><path class="s" d="M3 10h18"/><path class="s" d="M6.5 14.5h4"/></symbol>
+  <symbol id="i-cog" viewBox="0 0 24 24"><circle class="f" cx="12" cy="12" r="8.4"/><path class="s" d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z"/><path class="s" d="M12 2.6v2.2M12 19.2v2.2M21.4 12h-2.2M4.8 12H2.6M18.6 5.4l-1.6 1.6M7 17l-1.6 1.6M18.6 18.6 17 17M7 7 5.4 5.4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path class="s" d="M20 6.5 9.5 17 4 11.5"/></symbol>
+  <symbol id="i-checkc" viewBox="0 0 24 24"><circle class="f" cx="12" cy="12" r="9"/><circle class="s" cx="12" cy="12" r="9"/><path class="s" d="m8 12 2.7 2.7L16 9.3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><circle class="f" cx="12" cy="12" r="9"/><circle class="s" cx="12" cy="12" r="9"/><path class="s" d="m9 9 6 6M15 9l-6 6"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path class="f" d="M5 4h4l2 5-2.6 1.6a11 11 0 0 0 5 5L15 13l5 2v2.2A1.8 1.8 0 0 1 18 19 14.5 14.5 0 0 1 5 6 1.8 1.8 0 0 1 5 4z"/><path class="s" d="M5 4h4l2 5-2.6 1.6a11 11 0 0 0 5 5L15 13l5 2v2.2A1.8 1.8 0 0 1 18 19 14.5 14.5 0 0 1 5 6 1.8 1.8 0 0 1 5 4z"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path class="s" d="M2.5 8.6a16 16 0 0 1 19 0M5.5 12.3a11 11 0 0 1 13 0M8.7 15.9a6 6 0 0 1 6.6 0M3 3l18 18"/><circle class="fs" cx="12" cy="19.2" r="1.1"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path class="f" d="M12 21s7-6.5 7-11.2A7 7 0 1 0 5 9.8C5 14.5 12 21 12 21z"/><path class="s" d="M12 21s7-6.5 7-11.2A7 7 0 1 0 5 9.8C5 14.5 12 21 12 21z"/><circle class="s" cx="12" cy="9.8" r="2.5"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path class="f" d="M12 3c.6 4.2 1.8 5.4 6 6-4.2.6-5.4 1.8-6 6-.6-4.2-1.8-5.4-6-6 4.2-.6 5.4-1.8 6-6z"/><path class="s" d="M12 3c.6 4.2 1.8 5.4 6 6-4.2.6-5.4 1.8-6 6-.6-4.2-1.8-5.4-6-6 4.2-.6 5.4-1.8 6-6z"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path class="f" d="M5.5 4h11l-1.8 4 1.8 4h-11z"/><path class="s" d="M5.5 21V3.5M5.5 4h11l-1.8 4 1.8 4h-11"/></symbol>
+  <symbol id="i-type" viewBox="0 0 24 24"><path class="f" d="M5 5h14v3H5z"/><path class="s" d="M5 6.5h14M12 6.5V19M9 19h6"/></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><path class="s" d="M12 3v18M3 12h18"/><path class="s" d="m8 7 4-4 4 4M8 17l4 4 4-4M7 8l-4 4 4 4M17 8l4 4-4 4"/></symbol>
+
+  <!-- extra brush dabs (painterly, irregular) -->
+  <symbol id="b4" viewBox="0 0 100 100"><path d="M60 8c14 4 17 21 27 30 10 9 9 26-2 36-10 9-27 8-40 12-13 4-28-3-31-17C11 56 21 47 19 34 17 20 24 6 39 6c7 0 14 1 21 2z"/></symbol>
+  <symbol id="b5" viewBox="0 0 100 100"><path d="M48 6c18-4 29 11 44 15 13 4 11 22 8 35-3 14-19 18-29 28-11 11-28 6-34-7C30 60 14 58 12 44 10 29 6 14 22 9c8-2 18-2 26-3z"/></symbol>
+
+  <!-- MULTI-COLOUR spot icons (Blinkit/Zomato-style, detailed) -->
+  <symbol id="m-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2.6" fill="#4F46E5"/><rect x="13" y="3" width="8" height="8" rx="2.6" fill="#8B5CF6"/><rect x="3" y="13" width="8" height="8" rx="2.6" fill="#0EA5E9"/><rect x="13" y="13" width="8" height="8" rx="2.6" fill="#14B8A6"/></symbol>
+  <symbol id="m-users" viewBox="0 0 24 24"><circle cx="16.2" cy="8.6" r="3.1" fill="#8B5CF6"/><path d="M10.5 20.5c0-3.3 2.7-4.9 5.7-4.9s5.7 1.6 5.7 4.9z" fill="#8B5CF6" opacity=".9"/><circle cx="8.3" cy="8" r="3.7" fill="#0D9488"/><path d="M1.8 20.5c0-3.8 2.9-5.7 6.5-5.7s6.5 1.9 6.5 5.7z" fill="#0D9488"/><circle cx="7" cy="7.4" r=".9" fill="#fff"/></symbol>
+  <symbol id="m-route" viewBox="0 0 24 24"><path d="M7.5 19H14a3.6 3.6 0 0 0 0-7.2H9.4a3.4 3.4 0 0 1 0-6.8H12" fill="none" stroke="#0EA5E9" stroke-width="2.3" stroke-linecap="round" stroke-dasharray="0.1 4.2"/><circle cx="6.6" cy="19" r="3" fill="#10B981"/><circle cx="6.6" cy="19" r="1.1" fill="#fff"/><path d="M17.8 2.6c2.1 0 3.8 1.7 3.8 3.8 0 2.6-3.8 5.8-3.8 5.8s-3.8-3.2-3.8-5.8c0-2.1 1.7-3.8 3.8-3.8z" fill="#EF4444"/><circle cx="17.8" cy="6.3" r="1.4" fill="#fff"/></symbol>
+  <symbol id="m-cog" viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="3.1" rx="1.55" fill="#E2E8F0"/><circle cx="9" cy="6.55" r="2.8" fill="#F59E0B"/><rect x="2.5" y="10.45" width="19" height="3.1" rx="1.55" fill="#E2E8F0"/><circle cx="15.5" cy="12" r="2.8" fill="#FB7185"/><rect x="2.5" y="15.9" width="19" height="3.1" rx="1.55" fill="#E2E8F0"/><circle cx="7" cy="17.45" r="2.8" fill="#A78BFA"/></symbol>
+  <symbol id="m-bus" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12" rx="3.2" fill="#FACC15"/><rect x="4.6" y="6.8" width="14.8" height="4.4" rx="1.6" fill="#BAE6FD"/><line x1="12" y1="6.8" x2="12" y2="11.2" stroke="#CA8A04" stroke-width="1.3"/><rect x="4.6" y="13" width="3.2" height="1.9" rx=".9" fill="#EF4444"/><rect x="16.2" y="13" width="3.2" height="1.9" rx=".9" fill="#EF4444"/><circle cx="7.6" cy="17.6" r="2.1" fill="#334155"/><circle cx="16.4" cy="17.6" r="2.1" fill="#334155"/><circle cx="7.6" cy="17.6" r=".8" fill="#fff"/><circle cx="16.4" cy="17.6" r=".8" fill="#fff"/></symbol>
+  <symbol id="m-chat" viewBox="0 0 24 24"><path d="M21 11.4a8 8 0 0 1-11.7 7.1L4.4 20l1.4-4.8A8 8 0 1 1 21 11.4z" fill="#EC4899"/><circle cx="8.8" cy="11.4" r="1.25" fill="#fff"/><circle cx="12.8" cy="11.4" r="1.25" fill="#fff"/><circle cx="16.8" cy="11.4" r="1.25" fill="#fff"/><path d="M18.7 2.3l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z" fill="#FBBF24"/></symbol>
+  <symbol id="m-card" viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="13.5" rx="3.2" fill="#10B981"/><rect x="2.5" y="8.2" width="19" height="2.8" fill="#065F46"/><rect x="5" y="13.4" width="4.8" height="3.2" rx="1" fill="#FBBF24"/><path d="M15.6 13a3.4 3.4 0 0 1 0 3.6M17.8 12a5.4 5.4 0 0 1 0 5.6" fill="none" stroke="#D1FAE5" stroke-width="1.4" stroke-linecap="round"/></symbol>
+
+  <!-- Trips: a colourful schedule -->
+  <symbol id="m-trip" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="15" rx="3.4" fill="#C7D2FE"/><path d="M3 8.7C3 6.9 4.4 5.5 6.2 5.5h11.6C19.6 5.5 21 6.9 21 8.7H3z" fill="#4F46E5"/><rect x="6.8" y="3" width="2.4" height="4.6" rx="1.2" fill="#3730A3"/><rect x="14.8" y="3" width="2.4" height="4.6" rx="1.2" fill="#3730A3"/><circle cx="8" cy="13" r="1.35" fill="#14B8A6"/><circle cx="12" cy="13" r="1.35" fill="#F59E0B"/><circle cx="16" cy="13" r="1.35" fill="#EC4899"/><path d="M7.2 17.1l1.9 1.9 3.5-3.5" stroke="#10B981" stroke-width="1.9" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <!-- status: abandoned (clock + red x) -->
+  <symbol id="m-abandoned" viewBox="0 0 24 24"><circle cx="10.5" cy="12.5" r="7.5" fill="#FEF3C7"/><circle cx="10.5" cy="12.5" r="7.5" fill="none" stroke="#F59E0B" stroke-width="1.8"/><path d="M10.5 8v4.6l3 1.8" stroke="#B45309" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.6" cy="6" r="4.7" fill="#EF4444"/><path d="M17 4.4l3.2 3.2M20.2 4.4l-3.2 3.2" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <!-- status: signal lost (waves + red slash) -->
+  <symbol id="m-signal" viewBox="0 0 24 24"><path d="M4 9a12 12 0 0 1 16 0" stroke="#CBD5E1" stroke-width="1.9" fill="none" stroke-linecap="round"/><path d="M6.6 12.1a8 8 0 0 1 10.8 0" stroke="#94A3B8" stroke-width="1.9" fill="none" stroke-linecap="round"/><path d="M9.2 15.2a4 4 0 0 1 5.6 0" stroke="#94A3B8" stroke-width="1.9" fill="none" stroke-linecap="round"/><circle cx="12" cy="18.4" r="1.45" fill="#64748B"/><path d="M3.5 3.5l17 17" stroke="#EF4444" stroke-width="2.3" stroke-linecap="round"/></symbol>
+  <!-- status: overdue (amber clock + ! badge) -->
+  <symbol id="m-overdue" viewBox="0 0 24 24"><circle cx="11.5" cy="12.5" r="7.6" fill="#FEF3C7"/><circle cx="11.5" cy="12.5" r="7.6" fill="none" stroke="#F59E0B" stroke-width="1.8"/><path d="M11.5 7.8v5l3.4 2.1" stroke="#B45309" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19" cy="6.4" r="3.5" fill="#FB923C"/><path d="M19 4.9v1.7" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><circle cx="19" cy="8.2" r=".75" fill="#fff"/></symbol>
+  <!-- status: started (green play) -->
+  <symbol id="m-started" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#D1FAE5"/><circle cx="12" cy="12" r="9" fill="none" stroke="#10B981" stroke-width="1.7"/><path d="M10 8.4l6.2 3.6L10 15.6z" fill="#059669"/></symbol>
+</defs></svg>
+
+<div class="page"><div class="wrap">
+
+  <header class="masthead">
+    <span class="eyebrow"><span class="dd"><i style="background:var(--trip)"></i><i style="background:var(--people)"></i><i style="background:var(--talk)"></i></span>Yaanam · Admin · Design Direction v2</span>
+    <h1 class="title">An operations console that <em>tells you what needs you</em> — at a glance.</h1>
+    <p class="lede">Refined direction: detailed two-tone icons on hand-painted colour, a warm rounded typeface, and a hue for every part of the app — colourful, but disciplined. No app code is touched.</p>
+  </header>
+
+  <!-- 1 · IA -->
+  <section class="section">
+    <div class="sec-head">
+      <span class="sec-badge" style="background:linear-gradient(135deg,var(--trip),#7C5CF0)">01</span>
+      <span class="sec-title">How the app is organised</span>
+      <p class="sec-desc">Eight destinations, each with its own colour so you learn the app by hue. Nothing is more than two taps from where you start.</p>
+    </div>
+    <div class="ia-grid">
+      <div class="ia-node"><div class="ia-h"><span class="splat sm"><svg class="blob" style="color:var(--trip-bg)"><use href="#b1"/></svg><svg class="mi ic"><use href="#m-grid"/></svg></span>Dashboard</div>
+        <div class="ia-subs"><div class="ia-sub"><span class="l"></span>Overview</div><div class="ia-sub"><span class="l"></span>Trends</div></div></div>
+      <div class="ia-node"><div class="ia-h"><span class="splat sm"><svg class="blob" style="color:var(--fleet-bg)"><use href="#b2"/></svg><svg class="mi ic"><use href="#m-bus"/></svg></span>Live Fleet</div>
+        <div class="ia-subs"><div class="ia-sub"><span class="l"></span>Map &amp; vehicles</div></div></div>
+      <div class="ia-node"><div class="ia-h"><span class="splat sm"><svg class="blob" style="color:var(--trip-bg)"><use href="#b3"/></svg><svg class="mi ic"><use href="#m-trip"/></svg></span>Trips</div>
+        <div class="ia-subs"><div class="ia-sub"><span class="l"></span>Schedule</div><div class="ia-sub"><span class="l"></span><b style="color:var(--trip)">Exceptions ▸ new</b></div></div></div>
+      <div class="ia-node"><div class="ia-h"><span class="splat sm"><svg class="blob" style="color:var(--people-bg)"><use href="#b1"/></svg><svg class="mi ic"><use href="#m-users"/></svg></span>People</div>
+        <div class="ia-subs"><div class="ia-sub"><span class="l"></span>Students · Parents</div><div class="ia-sub"><span class="l"></span>Staff · Import</div></div></div>
+      <div class="ia-node"><div class="ia-h"><span class="splat sm"><svg class="blob" style="color:var(--route-bg)"><use href="#b2"/></svg><svg class="mi ic"><use href="#m-route"/></svg></span>Routes</div>
+        <div class="ia-subs"><div class="ia-sub"><span class="l"></span>Routes · Vehicles</div><div class="ia-sub"><span class="l"></span>Emergency</div></div></div>
+      <div class="ia-node"><div class="ia-h"><span class="splat sm"><svg class="blob" style="color:var(--talk-bg)"><use href="#b3"/></svg><svg class="mi ic"><use href="#m-chat"/></svg></span>Complaints</div>
+        <div class="ia-subs"><div class="ia-sub"><span class="l"></span>Inbox</div><div class="ia-sub"><span class="l"></span>KPIs</div></div></div>
+      <div class="ia-node"><div class="ia-h"><span class="splat sm"><svg class="blob" style="color:var(--pay-bg)"><use href="#b1"/></svg><svg class="mi ic"><use href="#m-card"/></svg></span>Payments</div>
+        <div class="ia-subs"><div class="ia-sub"><span class="l"></span>Overview · Fees</div></div></div>
+      <div class="ia-node"><div class="ia-h"><span class="splat sm"><svg class="blob" style="color:var(--sun-bg)"><use href="#b2"/></svg><svg class="mi ic"><use href="#m-cog"/></svg></span>Settings</div>
+        <div class="ia-subs"><div class="ia-sub"><span class="l"></span>School · Profile</div><div class="ia-sub"><span class="l"></span>Flags · Alerts</div></div></div>
+    </div>
+  </section>
+
+  <!-- 2 · EXCEPTIONS -->
+  <section class="section">
+    <div class="sec-head">
+      <span class="sec-badge" style="background:linear-gradient(135deg,var(--crit),#FB7185)">02</span>
+      <span class="sec-title">Exceptions — triaged, not stacked</span>
+      <p class="sec-desc">Sorted by urgency, each type painted in its own colour with a detailed icon. The bus that needs you right now sits at the top — no hunting.</p>
+    </div>
+    <div class="stage">
+      <div class="phone"><div class="phone-inner"><div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>5G&nbsp;&nbsp;100</span></div>
+        <div class="screen">
+          <div class="appbar">
+            <div class="appbar-top"><div><h2>Exceptions</h2><div class="sub">10 need review · live</div></div>
+              <div class="hbtn" style="background:linear-gradient(135deg,var(--trip),#7C5CF0)"><svg class="i"><use href="#i-search"/></svg></div></div>
+            <div class="tabs"><div class="tab active">Needs action</div><div class="tab">Resolved</div><div class="tab">All</div></div>
+          </div>
+          <div class="scroll">
+            <div class="triage">
+              <div class="tcell crit"><div class="n">2</div><div class="l">Critical</div><span class="gl"></span></div>
+              <div class="tcell warn"><div class="n">3</div><div class="l">Attention</div><span class="gl"></span></div>
+              <div class="tcell ok"><div class="n">5</div><div class="l">Resolved</div><span class="gl"></span></div>
+            </div>
+            <div class="filters">
+              <span class="chip active">All types</span>
+              <span class="chip"><span class="cd" style="background:var(--crit)"></span>Abandoned</span>
+              <span class="chip"><span class="cd" style="background:var(--warn)"></span>Overdue</span>
+            </div>
+
+            <div class="ex crit"><div class="ex-wash"></div><div class="ex-body">
+              <div class="ex-top">
+                <span class="splat"><svg class="blob" style="color:#EEF1F6"><use href="#b1"/></svg><svg class="mi ic" style="width:28px;height:28px"><use href="#m-abandoned"/></svg></span>
+                <div class="ex-main">
+                  <div class="ex-kind"><span class="tag crit">Abandoned</span></div>
+                  <div class="ex-route">Route 3 · Kalyanpur AM</div>
+                  <div class="ex-meta">Started 7:34<span class="sep"></span>auto-closed after 6h<span class="sep"></span>Suresh K.</div>
+                </div>
+              </div>
+              <div class="ex-reason"><svg class="i sm" style="color:var(--warn)"><use href="#i-alert"/></svg><span>Never completed — system auto-aborted. 12 / 15 boarded; needs review.</span></div>
+              <div class="ex-actions"><div class="btn solid" style="background:linear-gradient(120deg,var(--crit),#F43F5E)">Review trip</div><div class="btn">Acknowledge</div></div>
+            </div></div>
+
+            <div class="ex crit"><div class="ex-wash"></div><div class="ex-body">
+              <div class="ex-top">
+                <span class="splat"><svg class="blob" style="color:#EEF1F6"><use href="#b2"/></svg><svg class="mi ic" style="width:27px;height:27px"><use href="#m-signal"/></svg></span>
+                <div class="ex-main">
+                  <div class="ex-kind"><span class="tag crit">Signal lost</span></div>
+                  <div class="ex-route">Route 7 · Sector 12 PM</div>
+                  <div class="ex-meta">No GPS for 9 min<span class="sep"></span>live now</div>
+                </div>
+              </div>
+              <div class="ex-actions"><div class="btn solid" style="background:linear-gradient(120deg,var(--crit),#F43F5E)">Open live</div><div class="btn ghost"><svg class="i sm" style="color:var(--people)"><use href="#i-phone"/></svg></div></div>
+            </div></div>
+
+            <div class="ex warn"><div class="ex-wash"></div><div class="ex-body">
+              <div class="ex-top">
+                <span class="splat"><svg class="blob" style="color:#EEF1F6"><use href="#b3"/></svg><svg class="mi ic" style="width:28px;height:28px"><use href="#m-overdue"/></svg></span>
+                <div class="ex-main">
+                  <div class="ex-kind"><span class="tag warn">Overdue</span></div>
+                  <div class="ex-route">Route 1 · IIT Morning</div>
+                  <div class="ex-meta">Running 3h 20m past end<span class="sep"></span>still live</div>
+                </div>
+              </div>
+              <div class="ex-actions"><div class="btn solid" style="background:linear-gradient(120deg,var(--warn),#F59E0B)">Review trip</div><div class="btn">Force-complete</div></div>
+            </div></div>
+
+            <div class="ex done"><div class="ex-wash"></div><div class="ex-body">
+              <div class="ex-top">
+                <span class="splat"><svg class="blob" style="color:#EEF1F6"><use href="#b1"/></svg><svg class="i ic" style="color:var(--text-3)"><use href="#i-checkc"/></svg></span>
+                <div class="ex-main">
+                  <div class="ex-kind"><span class="tag done">Off-protocol start</span></div>
+                  <div class="ex-route">Route 5 · Avas Vikas</div>
+                  <div class="ex-meta">Started without daily check</div>
+                </div>
+              </div>
+              <div class="ex-rez"><svg class="i sm" style="color:var(--ok)"><use href="#i-check"/></svg>Resolved by Priya N. · 8:10 AM</div>
+            </div></div>
+          </div>
+        </div>
+      </div></div>
+      <p class="caption"><b>What changed.</b> No more identical left-stripe boxes. Each card carries a hand-painted icon in its severity colour, a coloured tag and a thin top wash — sorted Critical → Attention → Resolved. You read the whole situation in a second.</p>
+    </div>
+  </section>
+
+  <!-- 3 · POST-MORTEM -->
+  <section class="section">
+    <div class="sec-head">
+      <span class="sec-badge" style="background:linear-gradient(135deg,var(--fleet),#9061FF)">03</span>
+      <span class="sec-title">Open a trip — see exactly how it went</span>
+      <p class="sec-desc">A stuck or finished trip becomes a story: a colour-graded timeline of everything that happened, why it ended, and who acted.</p>
+    </div>
+    <div class="stage">
+      <div class="phone"><div class="phone-inner"><div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>5G&nbsp;&nbsp;100</span></div>
+        <div class="screen"><div class="scroll" style="padding-top:16px">
+          <div class="pm-head">
+            <span class="pm-orb" style="width:120px;height:120px;background:#A78BFA;right:-30px;top:-40px"></span>
+            <span class="pm-orb" style="width:80px;height:80px;background:#F0ABFC;right:50px;bottom:-40px"></span>
+            <span class="pm-badge"><svg class="mi"><use href="#m-abandoned"/></svg></span>
+            <span class="pm-tag"><svg class="i sm"><use href="#i-alert"/></svg>Abandoned · auto-closed</span>
+            <h3>Route 3 · Kalyanpur AM</h3>
+            <div class="pm-sub">Tue 24 Jun · Driver Suresh K. · Bus HR63 F1979</div>
+          </div>
+          <div class="pm-stats">
+            <div class="pm-stat"><div class="v">6h 0m</div><div class="k">Open duration</div></div>
+            <div class="pm-stat"><div class="v ok">12</div><div class="k">Boarded</div></div>
+            <div class="pm-stat"><div class="v bad">3</div><div class="k">Not boarded</div></div>
+          </div>
+          <div class="cardb">
+            <div class="cb-title">What happened</div>
+            <div class="tl">
+              <div class="tl-item"><div class="tl-dot" style="background:var(--ok)"><svg class="i sm"><use href="#i-check"/></svg></div>
+                <div class="tl-t">7:30 AM</div><div class="tl-h">Scheduled</div><div class="tl-s"><b>15 students</b> across 8 stops.</div></div>
+              <div class="tl-item"><div class="tl-dot" style="background:var(--people)"><svg class="i sm"><use href="#i-bus"/></svg></div>
+                <div class="tl-t">7:34 AM</div><div class="tl-h">Trip started</div><div class="tl-s">4 min late · GPS live · check done.</div></div>
+              <div class="tl-item"><div class="tl-dot" style="background:var(--route)"><svg class="i sm"><use href="#i-users"/></svg></div>
+                <div class="tl-t">7:40–8:25</div><div class="tl-h">12 of 15 boarded</div><div class="tl-s">3 missed at <b>B.M. Pur</b> &amp; <b>Madanheri</b>.</div></div>
+              <div class="tl-item"><div class="tl-dot" style="background:var(--warn)"><svg class="i sm"><use href="#i-clock"/></svg></div>
+                <div class="tl-t">10:34 AM</div><div class="tl-h">Flagged overdue</div><div class="tl-s">3h past expected end — admins alerted.</div></div>
+              <div class="tl-item"><div class="tl-dot" style="background:var(--crit)"><svg class="i sm"><use href="#i-x"/></svg></div>
+                <div class="tl-t">1:34 PM</div><div class="tl-h">Auto-closed (abandoned)</div><div class="tl-s">Driver never marked it complete.</div></div>
+            </div>
+          </div>
+          <div class="ex-actions" style="margin-bottom:18px">
+            <div class="btn solid" style="background:linear-gradient(120deg,var(--fleet),#9061FF)">Acknowledge &amp; close</div>
+            <div class="btn ghost"><svg class="i sm" style="color:var(--people)"><use href="#i-phone"/></svg></div>
+          </div>
+        </div></div>
+      </div></div>
+      <p class="caption"><b>The story, not a status.</b> The same data you already capture — start, boarding, the overdue flag, the auto-close reason — graded green→amber→red down the timeline so "how it went" is obvious.</p>
+    </div>
+  </section>
+
+  <!-- 4 · FORM -->
+  <section class="section">
+    <div class="sec-head">
+      <span class="sec-badge" style="background:linear-gradient(135deg,var(--people),#0BB39E)">04</span>
+      <span class="sec-title">Adding things should feel obvious</span>
+      <p class="sec-desc">Clear steps, generous targets, plain labels — and a live seat meter that fills as you pick a route, so a full bus is visible before you save.</p>
+    </div>
+    <div class="stage">
+      <div class="phone"><div class="phone-inner"><div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>5G&nbsp;&nbsp;100</span></div>
+        <div class="screen"><div class="scroll" style="padding-top:16px">
+          <h2 style="font-size:23px;font-weight:800;letter-spacing:-.02em">Add student</h2>
+          <div style="font-size:12.5px;color:var(--text-3);margin:3px 0 18px;font-weight:600">Step 1 of 2 · Details</div>
+
+          <div class="secnote"><svg class="mi sm"><use href="#m-users"/></svg>Child</div>
+          <div class="field"><div class="lbl">Full name <span class="req">*</span></div><div class="inp focus">Aarav Sharma</div></div>
+          <div class="field"><div class="lbl">Class</div>
+            <div class="seg"><div class="opt">Pre-primary</div><div class="opt sel">Class 1–5</div><div class="opt">6–10</div></div></div>
+
+          <div class="secnote route" style="margin-top:22px"><svg class="mi sm"><use href="#m-route"/></svg>Route &amp; stop</div>
+          <div class="field"><div class="lbl">Route</div>
+            <div class="pickrow"><span class="pick sel">Route 3 · Kalyanpur</span><span class="pick">Route 1 · IIT</span></div>
+            <div class="capbar"><span class="splat sm" style="width:34px;height:34px"><svg class="blob" style="color:#ffffff"><use href="#b4"/></svg><svg class="mi ic" style="width:21px;height:21px"><use href="#m-bus"/></svg></span>
+              <div class="track"><span class="fill"></span></div><span class="ct">40 / 50</span></div>
+            <div class="hint"><svg class="i sm" style="color:var(--ok)"><use href="#i-checkc"/></svg>10 seats free on this bus</div>
+          </div>
+          <div class="field"><div class="lbl">Boarding stop</div>
+            <div class="pickrow"><span class="pick">B.M. Pur</span><span class="pick sel">Madanheri</span><span class="pick">Chandel Gate</span></div></div>
+
+          <div class="formbtn">Continue to parent details</div>
+        </div></div>
+        <div class="tabbar">
+          <div class="tb" style="color:var(--trip)"><span class="tsplat"><svg class="blob" style="color:var(--trip-bg);transform:rotate(-9deg)"><use href="#b1"/></svg><svg class="mi"><use href="#m-grid"/></svg></span>Home</div>
+          <div class="tb on" style="color:var(--people)"><span class="tsplat"><svg class="blob" style="color:var(--people-bg);transform:rotate(7deg)"><use href="#b4"/></svg><svg class="mi"><use href="#m-users"/></svg></span>People</div>
+          <div class="tb" style="color:var(--route)"><span class="tsplat"><svg class="blob" style="color:var(--route-bg);transform:rotate(-13deg)"><use href="#b5"/></svg><svg class="mi"><use href="#m-route"/></svg></span>Routes</div>
+          <div class="tb" style="color:var(--sun)"><span class="tsplat"><svg class="blob" style="color:var(--sun-bg);transform:rotate(11deg)"><use href="#b2"/></svg><svg class="mi"><use href="#m-cog"/></svg></span>Settings</div>
+        </div>
+      </div></div>
+      <p class="caption"><b>Clarity over density.</b> One idea per group, the required field marked plainly, and the capacity meter turning amber the moment a bus fills — the guard you asked for, shown right where the choice is made.</p>
+    </div>
+  </section>
+
+  <!-- 5 · LANGUAGE -->
+  <section class="section">
+    <div class="sec-head">
+      <span class="sec-badge" style="background:linear-gradient(135deg,var(--sun),#F6A723)">05</span>
+      <span class="sec-title">The language behind it</span>
+    </div>
+    <div class="princ">
+      <div class="pr"><span class="splat"><svg class="blob" style="color:var(--talk-bg)"><use href="#b1"/></svg><svg class="i ic lg" style="color:var(--talk)"><use href="#i-spark"/></svg></span><h4>A hue per area</h4><p>Indigo trips, teal people, sky routes, pink complaints, emerald payments. Colour teaches the app — never decoration for its own sake.</p>
+        <div class="swatches"><span class="sw" style="background:var(--trip)"></span><span class="sw" style="background:var(--people)"></span><span class="sw" style="background:var(--route)"></span><span class="sw" style="background:var(--talk)"></span><span class="sw" style="background:var(--pay)"></span><span class="sw" style="background:var(--sun)"></span></div></div>
+      <div class="pr"><span class="splat"><svg class="blob" style="color:var(--trip-bg)"><use href="#b2"/></svg><svg class="i ic lg" style="color:var(--trip)"><use href="#i-type"/></svg></span><h4>Rounded &amp; warm type</h4><p>A soft, curvy display face (SF Pro Rounded family) over a clean Avenir body — friendly and legible, the Zomato kind of warmth.</p></div>
+      <div class="pr"><span class="splat"><svg class="blob" style="color:var(--fleet-bg)"><use href="#b3"/></svg><svg class="i ic lg" style="color:var(--fleet)"><use href="#i-route"/></svg></span><h4>Painted, detailed icons</h4><p>Two-tone glyphs sitting on irregular brush splats — defined and tactile, not flat outlines from a pack.</p></div>
+      <div class="pr"><span class="splat"><svg class="blob" style="color:var(--ok-bg)"><use href="#b1"/></svg><svg class="i ic lg" style="color:var(--ok)"><use href="#i-spark"/></svg></span><h4>Quiet motion</h4><p>Lists settle in with a gentle stagger; everything else stays still. Motion guides the eye, it doesn't perform.</p></div>
+    </div>
+  </section>
+
+  <div class="footnote">
+    <h4><svg class="i lg" style="color:#5EEAD4"><use href="#i-checkc"/></svg>How this gets built — without breaking anything</h4>
+    <p>This is a visual direction only. When we implement, we change the <span class="ok">presentation layer</span> — layout, icons, colour, type — one screen per commit on a branch. We never touch <span class="no">data hooks, queries, mutations or navigation</span>, so the app keeps working exactly as it does now. Anything that doesn't land reverts on its own; the rest stays. You run the real app to feel the true motion and data.</p>
+  </div>
+
+</div></div>
